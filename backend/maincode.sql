@@ -44,8 +44,18 @@ CREATE TABLE pet (
     pet_address1 VARCHAR(100) NOT NULL,
     pet_address2 VARCHAR(100),
     pet_postcode VARCHAR(10) NOT NULL,
-    pet_city VARCHAR(30) NOT NULL
+    pet_city VARCHAR(30) NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES user(user_id),
+    FOREIGN KEY (species_id) REFERENCES species(species_id)
 );
 
-
+CREATE TABLE medical_detail (
+    medical_detail_id SERIAL PRIMARY KEY,
+    pet_id INT NOT NULL,
+    blood_type VARCHAR(20),
+    medical_notes TEXT,
+    current_medication TEXT,
+    allergies TEXT,
+    microchip_id VARCHAR(15)
+);
 
