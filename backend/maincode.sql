@@ -12,29 +12,6 @@ CREATE TABLE user (
     user_city VARCHAR(30) NOT NULL DEFAULT 'London'
 );
 
-INSERT INTO user (user_first_name, user_last_name, user_email, user_phone_number, user_address1, user_address2, user_postcode, user_city)
-VALUES
-('Sarah', 'Williams', 'sarah.williams@example.com', '07123456789', '12 Rose Street', NULL, 'SW1A1AA', 'London'),
-('James', 'Turner', 'james.turner@example.com', '07234567890', '44 Oak Avenue', 'Flat 2B', 'E16AB', 'London'),
-('Aisha', 'Khan', 'aisha.khan@example.com', '07345678901', '89 Marine Road', NULL, 'PO12EF', 'Portsmouth'),
-('Michael', 'Brown', 'michael.brown@example.com', '07456789012', '7 Kingfisher Close', NULL, 'BN11CD', 'Brighton'),
-('Emily', 'Clark', 'emily.clark@example.com', '07567890123', '101 Maple Drive', 'Apt 5', 'SE15GH', 'London');
-
-CREATE TABLE user_pet (
-    user_id INT NOT NULL,
-    pet_id INT NOT NULL,
-    PRIMARY KEY (user_id, pet_id),
-    FOREIGN KEY (user_id) REFERENCES user(user_id),
-    FOREIGN KEY (pet_id) REFERENCES pet(pet_id) 
-);
-
-INSERT INTO user_pet (user_id, pet_id) VALUES
-(1, 1),   
-(1, 2),   
-(2, 3),   
-(3, 4),   
-(4, 5);  
-
 CREATE TABLE pet (
     pet_id SERIAL PRIMARY KEY,
     species_id INT NOT NULL
@@ -49,6 +26,14 @@ CREATE TABLE pet (
     FOREIGN KEY (species_id) REFERENCES species(species_id)
 );
 
+CREATE TABLE user_pet (
+    user_id INT NOT NULL,
+    pet_id INT NOT NULL,
+    PRIMARY KEY (user_id, pet_id),
+    FOREIGN KEY (user_id) REFERENCES user(user_id),
+    FOREIGN KEY (pet_id) REFERENCES pet(pet_id) 
+);
+
 CREATE TABLE medical_detail (
     medical_detail_id SERIAL PRIMARY KEY,
     pet_id INT NOT NULL,
@@ -59,3 +44,75 @@ CREATE TABLE medical_detail (
     microchip_id VARCHAR(15)
 );
 
+CREATE TABLE pet_appointment (
+    pet_appointment_id SERIAL PRIMARY KEY,
+    pet_id INT NOT NULL,
+    pet_appointment_date DATE NOT NULL,
+    pet_appointment_time TIME NOT NULL,
+    appointment_status      ,
+    FOREIGN KEY (pet_id) REFERENCES pet(pet_id)
+);
+
+CREATE TABLE feeding_schedule (
+    feeding_schedule_id SERIAL PRIMARY KEY,
+    pet_id INT NOT NULL,
+    fschedule_start DATE NOT NULL,
+    fschedule_end DATE NULL,
+    feed_time TIME NOT NULL,
+    portion_size INT NOT NULL,
+    food_name VARCHAR(100),
+    FOREIGN KEY (pet_id) REFERENCES pet(pet_id)
+);
+
+CREATE TABLE reminder (
+    reminder_id SERIAL PRIMARY KEY,
+    pet_appointment_id INT NOT NULL,
+    feeding_schedule_id INT NOT NULL,
+    reminder_date DATE NOT NULL,
+    reminder_time TIME NOT NULL,
+    reminder_status       ,
+    reminder_notes TEXT NULL,
+    FOREIGN KEY (pet_appointment_id) REFERENCES pet_appointment(pet_appointment_id),
+    FOREIGN KEY (feeding_schedule_id) REFERENCES feeding_schedule(feeding_schedule_id)
+);
+
+CREATE TABLE pet_report (
+    report_id SERIAL PRIMARY KEY,
+    pet_id INT NOT NULL,
+    report_date TIMESTAMP NOT NULL,
+    report_type             ,
+    risk_flag BOOLEAN NOT NULL,
+    notes TEXT NOT NULL,
+    FOREIGN KEY (pet_id) REFERENCES pet(pet_id)
+);
+
+CREATE TABLE metadata (
+    meta_data_id SERIAL PRIMARY KEY,
+    pet_id INT NOT NULL,
+    notes TEXT NOT NULL,
+    FOREIGN KEY (pet_id) REFERENCES pet(pet_id)
+);
+
+CREATE TABLE species_config (
+    species_id SERIAL PRIMARY KEY,
+    species_name VARCHAR(20) NOT NULL,
+    breed_name VARCHAR(20) NOT NULL,
+    notes TEXT NOT NULL
+);
+
+CREATE TABLE metric_definition (
+    metric_def_id SERIAL PRIMARY KEY,
+    species_id INT NOT NULL,
+    metric_name              ,
+    metric_unit           ,
+    notes TEXT NULL,
+);
+
+CREATE TABLE health_metric (
+    health_metric_id SERIAL PRIMARY KEY,
+    metric_def_id INT NOT NULL,
+    pet_id INT NOT NULL,
+    metric_value DECIMAL,
+    metric_time TIMESTAMP NOT NULL,
+    notes TEXT NULL
+)
