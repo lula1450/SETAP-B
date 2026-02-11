@@ -1,5 +1,3 @@
-
-
 CREATE TABLE user (
     user_id SERIAL PRIMARY KEY,
     user_first_name VARCHAR(50) NOT NULL,
@@ -11,6 +9,9 @@ CREATE TABLE user (
     user_postcode VARCHAR(10) NOT NULL,
     user_city VARCHAR(30) NOT NULL DEFAULT 'London'
 );
+--fast login lookup--
+CREATE UNIQUE INDEX idx_user_email_unique ON “user”(user_email); 
+CREATE INDEX idx_user_phone “user”(user_phone); 
 
 CREATE TABLE pet (
     pet_id SERIAL PRIMARY KEY,
@@ -26,6 +27,12 @@ CREATE TABLE pet (
     FOREIGN KEY (species_id) REFERENCES species(species_id)
 );
 
+-- Foreign key lookups--
+CREATE INDEX idx_pet_user_id ON pet(user_id); 
+CREATE INDEX idx_pet_species_id ON pet(species_id);
+--Name search--
+CREATE INDEX idx_pet_first_name ON pet(pet_first_name);
+
 CREATE TABLE user_pet (
     user_id INT NOT NULL,
     pet_id INT NOT NULL,
@@ -33,6 +40,11 @@ CREATE TABLE user_pet (
     FOREIGN KEY (user_id) REFERENCES user(user_id),
     FOREIGN KEY (pet_id) REFERENCES pet(pet_id) 
 );
+
+--Fetch pets for a user--
+CREATE INDEX idx_user_pet_user_pet ON user_pet(user_id, pet_id); 
+-- Fetch users for a pet 
+CREATE INDEX idx_user_pet_pet_user ON user_pet(pet_id, user_id);
 
 -- ENUM creation to indicate whether a pet is spayed/neutered or not, 
 -- with an option for N/A for cases where this information is not applicable or unknown.
@@ -49,6 +61,8 @@ CREATE TABLE medical_detail (
     spay_neutered spay_neutered_status NOT NULL DEFAULT 'N/A',
 );
 
+CREATE INDEX idx_medical_detail_pet_id ON medical_detail(pet_id);
+
 -- ENUM creation for a pet's appointment status e.g. scheduled, completed, cancelled, etc.
 CREATE TYPE appointment_status AS ENUM ('Scheduled', 'Completed', 'Cancelled');
 
@@ -61,6 +75,10 @@ CREATE TABLE pet_appointment (
     FOREIGN KEY (pet_id) REFERENCES pet(pet_id)
 );
 
+-- Appointments for a pet sorted by date/time-- 
+CREATE INDEX idx_pet_appointment_pet_date ON pet_appointment(pet_id, pet_appointment_date);
+CREATE INDEX idx_pet_appointment_time ON pet_appointment(pet_appointment_time);
+
 CREATE TABLE feeding_schedule (
     feeding_schedule_id SERIAL PRIMARY KEY,
     pet_id INT NOT NULL,
@@ -71,6 +89,13 @@ CREATE TABLE feeding_schedule (
     food_name VARCHAR(100),
     FOREIGN KEY (pet_id) REFERENCES pet(pet_id)
 );
+
+CREATE INDEX idx_feeding_schedule_pet_id ON feeding_schedule(pet_id); 
+-- Looking up active schedules--
+CREATE INDEX idx_feeding_schedule_start ON feeding_schedule(schedule_start); 
+CREATE INDEX idx_feeding_schedule_end ON feeding_schedule(schedule_end); 
+-- Combined lookup-- 
+CREATE INDEX idx_feeding_schedule_pet_start ON feeding_schedule(pet_id, schedule_start);
 
 -- ENUM creation for the reminders e.g. vet appointment, feeding time, medication time, etc.
 CREATE TYPE reminder_status AS ENUM ('Pending', 'Sent', 'Dismissed', 'Missed', 'Cancelled');
@@ -87,6 +112,13 @@ CREATE TABLE reminder (
     FOREIGN KEY (feeding_schedule_id) REFERENCES feeding_schedule(feeding_schedule_id)
 );
 
+CREATE INDEX idx_reminder_pet_id ON reminder(pet_id); 
+CREATE INDEX idx_reminder_feeding_schedule_id ON reminder(feeding_schedule_id); 
+-- Time-based reminders 
+CREATE INDEX idx_reminder_time ON reminder(reminder_time); 
+-- Upcoming reminder for a pet 
+CREATE INDEX idx_reminder_pet_time ON reminder(pet_id, reminder_time);
+
 -- ENUM creation for the frequency of the pet report e.g. daily, weekly, monthly, one-time, etc.
 CREATE TYPE report_type AS ENUM ('Daily', 'Weekly', 'Monthly', 'One-time');
 
@@ -100,6 +132,11 @@ CREATE TABLE pet_report (
     FOREIGN KEY (pet_id) REFERENCES pet(pet_id)
 );
 
+CREATE INDEX idx_pet_report_pet_id ON pet_report(pet_id); 
+CREATE INDEX idx_pet_report_date ON pet_report(report_date); 
+-- looking up flagged risks
+CREATE INDEX idx_pet_report_risk_flag ON pet_report(risk_flag);
+
 CREATE TABLE metadata (
     meta_data_id SERIAL PRIMARY KEY,
     pet_id INT NOT NULL,
@@ -107,12 +144,18 @@ CREATE TABLE metadata (
     FOREIGN KEY (pet_id) REFERENCES pet(pet_id)
 );
 
+--Foreign key index--
+CREATE INDEX idx_doc_metadata_pet_id ON doc_metadata(pet_id);
+
 CREATE TABLE species_config (
     species_id SERIAL PRIMARY KEY,
     species_name VARCHAR(20) NOT NULL,
     breed_name VARCHAR(20) NOT NULL,
     notes TEXT NOT NULL
 );
+
+--Quick lookup for species name--
+CREATE INDEX idx_species_config_species_name ON species_config(species_name);
 
 CREATE TABLE metric_definition (
     metric_def_id SERIAL PRIMARY KEY,
@@ -122,6 +165,9 @@ CREATE TABLE metric_definition (
     notes TEXT NULL,
 );
 
+CREATE INDEX idx_metric_definition_species_id ON metric_definition(species_id); 
+CREATE INDEX idx_metric_definition_metric_name ON metric_definition(metric_name);
+
 CREATE TABLE health_metric (
     health_metric_id SERIAL PRIMARY KEY,
     metric_def_id INT NOT NULL,
@@ -129,4 +175,12 @@ CREATE TABLE health_metric (
     metric_value DECIMAL,
     metric_time TIMESTAMP NOT NULL,
     notes TEXT NULL
-)
+);
+
+-- Foreign keys--
+CREATE INDEX idx_health_metric_pet_id ON health_metric(pet_id); 
+CREATE INDEX idx_health_metric_metric_def_id ON health_metric(metric_def_id); 
+-- Time-series queries 
+CREATE INDEX idx_health_metric_time ON health_metric(metric_time); 
+-- Specified time-- 
+CREATE INDEX idx_health_metric_pet_metric_time ON health_metric(pet_id, metric_def_id, metric_time);
