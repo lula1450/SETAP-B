@@ -1,3 +1,6 @@
+# API GATEWAY - sets up rules and directs traffic to correct manager
+
+
 # allows the api gateway to handle concurrent requests
 from fastapi import FastAPI, HTTPException
 
@@ -16,3 +19,5 @@ from datetime import datetime
 
 # background dependency
 # pip install - python-multipart - allows FastAPI to handle form data and file uploads - HRM from AUTH UI to OSS
+
+
