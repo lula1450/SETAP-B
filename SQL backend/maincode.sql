@@ -1,50 +1,61 @@
-CREATE TABLE user (
-    user_id SERIAL PRIMARY KEY,
-    user_first_name VARCHAR(50) NOT NULL,
-    user_last_name VARCHAR(100) NOT NULL,
-    user_email VARCHAR(100) UNIQUE NOT NULL,
-    user_phone_number VARCHAR(15) UNIQUE NOT NULL,
-    user_address1 VARCHAR(100) NOT NULL,
-    user_address2 VARCHAR(100),
-    user_postcode VARCHAR(10) NOT NULL,
-    user_city VARCHAR(30) NOT NULL DEFAULT 'London'
+CREATE TABLE owner (
+    owner_id SERIAL PRIMARY KEY,
+    owner_first_name VARCHAR(50) NOT NULL,
+    owner_last_name VARCHAR(100) NOT NULL,
+    owner_email VARCHAR(100) UNIQUE NOT NULL,
+    owner_phone_number VARCHAR(15) UNIQUE NOT NULL,
+    owner_address1 VARCHAR(100) NOT NULL,
+    owner_address2 VARCHAR(100),
+    owner_postcode VARCHAR(10) NOT NULL,
+    owner_city VARCHAR(30) NOT NULL DEFAULT 'London'
 );
 --fast login lookup--
-CREATE UNIQUE INDEX idx_user_email_unique ON user(user_email); 
-CREATE INDEX idx_user_phone ON user(user_phone_number); 
+CREATE UNIQUE INDEX idx_owner_email_unique ON owner(owner_email); 
+CREATE INDEX idx_owner_phone ON owner(owner_phone_number); 
+
+
+CREATE TABLE species_config (
+    species_id SERIAL PRIMARY KEY,
+    species_name VARCHAR(20) NOT NULL,
+    breed_name VARCHAR(20) NOT NULL,
+    notes TEXT NOT NULL
+);
+
+--Quick lookup for species name--
+CREATE INDEX idx_species_config_species_name ON species_config(species_name);
 
 CREATE TABLE pet (
     pet_id SERIAL PRIMARY KEY,
     species_id INT NOT NULL,
-    user_id INT NOT NULL,
+    owner_id INT NOT NULL,
     pet_first_name VARCHAR(50) NOT NULL,
     pet_last_name VARCHAR(50),
     pet_address1 VARCHAR(100) NOT NULL,
     pet_address2 VARCHAR(100),
     pet_postcode VARCHAR(10) NOT NULL,
     pet_city VARCHAR(30) NOT NULL,
-    FOREIGN KEY (user_id) REFERENCES user(user_id),
+    FOREIGN KEY (owner_id) REFERENCES owner(owner_id),
     FOREIGN KEY (species_id) REFERENCES species_config(species_id)
 );
 
 -- Foreign key lookups--
-CREATE INDEX idx_pet_user_id ON pet(user_id); 
+CREATE INDEX idx_pet_user_id ON pet(owner_id); 
 CREATE INDEX idx_pet_species_id ON pet(species_id);
 --Name search--
 CREATE INDEX idx_pet_first_name ON pet(pet_first_name);
 
-CREATE TABLE user_pet (
-    user_id INT NOT NULL,
+CREATE TABLE owner_pet (
+    owner_id INT NOT NULL,
     pet_id INT NOT NULL,
-    PRIMARY KEY (user_id, pet_id),
-    FOREIGN KEY (user_id) REFERENCES user(user_id),
+    PRIMARY KEY (owner_id, pet_id),
+    FOREIGN KEY (owner_id) REFERENCES owner(owner_id),
     FOREIGN KEY (pet_id) REFERENCES pet(pet_id) 
 );
 
 --Fetch pets for a user--
-CREATE INDEX idx_user_pet_user_pet ON user_pet(user_id, pet_id); 
+CREATE INDEX idx_owner_pet_user_pet ON owner_pet(owner_id, pet_id); 
 -- Fetch users for a pet 
-CREATE INDEX idx_user_pet_pet_user ON user_pet(pet_id, user_id);
+CREATE INDEX idx_owner_pet_pet_user ON owner_pet(pet_id, owner_id);
 
 -- ENUM creation to indicate whether a pet is spayed/neutered or not, 
 -- with an option for N/A for cases where this information is not applicable or unknown.
@@ -147,16 +158,6 @@ CREATE TABLE metadata (
 
 --Foreign key index--
 CREATE INDEX idx_metadata_pet_id ON metadata(pet_id);
-
-CREATE TABLE species_config (
-    species_id SERIAL PRIMARY KEY,
-    species_name VARCHAR(20) NOT NULL,
-    breed_name VARCHAR(20) NOT NULL,
-    notes TEXT NOT NULL
-);
-
---Quick lookup for species name--
-CREATE INDEX idx_species_config_species_name ON species_config(species_name);
 
 CREATE TYPE metric_name AS ENUM ('weight', 'stool_quality', 'energy_level', 'appetite', 'water_intake', 'litter_box_usage',
 'grooming_frequency', 'vomit_events', 'feather_condition', 'wing_strength', 'perch_activity',
