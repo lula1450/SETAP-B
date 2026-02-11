@@ -10,12 +10,12 @@ CREATE TABLE user (
     user_city VARCHAR(30) NOT NULL DEFAULT 'London'
 );
 --fast login lookup--
-CREATE UNIQUE INDEX idx_user_email_unique ON “user”(user_email); 
-CREATE INDEX idx_user_phone “user”(user_phone); 
+CREATE UNIQUE INDEX idx_user_email_unique ON user(user_email); 
+CREATE INDEX idx_user_phone ON user(user_phone_number); 
 
 CREATE TABLE pet (
     pet_id SERIAL PRIMARY KEY,
-    species_id INT NOT NULL
+    species_id INT NOT NULL,
     user_id INT NOT NULL,
     pet_first_name VARCHAR(50) NOT NULL,
     pet_last_name VARCHAR(50),
@@ -24,7 +24,7 @@ CREATE TABLE pet (
     pet_postcode VARCHAR(10) NOT NULL,
     pet_city VARCHAR(30) NOT NULL,
     FOREIGN KEY (user_id) REFERENCES user(user_id),
-    FOREIGN KEY (species_id) REFERENCES species(species_id)
+    FOREIGN KEY (species_id) REFERENCES species_config(species_id)
 );
 
 -- Foreign key lookups--
@@ -59,6 +59,7 @@ CREATE TABLE medical_detail (
     allergies TEXT,
     microchip_id VARCHAR(15),
     spay_neutered spay_neutered_status NOT NULL DEFAULT 'N/A',
+    FOREIGN KEY (pet_id) REFERENCES pet(pet_id)
 );
 
 CREATE INDEX idx_medical_detail_pet_id ON medical_detail(pet_id);
@@ -82,9 +83,9 @@ CREATE INDEX idx_pet_appointment_time ON pet_appointment(pet_appointment_time);
 CREATE TABLE feeding_schedule (
     feeding_schedule_id SERIAL PRIMARY KEY,
     pet_id INT NOT NULL,
-    fschedule_start DATE NOT NULL,
-    fschedule_end DATE NULL,
-    feed_time TIME NOT NULL,
+    feeding_schedule_start DATE NOT NULL,
+    feeding_schedule_end DATE NULL,
+    feeding_time TIME NOT NULL,
     portion_size INT NOT NULL,
     food_name VARCHAR(100),
     FOREIGN KEY (pet_id) REFERENCES pet(pet_id)
@@ -92,10 +93,10 @@ CREATE TABLE feeding_schedule (
 
 CREATE INDEX idx_feeding_schedule_pet_id ON feeding_schedule(pet_id); 
 -- Looking up active schedules--
-CREATE INDEX idx_feeding_schedule_start ON feeding_schedule(schedule_start); 
-CREATE INDEX idx_feeding_schedule_end ON feeding_schedule(schedule_end); 
+CREATE INDEX idx_feeding_schedule_start ON feeding_schedule(feeding_schedule_start); 
+CREATE INDEX idx_feeding_schedule_end ON feeding_schedule(feeding_schedule_end); 
 -- Combined lookup-- 
-CREATE INDEX idx_feeding_schedule_pet_start ON feeding_schedule(pet_id, schedule_start);
+CREATE INDEX idx_feeding_schedule_pet_start ON feeding_schedule(pet_id, feeding_schedule_start);
 
 -- ENUM creation for the reminders e.g. vet appointment, feeding time, medication time, etc.
 CREATE TYPE reminder_status AS ENUM ('Pending', 'Sent', 'Dismissed', 'Missed', 'Cancelled');
@@ -112,12 +113,12 @@ CREATE TABLE reminder (
     FOREIGN KEY (feeding_schedule_id) REFERENCES feeding_schedule(feeding_schedule_id)
 );
 
-CREATE INDEX idx_reminder_pet_id ON reminder(pet_id); 
+--CREATE INDEX idx_reminder_pet_id ON reminder(pet_id); 
 CREATE INDEX idx_reminder_feeding_schedule_id ON reminder(feeding_schedule_id); 
 -- Time-based reminders 
 CREATE INDEX idx_reminder_time ON reminder(reminder_time); 
 -- Upcoming reminder for a pet 
-CREATE INDEX idx_reminder_pet_time ON reminder(pet_id, reminder_time);
+--CREATE INDEX idx_reminder_pet_time ON reminder(pet_id, reminder_time);
 
 -- ENUM creation for the frequency of the pet report e.g. daily, weekly, monthly, one-time, etc.
 CREATE TYPE report_type AS ENUM ('Daily', 'Weekly', 'Monthly', 'One-time');
@@ -145,7 +146,7 @@ CREATE TABLE metadata (
 );
 
 --Foreign key index--
-CREATE INDEX idx_doc_metadata_pet_id ON doc_metadata(pet_id);
+CREATE INDEX idx_metadata_pet_id ON metadata(pet_id);
 
 CREATE TABLE species_config (
     species_id SERIAL PRIMARY KEY,
@@ -157,12 +158,20 @@ CREATE TABLE species_config (
 --Quick lookup for species name--
 CREATE INDEX idx_species_config_species_name ON species_config(species_name);
 
+CREATE TYPE metric_name AS ENUM ('weight', 'stool_quality', 'energy_level', 'appetite', 'water_intake', 'litter_box_usage',
+'grooming_frequency', 'vomit_events', 'feather_condition', 'wing_strength', 'perch_activity',
+'vocalisation_level', 'basking_time', 'shedding_quality', 'humidity_level', 'stool_pellets', 'chewing_behaviour', 'wheel_activity', 'custom');
+
+CREATE TYPE metric_unit AS ENUM ( 'kg', 'grams', 'ml', 'scale_1_5',
+'count_day', 'minutes_day', 'percent', 'text', 'custom' );
+
 CREATE TABLE metric_definition (
     metric_def_id SERIAL PRIMARY KEY,
     species_id INT NOT NULL,
-    metric_name              ,
-    metric_unit           ,
+    metric_name metric_name NOT NULL,
+    metric_unit metric_unit NOT NULL,       
     notes TEXT NULL,
+    FOREIGN KEY (species_id) REFERENCES species_config(species_id)
 );
 
 CREATE INDEX idx_metric_definition_species_id ON metric_definition(species_id); 
@@ -174,7 +183,9 @@ CREATE TABLE health_metric (
     pet_id INT NOT NULL,
     metric_value DECIMAL,
     metric_time TIMESTAMP NOT NULL,
-    notes TEXT NULL
+    notes TEXT NULL,
+    FOREIGN KEY (metric_def_id) REFERENCES metric_definition(metric_def_id),
+    FOREIGN KEY (pet_id) REFERENCES pet(pet_id)
 );
 
 -- Foreign keys--
