@@ -34,6 +34,8 @@ CREATE TABLE user_pet (
     FOREIGN KEY (pet_id) REFERENCES pet(pet_id) 
 );
 
+CREATE TYPE spay_neutered_status AS ENUM ('Yes', 'No', 'N/A');
+
 CREATE TABLE medical_detail (
     medical_detail_id SERIAL PRIMARY KEY,
     pet_id INT NOT NULL,
@@ -41,15 +43,18 @@ CREATE TABLE medical_detail (
     medical_notes TEXT,
     current_medication TEXT,
     allergies TEXT,
-    microchip_id VARCHAR(15)
+    microchip_id VARCHAR(15),
+    spay_neutered spay_neutered_status NOT NULL DEFAULT 'N/A',
 );
+
+CREATE TYPE appointment_status AS ENUM ('Scheduled', 'Completed', 'Cancelled');
 
 CREATE TABLE pet_appointment (
     pet_appointment_id SERIAL PRIMARY KEY,
     pet_id INT NOT NULL,
     pet_appointment_date DATE NOT NULL,
     pet_appointment_time TIME NOT NULL,
-    appointment_status      ,
+    appointment_status appointment_status NOT NULL DEFAULT 'Scheduled',
     FOREIGN KEY (pet_id) REFERENCES pet(pet_id)
 );
 
@@ -64,23 +69,27 @@ CREATE TABLE feeding_schedule (
     FOREIGN KEY (pet_id) REFERENCES pet(pet_id)
 );
 
+CREATE TYPE reminder_status AS ENUM ('Pending', 'Sent', 'Dismissed', 'Missed', 'Cancelled');
+
 CREATE TABLE reminder (
     reminder_id SERIAL PRIMARY KEY,
     pet_appointment_id INT NOT NULL,
     feeding_schedule_id INT NOT NULL,
     reminder_date DATE NOT NULL,
     reminder_time TIME NOT NULL,
-    reminder_status       ,
+    reminder_status reminder_status NOT NULL DEFAULT 'Pending',
     reminder_notes TEXT NULL,
     FOREIGN KEY (pet_appointment_id) REFERENCES pet_appointment(pet_appointment_id),
     FOREIGN KEY (feeding_schedule_id) REFERENCES feeding_schedule(feeding_schedule_id)
 );
 
+CREATE TYPE report_type AS ENUM ('Daily', 'Weekly', 'Monthly', 'One-time');
+
 CREATE TABLE pet_report (
     report_id SERIAL PRIMARY KEY,
     pet_id INT NOT NULL,
     report_date TIMESTAMP NOT NULL,
-    report_type             ,
+    report_type report_type NOT NULL DEFAULT 'One-time',
     risk_flag BOOLEAN NOT NULL,
     notes TEXT NOT NULL,
     FOREIGN KEY (pet_id) REFERENCES pet(pet_id)
