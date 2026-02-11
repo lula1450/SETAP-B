@@ -34,6 +34,8 @@ CREATE TABLE user_pet (
     FOREIGN KEY (pet_id) REFERENCES pet(pet_id) 
 );
 
+-- ENUM creation to indicate whether a pet is spayed/neutered or not, 
+-- with an option for N/A for cases where this information is not applicable or unknown.
 CREATE TYPE spay_neutered_status AS ENUM ('Yes', 'No', 'N/A');
 
 CREATE TABLE medical_detail (
@@ -47,6 +49,7 @@ CREATE TABLE medical_detail (
     spay_neutered spay_neutered_status NOT NULL DEFAULT 'N/A',
 );
 
+-- ENUM creation for a pet's appointment status e.g. scheduled, completed, cancelled, etc.
 CREATE TYPE appointment_status AS ENUM ('Scheduled', 'Completed', 'Cancelled');
 
 CREATE TABLE pet_appointment (
@@ -69,6 +72,7 @@ CREATE TABLE feeding_schedule (
     FOREIGN KEY (pet_id) REFERENCES pet(pet_id)
 );
 
+-- ENUM creation for the reminders e.g. vet appointment, feeding time, medication time, etc.
 CREATE TYPE reminder_status AS ENUM ('Pending', 'Sent', 'Dismissed', 'Missed', 'Cancelled');
 
 CREATE TABLE reminder (
@@ -83,6 +87,7 @@ CREATE TABLE reminder (
     FOREIGN KEY (feeding_schedule_id) REFERENCES feeding_schedule(feeding_schedule_id)
 );
 
+-- ENUM creation for the frequency of the pet report e.g. daily, weekly, monthly, one-time, etc.
 CREATE TYPE report_type AS ENUM ('Daily', 'Weekly', 'Monthly', 'One-time');
 
 CREATE TABLE pet_report (
