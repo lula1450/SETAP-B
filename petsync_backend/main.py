@@ -13,7 +13,7 @@ import pandas as pd
 # validatae that appointments are not set in the past - allows timestamps - chronological order
 from datetime import datetime
 
-from .routers import auth, pets, health, schedule, users, reports
+from routers import auth, pets, health, schedule, users, reports
 # create the FastAPI app instance
 
 # pip install - uvicorn - environment to host api - ensures the application layer remains stable
@@ -22,7 +22,10 @@ from .routers import auth, pets, health, schedule, users, reports
 # pip install - python-multipart - allows FastAPI to handle form data and file uploads - HRM from AUTH UI to OSS
 
 
-app = FastAPI(title="PetSync API", version = "1.0.0")
+app = FastAPI(
+    title="PetSync API",
+    version="1.0.0"
+)
 
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(pets.router, prefix="/pets", tags=["pets"])
