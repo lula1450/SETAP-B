@@ -114,8 +114,9 @@ CREATE TYPE reminder_status AS ENUM ('Pending', 'Sent', 'Dismissed', 'Missed', '
 
 CREATE TABLE reminder (
     reminder_id SERIAL PRIMARY KEY,
-    pet_appointment_id INT NOT NULL,
-    feeding_schedule_id INT NOT NULL,
+    pet_appointment_id NULL,
+    feeding_schedule_id NULL,
+    enable_reminder BOOLEAN NOT NULL DEFAULT TRUE,
     reminder_date DATE NOT NULL,
     reminder_time TIME NOT NULL,
     reminder_status reminder_status NOT NULL DEFAULT 'Pending',

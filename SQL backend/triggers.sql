@@ -61,7 +61,7 @@ BEGIN
         IF reminders_enabled IS NOT TRUE THEN
             RETURN NEW;
         END IF;
-        
+
         IF schedule_end IS NULL
            OR (NEW.reminder_date + INTERVAL '1 day') <= schedule_end
         THEN
@@ -85,6 +85,8 @@ BEGIN
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
+
+
 
 
 
