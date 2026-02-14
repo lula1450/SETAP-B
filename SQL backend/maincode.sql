@@ -78,9 +78,13 @@ CREATE INDEX idx_medical_detail_pet_id ON medical_detail(pet_id);
 -- ENUM creation for a pet's appointment status e.g. scheduled, completed, cancelled, etc.
 CREATE TYPE appointment_status AS ENUM ('Scheduled', 'Completed', 'Cancelled');
 
+CREATE TYPE appointment_reminder_frequency AS ENUM ('once','daily','weekly','none');
+
 CREATE TABLE pet_appointment (
     pet_appointment_id SERIAL PRIMARY KEY,
     pet_id INT NOT NULL,
+    enable_reminder BOOLEAN NOT NULL DEFAULT TRUE,
+    reminder_frequency appointment_reminder_frequency NOT NULL DEFAULT 'daily',
     pet_appointment_date DATE NOT NULL,
     pet_appointment_time TIME NOT NULL,
     appointment_status appointment_status NOT NULL DEFAULT 'Scheduled',
@@ -114,9 +118,8 @@ CREATE TYPE reminder_status AS ENUM ('Pending', 'Sent', 'Dismissed', 'Missed', '
 
 CREATE TABLE reminder (
     reminder_id SERIAL PRIMARY KEY,
-    pet_appointment_id NULL,
-    feeding_schedule_id NULL,
-    enable_reminder BOOLEAN NOT NULL DEFAULT TRUE,
+    pet_appointment_id INT,
+    feeding_schedule_id INT,
     reminder_date DATE NOT NULL,
     reminder_time TIME NOT NULL,
     reminder_status reminder_status NOT NULL DEFAULT 'Pending',
