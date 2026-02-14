@@ -1,5 +1,19 @@
-# Pet Manament router
+from fastapi import APIRouter
 
+# This allows main.py to "include" this section of the API
+router = APIRouter()
+
+@router.get("/")
+async def status():
+    return {"message": "Feature pending implementation"}
+
+
+
+
+
+
+# Pet Manament router
+'''
 from fastapi import APIRouter, Depends, HTTPException
 #creates a miniture app for the pet-related endpoints only
 #injects a datbase connection into evert endpoint
@@ -78,3 +92,5 @@ def get_medical_details(pet_id: int, db: Session = Depend(get_db)):
         "microchip_id": medical.microchip_id,
         "spay_neutered": medical.spay_neutered
     }
+
+'''

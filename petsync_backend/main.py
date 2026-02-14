@@ -14,6 +14,7 @@ import pandas as pd
 from datetime import datetime
 
 from routers import auth, pets, health, schedule, users, reports
+
 # create the FastAPI app instance
 
 # pip install - uvicorn - environment to host api - ensures the application layer remains stable

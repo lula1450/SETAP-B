@@ -28,11 +28,10 @@ async def analyse_health_metric(log: MetricLog, db: Session = Depends(get_db)): 
 # ccnvert db object to list for engine
     historical_values = [h.metric_value for h in db_history]
 
-
-# trigger logic engine from calculations
-# passes historical data and new value and receives back a boolean and baseline
-    is_risk, baseline = check_15_percent_deviation(historical_values, log.metric_value)
-
+    if not historical_values:
+        is_risk, baseline = False, log.metric_value # if no history, use current value as baseline and flag as not risk
+    else:
+        is_risk, baseline = check_15_percent_deviation(historical_values, log.metric_value)
 
     report = HealthReport(
         pet_id=log.pet_id, # links repors to correct pet

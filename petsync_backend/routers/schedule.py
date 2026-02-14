@@ -1,6 +1,19 @@
+from fastapi import APIRouter
+
+# This allows main.py to "include" this section of the API
+router = APIRouter()
+
+@router.get("/")
+async def status():
+    return {"message": "Feature pending implementation"}
+
+
+
+
 # This manager handles the creation of the pet's schedules, handling aspects that are time based
 # e.g. vet appointments, feeding times and reminders. Uses fastapi and sqlalchemy packages
 
+'''
 # Imports required for request routing, database interaction, and handling
 # time-based scheduling data within the Scheduling & Reminders Service.
 from fastapi import APIRouter, HTTPException
@@ -36,3 +49,5 @@ def create_pet_appointment(
     db.refresh(appointment)
 
     return appointment
+
+'''
