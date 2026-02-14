@@ -41,53 +41,55 @@ BEFORE UPDATE ON reminder
 FOR EACH ROW
 EXECUTE FUNCTION auto_update_reminder_status();
 
----TRIGGER3---
----When reminider is updated and set to sent it creates the same feeding schedule same time for the next day---
+---TRIGGER 3---
 CREATE OR REPLACE FUNCTION create_next_feeding_reminder()
 RETURNS TRIGGER AS $$
 DECLARE
     schedule_end DATE;
-    reminders_enabled BOOLEAN;
 BEGIN
----Only create next reminder when status becomes 'Sent'---
+---Only act when status changes TO 'Sent'---
     IF NEW.reminder_status = 'Sent'
        AND OLD.reminder_status <> 'Sent'
        AND NEW.feeding_schedule_id IS NOT NULL
     THEN
----Get schedule end date + enable_reminder flag---
-        SELECT feeding_schedule_end, enable_reminder
-        INTO schedule_end, reminders_enabled
+---Fetch the feeding schedule end date---
+        SELECT feeding_schedule_end
+        INTO schedule_end
         FROM feeding_schedule
         WHERE feeding_schedule_id = NEW.feeding_schedule_id;
 
----If reminders are disabled, stop here---
-        IF reminders_enabled IS NOT TRUE THEN
-            RETURN NEW;
-        END IF;
-
+---Only create next reminder if schedule is still active---
         IF schedule_end IS NULL
-           OR (NEW.reminder_date + INTERVAL '1 day') <= schedule_end
+           OR (NEW.reminder_date + 1) <= schedule_end
         THEN
-            INSERT INTO reminder (
-                pet_appointment_id,
-                feeding_schedule_id,
-                reminder_date,
-                reminder_time,
-                reminder_status
-            )
-            VALUES (
-                NULL,
-                NEW.feeding_schedule_id,
-                NEW.reminder_date + INTERVAL '1 day',
-                NEW.reminder_time,
-                'Pending'
-            );
+---Prevent creating reminders in the past---
+            IF (NEW.reminder_date + 1) >= CURRENT_DATE THEN
+                INSERT INTO reminder (
+                    pet_appointment_id,
+                    feeding_schedule_id,
+                    reminder_date,
+                    reminder_time,
+                    reminder_status
+                )
+                VALUES (
+                    NULL,
+                    NEW.feeding_schedule_id,
+                    NEW.reminder_date + 1,
+                    NEW.reminder_time,
+                    'Pending'
+                );
+            END IF;
         END IF;
     END IF;
 
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_create_next_feeding_reminder
+AFTER UPDATE ON reminder
+FOR EACH ROW
+EXECUTE FUNCTION create_next_feeding_reminder();
 
 ---TRIGGER4---
 ---Creates appointmnet reminders daily or weekly---
