@@ -9,6 +9,7 @@ from datetime import datetime
 # tells interpreter and API gateway that system. should not crash if user leaves a note blank
 from typing import Optional
 
+'''
 
 # REPORTS 
 
@@ -34,3 +35,5 @@ class HealthReport(BaseModel):
 
     class Config:
         from_attributes = True # reduces the amount of manual data mapping required in report manager
+
+'''

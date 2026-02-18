@@ -1,3 +1,5 @@
+'''
+
 import pandas as pd # for statistical analysis
 
 # threshold check for alerts and reporting engine
@@ -33,3 +35,5 @@ def calculate_daily_mean(metric_data: list):
     # aggregates metrics into daily average for the dashboard aggregator
 
     return df['value'].mean() # calculates the mean on 'value'
+
+'''
