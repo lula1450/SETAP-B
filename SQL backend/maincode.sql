@@ -68,7 +68,7 @@ CREATE TABLE medical_detail (
     medical_notes TEXT,
     current_medication TEXT,
     allergies TEXT,
-    microchip_id UNIQUE VARCHAR(15),
+    microchip_id VARCHAR(15)UNIQUE,
     spay_neutered spay_neutered_status NOT NULL DEFAULT 'N/A',
     FOREIGN KEY (pet_id) REFERENCES pet(pet_id)
 );
