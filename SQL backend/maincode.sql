@@ -12,7 +12,7 @@ CREATE TABLE owner (
 --fast login lookup--
 CREATE UNIQUE INDEX idx_owner_email_unique ON owner(owner_email); 
 CREATE INDEX idx_owner_phone ON owner(owner_phone_number); 
-
+CREATE INDEX idx_owner_full_name ON owner(owner_first_name, owner_last_name);
 
 CREATE TABLE species_config (
     species_id SERIAL PRIMARY KEY,
