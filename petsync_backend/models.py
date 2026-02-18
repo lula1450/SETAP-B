@@ -7,6 +7,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
 import enum
 
+#change
 # Creates a class that where if a class inherits it, it is a database table
 Base = declarative_base()
 
