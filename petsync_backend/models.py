@@ -42,12 +42,20 @@ class Pet(Base):
     pet_city = Column(String(30), nullable=False)
 
 #Creation of species_config table
+class SpeciesType(enum.Enum):
+    dog = "Dog"
+    cat = "Cat"
+    hamster = "Hamster"
+    reptile = "Reptile"
+    bird = "Bird"
+    rabbit = "Rabbit"
+
 class Species_config(Base):
     __tablename__ = "species_config"
 
     species_id = Column(Integer, primary_key=True, nullable=False, index=True)
     
-    species_name = Column(String(20), nullable=False, index=True)
+    species_name = Column(Enum(SpeciesType, name="species_type"), nullable=False)
     breed_name = Column(String(20), nullable=False)
     notes = Column(Text, nullable=False)
 
