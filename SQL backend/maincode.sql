@@ -39,7 +39,7 @@ CREATE TABLE pet (
     FOREIGN KEY (owner_id) REFERENCES owner(owner_id),
     FOREIGN KEY (species_id) REFERENCES species_config(species_id),
     ---adding composite uniqueness for FK---
-    UNIQUE (pet_id, specied_id)
+    UNIQUE (pet_id, species_id)
 );
 
 -- Foreign key lookups--
@@ -191,7 +191,6 @@ CREATE INDEX idx_metric_definition_metric_name ON metric_definition(metric_name)
 CREATE TABLE health_metric (
     health_metric_id SERIAL PRIMARY KEY,
     metric_def_id INT NOT NULL,
-    species_id INT NOT NULL,
     pet_id INT NOT NULL,
     metric_value DECIMAL,
     metric_time TIMESTAMP NOT NULL,

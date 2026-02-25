@@ -44,6 +44,13 @@ INSERT INTO pet (
 (5, 9, 'Pip', NULL, '5 Willow Way', NULL, 'PO9 9JJ', 'Portsmouth'),
 (2, 10, 'Hunter', NULL, '90 Harbour Road', NULL, 'PO10 0KK', 'Portsmouth'),
 (1, 10, 'Max', NULL, '90 Harbour Road', NULL, 'PO10 0KK', 'Portsmouth');
+-- Add a Reptile pet
+INSERT INTO pet (species_id, owner_id, pet_first_name, pet_last_name, pet_address1, pet_address2, pet_postcode, pet_city)
+VALUES (6, 1, 'Spike', NULL, '12 River St', NULL, 'PO1 1AA', 'Portsmouth');
+
+-- Add a Rabbit pet
+INSERT INTO pet (species_id, owner_id, pet_first_name, pet_last_name, pet_address1, pet_address2, pet_postcode, pet_city)
+VALUES (7, 2, 'Thumper', NULL, '44 Hill Road', NULL, 'PO2 2BB', 'Sheffield');
 
 ---OWNER_PET INSERTS---
 INSERT INTO owner_pet (owner_id, pet_id) VALUES
@@ -233,24 +240,53 @@ INSERT INTO metric_definition (species_id, metric_name, metric_unit, notes) VALU
 (7, 'energy_level', 'scale_1_5', 'Activity level');
 
 ---HEALTH_METRIC INSERTS---
+
 INSERT INTO health_metric (metric_def_id, pet_id, metric_value, metric_time, notes) VALUES
-(1,1,30.5,NOW(),'Healthy weight'),
-(2,1,4,NOW(),'Good appetite'),
-(3,3,12.0,NOW(),'Normal weight'),
-(4,2,3,NOW(),'Soft stool'),
-(5,5,4,NOW(),'Strong wings'),
-(6,6,45,NOW(),'Active night'),
-(7,4,5,NOW(),'High energy'),
-(8,7,3,NOW(),'Normal grooming'),
-(9,10,4,NOW(),'Very vocal'),
-(10,13,6,NOW(),'Chewing a lot'),
-(1,11,28.0,NOW(),'Healthy'),
-(2,11,5,NOW(),'Strong appetite'),
-(3,14,14.0,NOW(),'Healthy'),
-(4,10,2,NOW(),'Quiet today'),
-(5,5,5,NOW(),'Excellent wings'),
-(6,13,50,NOW(),'Very active'),
-(7,8,4,NOW(),'Good energy'),
-(8,12,2,NOW(),'Low grooming'),
-(9,10,5,NOW(),'Very vocal'),
-(10,6,4,NOW(),'Normal chewing');
+-- Dogs
+(1,1,30.5,NOW(),'Healthy weight'),        -- Buddy
+(2,1,4,NOW(),'Good stool quality'),
+(3,3,12.0,NOW(),'High energy'),           -- Scout
+(4,2,3,NOW(),'Appetite normal'),          -- Mittens
+(1,4,25.0,NOW(),'Weight okay'),           -- Rex
+(3,4,5,NOW(),'Energy level high'),
+(4,14,4,NOW(),'Eating well'),             -- Hunter
+(2,8,4,NOW(),'Stool normal'),             -- Shadow
+(3,8,5,NOW(),'High energy'),              -- Shadow
+(1,11,28.0,NOW(),'Strong weight'),        -- Bolt
+(2,11,4,NOW(),'Good stool quality'),
+(3,12,5,NOW(),'Energy good'),             -- Buddy duplicate
+
+-- Cats
+(1,2,4.5,NOW(),'Weight okay'),            -- Mittens
+(2,2,3,NOW(),'Litter box normal'),
+(3,5,4,NOW(),'Grooming normal'),          -- Whiskers
+(4,10,2,NOW(),'Vomit events none'),
+(5,2,4,NOW(),'Appetite good'),            -- Mittens
+
+-- Birds
+(16,5,50,NOW(),'Weight normal'),          -- Sunny
+(17,5,4,NOW(),'Feather condition good'),
+(18,5,20,NOW(),'Wing strength normal'),
+(19,5,30,NOW(),'Perch activity okay'),
+(20,5,3,NOW(),'Vocalisation moderate'),   -- Sunny
+
+-- Hamsters
+(21,6,45,NOW(),'Healthy weight'),         -- Nibbles
+(22,6,40,NOW(),'Wheel activity good'),
+(23,6,4,NOW(),'Appetite normal'),
+(24,6,5,NOW(),'Grooming clean'),
+(25,6,4,NOW(),'Stool quality good'),      -- Nibbles
+
+-- Reptile (Spike)
+(26,16,500,NOW(),'Healthy weight'),       -- weight
+(27,16,30,NOW(),'Basking time normal'),   -- basking_time
+(28,16,5,NOW(),'Shedding quality good'),  -- shedding_quality
+(29,16,4,NOW(),'Appetite okay'),          -- appetite
+(30,16,60,NOW(),'Humidity level optimal'),-- humidity_level
+
+-- Rabbit (Thumper)
+(31,17,2.5,NOW(),'Healthy weight'),       -- weight
+(32,17,50,NOW(),'Stool normal'),          -- stool_pellets
+(33,17,4,NOW(),'Chewing normal'),         -- chewing_behaviour
+(34,17,200,NOW(),'Water intake okay'),    -- water intake
+(35,17,5,NOW(),'Energy level good');      -- energy_level
