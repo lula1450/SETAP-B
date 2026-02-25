@@ -188,16 +188,47 @@ INSERT INTO metadata (pet_id, notes) VALUES
 
 ---METRIC_DEFINITION INSERTS---
 INSERT INTO metric_definition (species_id, metric_name, metric_unit, notes) VALUES
-(1,'weight','kg','Dog weight'),
-(1,'appetite','scale_1_5','Daily appetite'),
-(2,'weight','kg','Beagle weight'),
-(3,'stool_quality','scale_1_5','Cat stool quality'),
-(4,'wing_strength','scale_1_5','Bird wing strength'),
-(5,'wheel_activity','minutes_day','Hamster wheel time'),
-(1,'energy_level','scale_1_5','Dog energy'),
-(3,'grooming_frequency','count_day','Cat grooming'),
-(4,'vocalisation_level','scale_1_5','Bird vocalisation'),
-(5,'chewing_behaviour','count_day','Hamster chewing');
+--dog--
+(1, 'weight', 'kg', 'Standard body weight'),
+(1, 'stool_quality', 'scale_1_5', 'Firmness/colour'),
+(1, 'energy_level', 'scale_1_5', 'Activity level'),
+(1, 'appetite', 'scale_1_5', 'Eating behaviour'),
+(1, 'water_intake', 'ml', 'Optional');
+--cat--
+INSERT INTO metric_definition (species_id, metric_name, metric_unit, notes) VALUES
+(3, 'weight', 'kg', 'Body weight'),
+(3, 'litter_box_usage', 'count_day', 'Number of visits'),
+(3, 'grooming_frequency', 'scale_1_5', 'Grooming habits'),
+(3, 'vomit_events', 'text', 'Colour/texture'),
+(3, 'appetite', 'scale_1_5', 'Eating behaviour');
+--bird--
+INSERT INTO metric_definition (species_id, metric_name, metric_unit, notes) VALUES
+(4, 'weight', 'grams', 'Birds are light'),
+(4, 'feather_condition', 'scale_1_5', 'Plucking, shine'),
+(4, 'wing_strength', 'scale_1_5', 'Flight ability'),
+(4, 'perch_activity', 'minutes_day', 'Movement level'),
+(4, 'vocalisation_level', 'scale_1_5', 'Optional');
+--hamster--
+INSERT INTO metric_definition (species_id, metric_name, metric_unit, notes) VALUES
+(5, 'weight', 'grams', 'Very small animals'),
+(5, 'wheel_activity', 'minutes_day', 'Exercise'),
+(5, 'appetite', 'scale_1_5', 'Eating'),
+(5, 'grooming_frequency', 'scale_1_5', 'Cleanliness'),
+(5, 'stool_quality', 'scale_1_5', 'Digestive health');
+--reptile--
+INSERT INTO metric_definition (species_id, metric_name, metric_unit, notes) VALUES
+(6, 'weight', 'grams', 'Standard'),
+(6, 'basking_time', 'minutes_day', 'Time under heat lamp'),
+(6, 'shedding_quality', 'scale_1_5', 'Completeness of shed'),
+(6, 'appetite', 'scale_1_5', 'Eating behaviour'),
+(6, 'humidity_level', 'percent', 'Terrarium humidity');
+--rabbit--
+INSERT INTO metric_definition (species_id, metric_name, metric_unit, notes) VALUES
+(7, 'weight', 'kg', 'Body weight'),
+(7, 'stool_pellets', 'count_day', 'Digestive health'),
+(7, 'chewing_behaviour', 'scale_1_5', 'Stress indicator'),
+(7, 'water_intake', 'ml', 'Hydration'),
+(7, 'energy_level', 'scale_1_5', 'Activity level');
 
 ---HEALTH_METRIC INSERTS---
 INSERT INTO health_metric (metric_def_id, pet_id, metric_value, metric_time, notes) VALUES
