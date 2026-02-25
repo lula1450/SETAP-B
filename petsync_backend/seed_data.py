@@ -8,18 +8,18 @@ def seed_data():
     db: Session = SessionLocal()
     
     species_data = [ 
-        {"type": "Dog", "breed": "Labrador", "notes": "Monitor joints"},
-        {"type": "Dog", "breed": "French Bulldog", "notes": "Respiratory care"},
-        {"type": "Cat", "breed": "Maine Coon", "notes": "Large breed heart health"},
-        {"type": "Cat", "breed": "Siamese", "notes": "Vocal monitoring"},
-        {"type": "Rabbit", "breed": "Holland Lop", "notes": "Dental health"},
-        {"type": "Rabbit", "breed": "Netherland Dwarf", "notes": "Digestive sensitivity"},
-        {"type": "Hamster", "breed": "Syrian", "notes": "Wheel activity focus"},
-        {"type": "Hamster", "breed": "Roborovski", "notes": "High exercise needs"},
-        {"type": "Bird", "breed": "African Grey", "notes": "Intelligent plumage care"},
-        {"type": "Bird", "breed": "Budgie", "notes": "Social vocalisation"},
-        {"type": "Reptile", "breed": "Bearded Dragon", "notes": "Basking requirements"},
-        {"type": "Reptile", "breed": "Leopard Gecko", "notes": "Shedding focus"}
+        {"type": "dog", "breed": "Labrador", "notes": "Monitor joints"},
+        {"type": "dog", "breed": "French Bulldog", "notes": "Respiratory care"},
+        {"type": "cat", "breed": "Maine Coon", "notes": "Large breed heart health"},
+        {"type": "cat", "breed": "Siamese", "notes": "Vocal monitoring"},
+        {"type": "rabbit", "breed": "Holland Lop", "notes": "Dental health"},
+        {"type": "rabbit", "breed": "Netherland Dwarf", "notes": "Digestive sensitivity"},
+        {"type": "hamster", "breed": "Syrian", "notes": "Wheel activity focus"},
+        {"type": "hamster", "breed": "Roborovski", "notes": "High exercise needs"},
+        {"type": "bird", "breed": "African Grey", "notes": "Intelligent plumage care"},
+        {"type": "bird", "breed": "Budgie", "notes": "Social vocalisation"},
+        {"type": "reptile", "breed": "Bearded Dragon", "notes": "Basking requirements"},
+        {"type": "reptile", "breed": "Leopard Gecko", "notes": "Shedding focus"}
     ]
 
     species_objects = [] # Keep track of created species for metric association
