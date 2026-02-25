@@ -44,6 +44,13 @@ INSERT INTO pet (
 (5, 9, 'Pip', NULL, '5 Willow Way', NULL, 'PO9 9JJ', 'Portsmouth'),
 (2, 10, 'Hunter', NULL, '90 Harbour Road', NULL, 'PO10 0KK', 'Portsmouth'),
 (1, 10, 'Max', NULL, '90 Harbour Road', NULL, 'PO10 0KK', 'Portsmouth');
+-- Add a Reptile pet
+INSERT INTO pet (species_id, owner_id, pet_first_name, pet_last_name, pet_address1, pet_address2, pet_postcode, pet_city)
+VALUES (6, 1, 'Spike', NULL, '12 River St', NULL, 'PO1 1AA', 'Portsmouth');
+
+-- Add a Rabbit pet
+INSERT INTO pet (species_id, owner_id, pet_first_name, pet_last_name, pet_address1, pet_address2, pet_postcode, pet_city)
+VALUES (7, 2, 'Thumper', NULL, '44 Hill Road', NULL, 'PO2 2BB', 'Sheffield');
 
 ---OWNER_PET INSERTS---
 INSERT INTO owner_pet (owner_id, pet_id) VALUES
@@ -189,42 +196,48 @@ INSERT INTO metadata (pet_id, notes) VALUES
 (15,'Senior care needed');
 
 ---METRIC_DEFINITION INSERTS---
+
+-- Dogs
 INSERT INTO metric_definition (species_id, metric_name, metric_unit, notes) VALUES
---dog--
 (1, 'weight', 'kg', 'Standard body weight'),
 (1, 'stool_quality', 'scale_1_5', 'Firmness/colour'),
 (1, 'energy_level', 'scale_1_5', 'Activity level'),
 (1, 'appetite', 'scale_1_5', 'Eating behaviour'),
 (1, 'water_intake', 'ml', 'Optional');
---cat--
+
+-- Cats
 INSERT INTO metric_definition (species_id, metric_name, metric_unit, notes) VALUES
 (3, 'weight', 'kg', 'Body weight'),
 (3, 'litter_box_usage', 'count_day', 'Number of visits'),
 (3, 'grooming_frequency', 'scale_1_5', 'Grooming habits'),
 (3, 'vomit_events', 'text', 'Colour/texture'),
 (3, 'appetite', 'scale_1_5', 'Eating behaviour');
---bird--
+
+-- Birds
 INSERT INTO metric_definition (species_id, metric_name, metric_unit, notes) VALUES
 (4, 'weight', 'grams', 'Birds are light'),
 (4, 'feather_condition', 'scale_1_5', 'Plucking, shine'),
 (4, 'wing_strength', 'scale_1_5', 'Flight ability'),
 (4, 'perch_activity', 'minutes_day', 'Movement level'),
 (4, 'vocalisation_level', 'scale_1_5', 'Optional');
---hamster--
+
+-- Hamsters
 INSERT INTO metric_definition (species_id, metric_name, metric_unit, notes) VALUES
 (5, 'weight', 'grams', 'Very small animals'),
 (5, 'wheel_activity', 'minutes_day', 'Exercise'),
 (5, 'appetite', 'scale_1_5', 'Eating'),
 (5, 'grooming_frequency', 'scale_1_5', 'Cleanliness'),
 (5, 'stool_quality', 'scale_1_5', 'Digestive health');
---reptile--
+
+-- Reptiles
 INSERT INTO metric_definition (species_id, metric_name, metric_unit, notes) VALUES
 (6, 'weight', 'grams', 'Standard'),
 (6, 'basking_time', 'minutes_day', 'Time under heat lamp'),
 (6, 'shedding_quality', 'scale_1_5', 'Completeness of shed'),
 (6, 'appetite', 'scale_1_5', 'Eating behaviour'),
 (6, 'humidity_level', 'percent', 'Terrarium humidity');
---rabbit--
+
+-- Rabbits
 INSERT INTO metric_definition (species_id, metric_name, metric_unit, notes) VALUES
 (7, 'weight', 'kg', 'Body weight'),
 (7, 'stool_pellets', 'count_day', 'Digestive health'),
@@ -233,24 +246,55 @@ INSERT INTO metric_definition (species_id, metric_name, metric_unit, notes) VALU
 (7, 'energy_level', 'scale_1_5', 'Activity level');
 
 ---HEALTH_METRIC INSERTS---
+
+-- Dogs (species_id = 1)
 INSERT INTO health_metric (metric_def_id, pet_id, metric_value, metric_time, notes) VALUES
-(1,1,30.5,NOW(),'Healthy weight'),
-(2,1,4,NOW(),'Good appetite'),
-(3,3,12.0,NOW(),'Normal weight'),
-(4,2,3,NOW(),'Soft stool'),
-(5,5,4,NOW(),'Strong wings'),
-(6,6,45,NOW(),'Active night'),
-(7,4,5,NOW(),'High energy'),
-(8,7,3,NOW(),'Normal grooming'),
-(9,10,4,NOW(),'Very vocal'),
-(10,13,6,NOW(),'Chewing a lot'),
-(1,11,28.0,NOW(),'Healthy'),
-(2,11,5,NOW(),'Strong appetite'),
-(3,14,14.0,NOW(),'Healthy'),
-(4,10,2,NOW(),'Quiet today'),
-(5,5,5,NOW(),'Excellent wings'),
-(6,13,50,NOW(),'Very active'),
-(7,8,4,NOW(),'Good energy'),
-(8,12,2,NOW(),'Low grooming'),
-(9,10,5,NOW(),'Very vocal'),
-(10,6,4,NOW(),'Normal chewing');
+(1,1,30.5,NOW(),'Healthy weight'),        -- Buddy
+(2,1,4,NOW(),'Good stool quality'),
+(3,3,12.0,NOW(),'High energy'),           -- Scout
+(4,4,5,NOW(),'Appetite normal'),          -- Rex
+(3,4,5,NOW(),'Energy level high'),
+(4,14,4,NOW(),'Eating well'),             -- Hunter
+(2,8,4,NOW(),'Stool normal'),             -- Shadow
+(3,8,5,NOW(),'High energy'),
+(1,11,28.0,NOW(),'Strong weight');        -- Bolt
+
+-- Cats (species_id = 3)
+INSERT INTO health_metric (metric_def_id, pet_id, metric_value, metric_time, notes) VALUES
+(6,2,4.5,NOW(),'Weight okay'),            -- Mittens
+(7,2,3,NOW(),'Litter box normal'),
+(8,5,4,NOW(),'Grooming normal'),          -- Whiskers
+(9,2,2,NOW(),'Vomit events none'),        -- Mittens
+(10,2,4,NOW(),'Appetite good');           -- Mittens
+
+-- Birds (species_id = 4)
+INSERT INTO health_metric (metric_def_id, pet_id, metric_value, metric_time, notes) VALUES
+(11,5,50,NOW(),'Weight normal'),          -- Sunny
+(12,5,4,NOW(),'Feather condition good'),
+(13,5,20,NOW(),'Wing strength normal'),
+(14,5,30,NOW(),'Perch activity okay'),
+(15,5,3,NOW(),'Vocalisation moderate');   -- Sunny
+
+-- Hamsters (species_id = 5)
+INSERT INTO health_metric (metric_def_id, pet_id, metric_value, metric_time, notes) VALUES
+(16,6,45,NOW(),'Healthy weight'),         -- Nibbles
+(17,6,40,NOW(),'Wheel activity good'),
+(18,6,4,NOW(),'Appetite normal'),
+(19,6,5,NOW(),'Grooming clean'),
+(20,6,4,NOW(),'Stool quality good');      -- Nibbles
+
+-- Reptile (species_id = 6) – Spike
+INSERT INTO health_metric (metric_def_id, pet_id, metric_value, metric_time, notes) VALUES
+(21,16,500,NOW(),'Healthy weight'),       -- weight
+(22,16,30,NOW(),'Basking time normal'),   -- basking_time
+(23,16,5,NOW(),'Shedding quality good'),  -- shedding_quality
+(24,16,4,NOW(),'Appetite okay'),          -- appetite
+(25,16,60,NOW(),'Humidity level optimal');-- humidity_level
+
+-- Rabbit (species_id = 7) – Thumper
+INSERT INTO health_metric (metric_def_id, pet_id, metric_value, metric_time, notes) VALUES
+(26,17,2.5,NOW(),'Healthy weight'),       -- weight
+(27,17,50,NOW(),'Stool normal'),          -- stool_pellets
+(28,17,4,NOW(),'Chewing normal'),         -- chewing_behaviour
+(29,17,200,NOW(),'Water intake okay'),    -- water intake
+(30,17,5,NOW(),'Energy level good');      -- energy_level
