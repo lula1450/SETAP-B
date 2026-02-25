@@ -20,7 +20,9 @@ INSERT INTO species_config (species_name, breed_name, notes) VALUES
 ('Dog', 'Beagle', 'Curious and active'),
 ('Cat', 'British Shorthair', 'Calm temperament'),
 ('Bird', 'Cockatiel', 'Social and vocal'),
-('Hamster', 'Syrian', 'Nocturnal and solitary');
+('Hamster', 'Syrian', 'Nocturnal and solitary'),
+('Reptile', 'Bearded Dragon', 'Standard reptile species'),
+('Rabbit', 'Netherland Dwarf', 'Small rabbit breed');
 
 ---PET INSERTS---
 INSERT INTO pet (
