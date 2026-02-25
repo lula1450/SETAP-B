@@ -37,20 +37,19 @@ async def log_health_metric(
     db.add(new_log)
     db.commit()
 
-    analysis = await perform_weight_analysis(pet_id, metric_def.metric_name, new_log.metric_value, metric_def.metric_unit, db)
+    analysis = await analyze_health_metric(pet_id, metric_def.metric_name, new_log.metric_value, metric_def.metric_unit, db)
 
     return {"status": "Logged", "analysis": analysis}
 
-async def perform_weight_analysis(pet_id, metric_name, value, unit, db):
-    # fetch previous entry
+async def analyze_health_metric(pet_id, metric_name, value, unit, db):
+    # Fetch the previous record for baseline comparison
     previous = db.query(HealthMetric).join(MetricDefinition).filter(
-        HealthMetric.pet_id == pet_id,
-        MetricDefinition.metric_name == metric_name
+            HealthMetric.pet_id == pet_id,
+            MetricDefinition.metric_name == metric_name
     ).order_by(HealthMetric.metric_time.desc()).offset(1).first()
 
     if not previous:
-        return "Baseline established." 
-    
+        return "Baseline established."
 
     # QUANTITATIVE METRICS -- LOOK INTO CHANGING DEVIATION THRESHOLDS
 
