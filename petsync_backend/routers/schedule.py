@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from datetime import date, time
@@ -8,7 +8,6 @@ from database import get_db
 
 # database models
 from models import PetAppointment, FeedingSchedule, Reminder
-from petsync_backend.routers.auth import status
 
 
 router = APIRouter(
@@ -42,7 +41,7 @@ class FeedingScheduleCreate(BaseModel):
 class FeedingScheduleUpdate(BaseModel):
     new_time: time
 
-class reminderCreate(BaseModel):
+class ReminderCreate(BaseModel):
     pet_id : int
     reminder_time: time
     reminder_message: str
@@ -83,7 +82,7 @@ def create_feeding_schedule(schedule: FeedingScheduleCreate, db: Session = Depen
     return new_schedule
 
 @router.post("/reminders", status_code=status.HTTP_201_CREATED)
-def create_reminder(reminder: reminderCreate, db: Session = Depends(get_db)):
+def create_reminder(reminder: ReminderCreate, db: Session = Depends(get_db)):
     new_reminder = Reminder(
         pet_id=reminder.pet_id,
         reminder_time=reminder.reminder_time,
@@ -101,7 +100,7 @@ def create_reminder(reminder: reminderCreate, db: Session = Depends(get_db)):
 
 @router.put("/appointments/{appointment_id}")
 def update_pet_appointment(appointment_id: int, appointment_update: AppointmentUpdate, db: Session = Depends(get_db)):
-    appointment = db.query(PetAppointment).filter(PetAppointment.pet_appointment_id == appointment_id).first()
+    appointment = db.get(PetAppointment, appointment_id)
 
     if not appointment:
         raise HTTPException(status_code=404, detail="Appointment not found")
@@ -115,7 +114,7 @@ def update_pet_appointment(appointment_id: int, appointment_update: AppointmentU
 
 @router.put("/feeding-schedules/{schedule_id}")
 def update_feeding_schedule(schedule_id: int, schedule_update: FeedingScheduleUpdate, db: Session = Depends(get_db)):
-    schedule = db.query(FeedingSchedule).filter(FeedingSchedule.feeding_schedule_id == schedule_id).first()
+    schedule = db.get(FeedingSchedule, schedule_id)
 
     if not schedule:
         raise HTTPException(status_code=404, detail="Feeding schedule not found")
@@ -128,7 +127,7 @@ def update_feeding_schedule(schedule_id: int, schedule_update: FeedingScheduleUp
 
 @router.put("/reminders/{reminder_id}")
 def update_reminder(reminder_id: int, reminder_update: ReminderUpdate, db: Session = Depends(get_db)):
-    reminder = db.query(Reminder).filter(Reminder.reminder_id == reminder_id).first()
+    reminder = db.get(Reminder, reminder_id)
 
     if not reminder:
         raise HTTPException(status_code=404, detail="Reminder not found")
@@ -144,7 +143,7 @@ def update_reminder(reminder_id: int, reminder_update: ReminderUpdate, db: Sessi
 
 @router.delete("/appointments/{appointment_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_pet_appointment(appointment_id: int, db: Session = Depends(get_db)):
-    appointment = db.query(PetAppointment).filter(PetAppointment.pet_appointment_id == appointment_id).first()
+    appointment = db.get(PetAppointment, appointment_id)
 
     if not appointment:
         raise HTTPException(status_code=404, detail="Appointment not found")
@@ -154,7 +153,7 @@ def delete_pet_appointment(appointment_id: int, db: Session = Depends(get_db)):
 
 @router.delete("/feeding-schedules/{schedule_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_feeding_schedule(schedule_id: int, db: Session = Depends(get_db)):
-    schedule = db.query(FeedingSchedule).filter(FeedingSchedule.feeding_schedule_id == schedule_id).first()
+    schedule = db.get(FeedingSchedule, schedule_id)
 
     if not schedule:
         raise HTTPException(status_code=404, detail="Feeding schedule not found")
@@ -164,7 +163,7 @@ def delete_feeding_schedule(schedule_id: int, db: Session = Depends(get_db)):
 
 @router.delete("/reminders/{reminder_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_reminder(reminder_id: int, db: Session = Depends(get_db)):
-    reminder = db.query(Reminder).filter(Reminder.reminder_id == reminder_id).first()
+    reminder = db.get(Reminder, reminder_id)
 
     if not reminder:
         raise HTTPException(status_code=404, detail="Reminder not found")
