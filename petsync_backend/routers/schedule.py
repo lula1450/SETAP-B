@@ -115,3 +115,59 @@ def delete_reminder(reminder_id: int, db: Session = Depends(get_db)):
     db.delete(reminder)
     db.commit()
     return {"message": "Reminder deleted successfully"}
+
+
+# update/move appointment
+@router.put("/appointments/{appointment_id}")
+def update_pet_appointment(
+    appointment_id: int,
+    new_date: date,
+    new_time: time,
+    db: Session = Depends(get_db)
+):
+    appointment = db.query(PetAppointment).filter(PetAppointment.id == appointment_id).first()
+    if not appointment:
+        raise HTTPException(status_code=404, detail="Appointment not found")
+    
+    appointment.pet_appointment_date = new_date
+    appointment.pet_appointment_time = new_time
+    db.commit()
+    db.refresh(appointment)
+
+    return appointment
+
+# update/move feeding schedule
+@router.put("/feeding-schedules/{schedule_id}")
+def update_feeding_schedule(
+    schedule_id: int,
+    new_time: time,
+    db: Session = Depends(get_db)
+):
+    schedule = db.query(FeedingSchedule).filter(FeedingSchedule.id == schedule_id).first()
+    if not schedule:
+        raise HTTPException(status_code=404, detail="Feeding schedule not found")
+    
+    schedule.feeding_time = new_time
+    db.commit()
+    db.refresh(schedule)
+
+    return schedule
+
+# update/move reminder
+@router.put("/reminders/{reminder_id}")
+def update_reminder(
+    reminder_id: int,
+    new_time: time,
+    new_message: str,
+    db: Session = Depends(get_db)
+):
+    reminder = db.query(Reminder).filter(Reminder.id == reminder_id).first()
+    if not reminder:
+        raise HTTPException(status_code=404, detail="Reminder not found")
+    
+    reminder.reminder_time = new_time
+    reminder.reminder_message = new_message
+    db.commit()
+    db.refresh(reminder)
+
+    return reminder
