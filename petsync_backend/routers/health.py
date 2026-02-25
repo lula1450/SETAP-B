@@ -37,7 +37,7 @@ async def log_health_metric(
     db.add(new_log)
     db.commit()
 
-    analysis = await perform_weight_analysis(pet_id, metric_def.metric_name, new_log.metric_value, metric_def.metric_unit, db)
+    analysis = await analyze_health_metric(pet_id, metric_def.metric_name, new_log.metric_value, metric_def.metric_unit, db)
 
     return {"status": "Logged", "analysis": analysis}
 
