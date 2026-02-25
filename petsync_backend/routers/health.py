@@ -4,11 +4,23 @@ from sqlalchemy.orm import Session
 from datetime import datetime
 from database import get_db
 from models import HealthMetric, MetricDefinition, MetricName, MetricUnit
+from pydantic import BaseModel, Field
+from typing import Optional, Union
 
 router = APIRouter(
     prefix="/health",
     tags=["Health"]
 )
+
+#SCHEMAS
+
+class HealthMetricLogCreate(BaseModel):
+    pet_id: int = Field(..., gt=0)
+    metric_name: MetricName
+    value: Union[float, int, str]
+    notes: Optional[str] = Field(None, max_length=1000)
+
+#ROUTES
 
 @router.post("/log")
 async def log_health_metric(
