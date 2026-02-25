@@ -41,9 +41,9 @@ async def log_health_metric(
 
     return {"status": "Logged", "analysis": analysis}
 
-    async def analyze_health_metric(pet_id, metric_name, value, unit, db):
+async def analyze_health_metric(pet_id, metric_name, value, unit, db):
     # Fetch the previous record for baseline comparison
-        previous = db.query(HealthMetric).join(MetricDefinition).filter(
+    previous = db.query(HealthMetric).join(MetricDefinition).filter(
             HealthMetric.pet_id == pet_id,
             MetricDefinition.metric_name == metric_name
     ).order_by(HealthMetric.metric_time.desc()).offset(1).first()
