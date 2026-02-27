@@ -6,15 +6,15 @@ class DashboardPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFE0F7F4), // Mint green from design
+      backgroundColor: const Color(0xFFE0F7F4), 
       appBar: AppBar(
-        title: const Text('Pet Name'), // Updated to match your pet name
+        title: const Text('Pet Name'), 
         centerTitle: true,
       ),
-      body: SingleChildScrollView( // Prevents bottom overflow
+      body: SingleChildScrollView( 
         child: Column(
           children: [
-            // 1. Calendar Placeholder
+            
             Container(
               height: 250,
               width: double.infinity,
@@ -26,7 +26,7 @@ class DashboardPage extends StatelessWidget {
               child: const Center(child: Text("Calendar Widget Area")),
             ),
 
-            // 2. Middle Action Row with "Log daily metrics"
+            
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 20.0),
               child: Row(
@@ -45,7 +45,7 @@ class DashboardPage extends StatelessWidget {
               ),
             ),
 
-            // 3. Bottom Grid Buttons
+            
             GridView.count(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
@@ -65,38 +65,49 @@ class DashboardPage extends StatelessWidget {
       ),
     );
   }
+ 
 
   // HELPER FUNCTIONS
 
   Widget _actionButton(String text) {
-    return Container(
-      width: 75,
-      height: 75,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: Colors.black12),
-      ),
-      child: Text(
-        text,
-        textAlign: TextAlign.center,
-        style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold),
+    return InkWell(
+      onTap: () {
+        // Functionality to be added later
+      },
+      child: Container(
+        width: 75,
+        height: 75,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: Colors.black12),
+        ),
+        child: Text(
+          text,
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold),
+        ),
       ),
     );
   }
 
   Widget _gridButton(String label) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.black12),
-      ),
-      child: Center(
-        child: Text(
-          label, 
-          textAlign: TextAlign.center, 
-          style: const TextStyle(fontSize: 9)
+    return InkWell(
+      onTap: () {
+        // Functionality to be added later
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.black12),
+        ),
+        child: Center(
+          child: Text(
+            label, 
+            textAlign: TextAlign.center, 
+            style: const TextStyle(fontSize: 9)
+          ),
         ),
       ),
     );
