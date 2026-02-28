@@ -6,20 +6,19 @@ void main() {
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  const MyApp({super.key}); 
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Petsync',
       theme: ThemeData(
-        colorScheme: .fromSeed(seedColor: const Color.fromRGBO(76, 40, 139, 1)),
+        // Seed color based on your ARGB Top Color
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color.fromARGB(255, 139, 174, 174)),
+        useMaterial3: true,
       ),
       debugShowCheckedModeBanner: false,
       home: const DashboardPage(),
     );
   }
 }
-
-
