@@ -380,4 +380,4 @@ class DashboardPage extends StatelessWidget {
       ),
     );
   }
-} // Final bracket fixes compilation error
+} 
