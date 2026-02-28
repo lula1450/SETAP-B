@@ -21,8 +21,4 @@ class MyApp extends StatelessWidget {
       home: const DashboardPage(),
     );
   }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> 0b220b1d6c1abc911f2f07b2e069f7d6ecc81175
