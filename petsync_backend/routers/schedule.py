@@ -5,7 +5,8 @@ from sqlalchemy.orm import Session
 from datetime import date, time
 
 # database session provider
-from database import get_db
+from petsync_backend import models, schemas
+from petsync_backend.database import get_db
 
 # database models
 from models import PetAppointment, FeedingSchedule, Reminder

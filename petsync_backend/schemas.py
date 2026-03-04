@@ -46,6 +46,28 @@ async def log_health_metric(
     return {"status": "Logged", "analysis": "Analysis pending implementation"}
 
 
+class PetResponse(BaseModel):
+    pet_id: int
+    pet_first_name: str
+    species_name: str | None = None
+    owner_id: int | None = None
+
+from pydantic import BaseModel
+
+class PetCreate(BaseModel):
+    species_id: int
+    owner_id: int
+    pet_first_name: str
+    pet_last_name: str | None = None
+    pet_address1: str | None = None
+    pet_address2: str | None = None
+    pet_city: str | None = None
+
+class PetResponse(PetCreate):
+    pet_id: int
+    species_name: str | None = None
+
+
 """
 # REPORTS 
 

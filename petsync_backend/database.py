@@ -4,7 +4,9 @@
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from models import Base
+# petsync_backend/database.py
+
+from petsync_backend.models import Base
 
 # Define the database URL and create the SQLAlchemy engine for connecting to the database.
 #  In this case, we are using SQLite for simplicity (and so we dont need login credentials), 

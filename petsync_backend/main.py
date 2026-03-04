@@ -1,4 +1,6 @@
 
+from petsync_backend.routers import auth, pets, health, schedule, reports
+
 # allows the api gateway to handle concurrent requests
 from fastapi import FastAPI, HTTPException
 
