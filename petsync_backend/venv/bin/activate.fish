@@ -33,7 +33,7 @@ end
 # Unset irrelevant variables.
 deactivate nondestructive
 
-set -gx VIRTUAL_ENV "/workspaces/SETAP-B/petsync_backend/venv"
+set -gx VIRTUAL_ENV "/Users/laurencoppin/Documents/Year 2/SETAP/SETAP-B/petsync_backend/venv"
 
 set -gx _OLD_VIRTUAL_PATH $PATH
 set -gx PATH "$VIRTUAL_ENV/bin" $PATH
