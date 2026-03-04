@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:maincode/petinfo.dart';
+import 'package:maincode/recentlylogged.dart';
+import 'metrics.dart';
 
 class DashboardPage extends StatelessWidget {
   const DashboardPage({super.key});
@@ -133,9 +136,9 @@ class DashboardPage extends StatelessWidget {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [ 
-                    _actionButton("Log daily\nmetrics"), 
-                    _actionButton("Recently\nlogged data"),
-                    _actionButton("Find out\nmore about pet"),
+                    _actionButton(context, "Log daily\nmetrics"), 
+                    _actionButton(context, "Recently\nlogged data"),
+                    _actionButton(context, "Find out\nmore about pet"),
                     const Column(
                       children: [
                         Icon(Icons.sentiment_very_dissatisfied, size: 40, color: Colors.orange),
@@ -183,9 +186,21 @@ class DashboardPage extends StatelessWidget {
 
   // HELPER FUNCTIONS
 
-  Widget _actionButton(String text) {
+  Widget _actionButton(BuildContext context, String text) {
     return InkWell(
       onTap: () {
+        if (text == "Log daily\nmetrics") {
+          // Navigate to MetricsPage
+          Navigator.push(context, MaterialPageRoute(builder: (context) => const MetricsPage()));
+        }
+        if (text == "Recently\nlogged data") {
+          // Navigate to RecentlyLoggedDataPage
+          Navigator.push(context, MaterialPageRoute(builder: (context) => const RecentlyLoggedDataPage()));
+        }
+        if (text == "Find out\nmore about pet") {
+          // Navigate to PetInfoPage
+          Navigator.push(context, MaterialPageRoute(builder: (context) => const PetInfoPage()));
+        }
         // Functionality to be added later
       },
       child: Container(
