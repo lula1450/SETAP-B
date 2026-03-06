@@ -9,6 +9,11 @@ class MetricsPage extends StatefulWidget {
 }
 
 class _MetricsPageState extends State<MetricsPage> {
+
+  final TextEditingController _searchController = TextEditingController();
+
+  String _searchQuery = "";
+
   final List<String> _metrics = [
     "Weight",
     "Stool Quality",
@@ -52,13 +57,23 @@ class _MetricsPageState extends State<MetricsPage> {
   }
 
   @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    List<String> sortedMetrics = List.from(_metrics);
-    sortedMetrics.sort((a, b) {
+    List<String> filteredMetrics = _metrics
+        .where((metric) => metric.toLowerCase().contains(_searchQuery))
+        .toList();
+
+    filteredMetrics.sort((a, b) {
       if (_favorites.contains(a) && !_favorites.contains(b)) return -1;
       if (!_favorites.contains(a) && _favorites.contains(b)) return 1;
       return 0;
     });
+
 
     return Scaffold(
       appBar: AppBar(
@@ -90,29 +105,50 @@ class _MetricsPageState extends State<MetricsPage> {
             Column(
               children: [
                 // 1. Search Bar
+                // Inside Column -> children:
                 Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: TextField(
+                    controller: _searchController,
+                    onChanged: (value) {
+                      setState(() {
+                        _searchQuery = value.toLowerCase();
+                      });
+                    },
                     decoration: InputDecoration(
                       hintText: 'SEARCH BAR',
                       hintStyle: const TextStyle(fontSize: 12),
                       fillColor: Colors.white.withOpacity(0.9),
                       filled: true,
                       contentPadding: const EdgeInsets.symmetric(horizontal: 20),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(30),
-                        borderSide: BorderSide.none,
-                      ),
+                      // Search icon on the left
+                      prefixIcon: const Icon(Icons.search, size: 20, color: Colors.grey),
+                      // Clear button on the right
+                      suffixIcon: _searchQuery.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear, size: 20),
+                              onPressed: () {
+                                _searchController.clear();
+                                setState(() => _searchQuery = "");
+                              },
+                            )
+                          : null,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(30),
+                      borderSide: BorderSide.none,
                     ),
                   ),
                 ),
-
+              ),
+              SizedBox(height: 16),
+            
+            
                 // 2. Metrics List
                 Expanded( // Expanded works here because it is inside a Column
                   child: ListView.builder(
-                    itemCount: sortedMetrics.length,
+                    itemCount: filteredMetrics.length,
                     itemBuilder: (context, index) {
-                      String title = sortedMetrics[index];
+                      String title = filteredMetrics[index];
                       String goal = _getGoalText(title);
 
                       return _metricRow(
