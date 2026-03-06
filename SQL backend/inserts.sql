@@ -21,7 +21,7 @@ INSERT INTO species_config (species_name, breed_name, notes) VALUES
 ('Cat', 'British Shorthair', 'Calm temperament'),
 ('Bird', 'Cockatiel', 'Social and vocal'),
 ('Hamster', 'Syrian', 'Nocturnal and solitary'),
-('Reptile', 'Bearded Dragon', 'Standard reptile species'),
+('Snake', 'Bearded Dragon', 'Standard snake species'),
 ('Rabbit', 'Netherland Dwarf', 'Small rabbit breed');
 
 ---PET INSERTS---
@@ -44,7 +44,7 @@ INSERT INTO pet (
 (5, 9, 'Pip', NULL, '5 Willow Way', NULL, 'PO9 9JJ', 'Portsmouth'),
 (2, 10, 'Hunter', NULL, '90 Harbour Road', NULL, 'PO10 0KK', 'Portsmouth'),
 (1, 10, 'Max', NULL, '90 Harbour Road', NULL, 'PO10 0KK', 'Portsmouth');
--- Add a Reptile pet
+-- Add a Snake pet
 INSERT INTO pet (species_id, owner_id, pet_first_name, pet_last_name, pet_address1, pet_address2, pet_postcode, pet_city)
 VALUES (6, 1, 'Spike', NULL, '12 River St', NULL, 'PO1 1AA', 'Portsmouth');
 
@@ -229,7 +229,7 @@ INSERT INTO metric_definition (species_id, metric_name, metric_unit, notes) VALU
 (5, 'grooming_frequency', 'scale_1_5', 'Cleanliness'),
 (5, 'stool_quality', 'scale_1_5', 'Digestive health');
 
--- Reptiles
+-- Snakes
 INSERT INTO metric_definition (species_id, metric_name, metric_unit, notes) VALUES
 (6, 'weight', 'grams', 'Standard'),
 (6, 'basking_time', 'minutes_day', 'Time under heat lamp'),
@@ -283,7 +283,7 @@ INSERT INTO health_metric (metric_def_id, pet_id, metric_value, metric_time, not
 (19,6,5,NOW(),'Grooming clean'),
 (20,6,4,NOW(),'Stool quality good');      -- Nibbles
 
--- Reptile (species_id = 6) – Spike
+-- Snake (species_id = 6) – Spike
 INSERT INTO health_metric (metric_def_id, pet_id, metric_value, metric_time, notes) VALUES
 (21,16,500,NOW(),'Healthy weight'),       -- weight
 (22,16,30,NOW(),'Basking time normal'),   -- basking_time

@@ -18,8 +18,8 @@ def seed_data():
         {"type": "hamster", "breed": "Roborovski", "notes": "High exercise needs"},
         {"type": "bird", "breed": "African Grey", "notes": "Intelligent plumage care"},
         {"type": "bird", "breed": "Budgie", "notes": "Social vocalisation"},
-        {"type": "reptile", "breed": "Bearded Dragon", "notes": "Basking requirements"},
-        {"type": "reptile", "breed": "Leopard Gecko", "notes": "Shedding focus"}
+        {"type": "snake", "breed": "Bearded Dragon", "notes": "Basking requirements"},
+        {"type": "snake", "breed": "Leopard Gecko", "notes": "Shedding focus"}
     ]
 
     species_objects = [] # Keep track of created species for metric association
@@ -64,7 +64,7 @@ def seed_data():
                 {"s_id": s_id, "name": MetricName.perch_activity, "unit": MetricUnit.minutes_day},
                 {"s_id": s_id, "name": MetricName.vocalisation_level, "unit": MetricUnit.scale_1_5}
             ])
-        elif s_type == "Reptile":
+        elif s_type == "Snake":
             metric_defs.extend([
                 {"s_id": s_id, "name": MetricName.weight, "unit": MetricUnit.grams},
                 {"s_id": s_id, "name": MetricName.basking_time, "unit": MetricUnit.minutes_day},
