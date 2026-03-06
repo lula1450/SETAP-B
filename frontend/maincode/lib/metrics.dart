@@ -23,6 +23,16 @@ class _MetricsPageState extends State<MetricsPage> {
     "Litter Box Usage",
     "Grooming Frequency",
     "Vomit Events",
+    "Feather Condition",
+    "Wing Strength",
+    "Perch Activity",
+    "Vocalisation Level",
+    "Basking Time",
+    "Shedding_quality",
+    "Humidity Level",
+    "Stool pellets",
+    "Chewing Behaviour",
+    "Wheel Activity"
   ];
 
   List<String> _favorites = [];
@@ -78,7 +88,7 @@ class _MetricsPageState extends State<MetricsPage> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: const Color.fromARGB(255, 139, 174, 174),
-        title: const Text('Snuggles Metrics', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Snuggles Metrics', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
         centerTitle: true,
         elevation: 0,
       ),
@@ -230,9 +240,9 @@ class _MetricsPageState extends State<MetricsPage> {
           ),
           Expanded(flex: 3, child: _metricButton(title, Colors.white.withOpacity(0.8), () => _showEditDialog(context, title))),
           const SizedBox(width: 8),
-          Expanded(flex: 1, child: _metricButton(current, const Color(0xFFD6EAF8).withOpacity(0.9), () {})),
+          Expanded(flex: 1, child: _metricButton(current, const Color.fromARGB(255, 214, 248, 248).withOpacity(0.9), () {})),
           const SizedBox(width: 8),
-          Expanded(flex: 1, child: _metricButton(goal, const Color(0xFFFEF9E7).withOpacity(0.9), () {})),
+          Expanded(flex: 1, child: _metricButton(goal, const Color.fromARGB(255, 237, 254, 231).withOpacity(0.9), () {})),
         ],
       ),
     );
