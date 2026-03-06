@@ -46,23 +46,28 @@ class DashboardPage extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: const Color.fromARGB(255, 139, 174, 174),
         elevation: 0,
-        // Top Left Profile Picture Upload
-        leading: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: GestureDetector(
-            onTap: () => print("Trigger photo upload"), // Future Logic Tier hook
-            child: const CircleAvatar(
-              backgroundColor: Colors.white,
-              child: Icon(Icons.add_a_photo, size: 18, color: Color.fromARGB(255, 139, 174, 174)),
-            ),
-          ),
-        ),
-        title: const Text(
-          'Snuggles Dashboard', 
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)
-        ),
+        toolbarHeight: 120, // Increased height for the stacked image and text
         centerTitle: true,
+        title: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            GestureDetector(
+              onTap: () => print("Trigger photo upload"), // Future Logic Tier hook
+              child: const CircleAvatar(
+                radius: 30,
+                backgroundColor: Colors.white,
+                child: Icon(Icons.add_a_photo, size: 30, color: Color.fromARGB(255, 139, 174, 174)),
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Snuggles Dashboard', 
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)
+            ),
+          ],
+        ),
       ),
+
       body: Container(
         width: double.infinity,
         height: double.infinity,

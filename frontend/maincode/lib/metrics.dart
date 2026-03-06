@@ -9,9 +9,7 @@ class MetricsPage extends StatefulWidget {
 }
 
 class _MetricsPageState extends State<MetricsPage> {
-
   final TextEditingController _searchController = TextEditingController();
-
   String _searchQuery = "";
 
   final List<String> _metrics = [
@@ -84,13 +82,69 @@ class _MetricsPageState extends State<MetricsPage> {
       return 0;
     });
 
-
     return Scaffold(
+
+      endDrawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            const DrawerHeader(
+              decoration: BoxDecoration(color: Color.fromARGB(255, 139, 174, 174)),
+              child: Text('Settings', style: TextStyle(color: Colors.white, fontSize: 24)),
+            ),
+            ListTile(
+              leading: const Icon(Icons.person),
+              title: const Text('Edit Profile'),
+              onTap: () => Navigator.pop(context),
+            ),
+            ListTile(
+              leading: const Icon(Icons.notifications),
+              title: const Text('Notifications'),
+              onTap: () => Navigator.pop(context),
+            ),
+            ListTile(
+              leading: const Icon(Icons.palette),
+              title: const Text('Report History'),
+              onTap: () => Navigator.pop(context),
+            ),
+            ListTile(
+              leading: const Icon(Icons.logout),
+              title: const Text('Logout'),
+              onTap: () => Navigator.pop(context),
+            ),
+          ],
+        ),
+      ),
+      // 1. Updated AppBar to include centered profile pic and title
       appBar: AppBar(
         backgroundColor: const Color.fromARGB(255, 139, 174, 174),
-        title: const Text('Snuggles Metrics', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-        centerTitle: true,
         elevation: 0,
+        toolbarHeight: 120, // Increased height for the stacked image and text
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Same CircleAvatar structure as Dashboard
+            const CircleAvatar(
+              radius: 30,
+              backgroundColor: Colors.white,
+              child: Icon(
+                Icons.add_a_photo, 
+                size: 20, 
+                color: Color.fromARGB(255, 139, 174, 174)
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Snuggles Metrics', 
+              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 18)
+            ),
+          ],
+        ),
       ),
       body: Container(
         width: double.infinity,
@@ -106,16 +160,11 @@ class _MetricsPageState extends State<MetricsPage> {
             ],
           ),
         ),
-        child: Stack( // Use Stack to keep background circles behind the content
+        child: Stack(
           children: [
-            // BACKGROUND DECORATION
             _buildBackgroundDecorations(),
-
-            // MAIN CONTENT
             Column(
               children: [
-                // 1. Search Bar
-                // Inside Column -> children:
                 Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: TextField(
@@ -131,9 +180,7 @@ class _MetricsPageState extends State<MetricsPage> {
                       fillColor: Colors.white.withOpacity(0.9),
                       filled: true,
                       contentPadding: const EdgeInsets.symmetric(horizontal: 20),
-                      // Search icon on the left
                       prefixIcon: const Icon(Icons.search, size: 20, color: Colors.grey),
-                      // Clear button on the right
                       suffixIcon: _searchQuery.isNotEmpty
                           ? IconButton(
                               icon: const Icon(Icons.clear, size: 20),
@@ -143,18 +190,14 @@ class _MetricsPageState extends State<MetricsPage> {
                               },
                             )
                           : null,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(30),
-                      borderSide: BorderSide.none,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(30),
+                        borderSide: BorderSide.none,
+                      ),
                     ),
                   ),
                 ),
-              ),
-              SizedBox(height: 16),
-            
-            
-                // 2. Metrics List
-                Expanded( // Expanded works here because it is inside a Column
+                Expanded(
                   child: ListView.builder(
                     itemCount: filteredMetrics.length,
                     itemBuilder: (context, index) {
@@ -179,7 +222,7 @@ class _MetricsPageState extends State<MetricsPage> {
     );
   }
 
-  // Helper for background rings
+  // Rest of helper functions remain unchanged
   Widget _buildBackgroundDecorations() {
     return Stack(
       children: [
@@ -231,7 +274,7 @@ class _MetricsPageState extends State<MetricsPage> {
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
       child: Row(
         children: [
-          IconButton( // Favorite toggle
+          IconButton(
             icon: Icon(
               isFavorite ? Icons.star : Icons.star_border,
               color: isFavorite ? Colors.amber : Colors.white70,
