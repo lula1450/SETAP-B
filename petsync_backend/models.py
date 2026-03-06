@@ -46,7 +46,7 @@ class SpeciesType(enum.Enum):
     dog = "Dog"
     cat = "Cat"
     hamster = "Hamster"
-    reptile = "Reptile"
+    snake = "Snake"
     bird = "Bird"
     rabbit = "Rabbit"
 
