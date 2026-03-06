@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class MetricsPage extends StatefulWidget {
   const MetricsPage({super.key});
@@ -19,7 +20,25 @@ class _MetricsPageState extends State<MetricsPage> {
     "Vomit Events",
   ];
 
-  final Set<String> _favorites = {};
+  List<String> _favorites = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFavorites();
+  }
+
+  Future<void> _loadFavorites() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _favorites = prefs.getStringList('favoriteMetrics') ?? [];
+    });
+  }
+
+  Future<void> _saveFavorites() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('favoriteMetrics', _favorites);
+  }
 
   void _toggleFavorite(String title) {
     setState(() {
@@ -29,6 +48,7 @@ class _MetricsPageState extends State<MetricsPage> {
         _favorites.add(title);
       }
     });
+    _saveFavorites();
   }
 
   @override
