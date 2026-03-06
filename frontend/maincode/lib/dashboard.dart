@@ -46,23 +46,47 @@ class DashboardPage extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: const Color.fromARGB(255, 139, 174, 174),
         elevation: 0,
-        toolbarHeight: 120, // Increased height for the stacked image and text
+        toolbarHeight: 120,
         centerTitle: true,
+        // 1. Move "Change Pet" to the top left
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 8.0),
+          child: TextButton(
+            onPressed: () {
+              print("Change Pet triggered"); // Logic Tier hook for switching pets
+            },
+            style: TextButton.styleFrom(
+              backgroundColor: Colors.white.withOpacity(0.6),
+              padding: const EdgeInsets.symmetric(horizontal: 4), // Ensures the button is large enough for text
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text(
+              "Change\nPet",
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 8, color: Color.fromARGB(255, 139, 174, 174), fontWeight: FontWeight.bold),
+            ),
+          ),
+        ),
+        leadingWidth: 70,
+         // Gives the button enough room to display text
+
+        // 2. Centered Profile Pic and Title remains the same
         title: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            GestureDetector(
-              onTap: () => print("Trigger photo upload"), // Future Logic Tier hook
-              child: const CircleAvatar(
-                radius: 30,
-                backgroundColor: Colors.white,
-                child: Icon(Icons.add_a_photo, size: 30, color: Color.fromARGB(255, 139, 174, 174)),
+            const CircleAvatar(
+              radius: 30,
+              backgroundColor: Colors.white,
+              child: Icon(
+                Icons.add_a_photo, 
+                size: 20, 
+                color: Color.fromARGB(255, 139, 174, 174)
               ),
             ),
             const SizedBox(height: 8),
             const Text(
               'Snuggles Dashboard', 
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)
             ),
           ],
         ),
@@ -178,7 +202,7 @@ class DashboardPage extends StatelessWidget {
                   _gridButton("Generate\nreport"),
                   _gridButton("Health\nrecords"),
                   _gridButton("Feeding\nschedule"),
-                  _gridButton("Change\nPet"),
+                  _gridButton("Press me for a surprise"),
                 ],
               ),
             ],
