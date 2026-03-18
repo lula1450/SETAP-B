@@ -143,8 +143,8 @@ class _DashboardPageState extends State<DashboardPage> {
       onPressed: () => print("Change Pet"),
       style: TextButton.styleFrom(
         backgroundColor: Colors.white.withOpacity(0.6),
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(50)),
       ),
       child: const Text("Change\nPet", textAlign: TextAlign.center, style: TextStyle(fontSize: 8, color: Color.fromARGB(255, 139, 174, 174), fontWeight: FontWeight.bold)),
     );
