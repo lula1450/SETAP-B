@@ -3,8 +3,15 @@ import 'package:maincode/petinfo.dart';
 import 'package:maincode/recentlylogged.dart';
 import 'metrics.dart';
 
-class DashboardPage extends StatelessWidget {
+class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
+
+  @override
+  State<DashboardPage> createState() => _DashboardPageState();
+}
+
+class _DashboardPageState extends State<DashboardPage> {
+  DateTime _focusedDay = DateTime.now();
 
   @override
   Widget build(BuildContext context) {
@@ -112,7 +119,7 @@ class DashboardPage extends StatelessWidget {
             children: [
               
               SizedBox(
-                height: 300, 
+                height: 400, 
                 child: Stack(
                   children: [
                     // TOP LEFT CIRCLES
@@ -144,14 +151,14 @@ class DashboardPage extends StatelessWidget {
                     Align(
                       alignment: Alignment.center,
                       child: Container(
-                        height: 250,
+                        height: 350,
                         width: double.infinity,
                         margin: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
                           color: Colors.white.withOpacity(0.8),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Center(child: Text("Calendar Widget Area")),
+                        child: _buildCalendar(),
                       ),
                     ),
                   ],
@@ -298,5 +305,110 @@ class DashboardPage extends StatelessWidget {
         border: Border.all(color: color, width: 20), // Creates the ring effect
       ),
     );
+    // --- ADD THIS TO THE BOTTOM OF YOUR CLASS ---
+    }
+  // --- ADD THIS TO THE BOTTOM OF YOUR CLASS ---
+  Widget _buildCalendar() {
+    DateTime now = DateTime.now();
+    int daysInMonth = DateUtils.getDaysInMonth(_focusedDay.year, _focusedDay.month);
+    DateTime firstDayOfMonth = DateTime(_focusedDay.year, _focusedDay.month, 1);
+    int firstWeekdayIndex = firstDayOfMonth.weekday % 7; // Adjust for Sunday start
+
+    List<String> months = [
+      "JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE",
+      "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER"
+    ];
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.chevron_left, size:20),
+                onPressed: () => setState (() {
+                  _focusedDay = DateTime(_focusedDay.year, _focusedDay.month - 1, 1);
+                }),
+              ),
+              Text("${months[_focusedDay.month - 1]} ${_focusedDay.year}", 
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+              IconButton(
+                icon: const Icon(Icons.chevron_right, size:20),
+                onPressed: () => setState (() {
+                  _focusedDay = DateTime(_focusedDay.year, _focusedDay.month + 1, 1);
+                }),
+              ),
+
+
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color.fromARGB(255, 255, 204, 213).withOpacity(0.8),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Text("PETSYNC CALENDAR", 
+                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white)),
+              ),
+            ],
+          ),
+        ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+              .map((day) => Text(day, style: const TextStyle(fontSize: 10, color: Colors.grey)))
+              .toList(),
+        ),
+        const Divider(indent: 10, endIndent: 10),
+        Expanded(
+          child: GridView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 7,
+              mainAxisSpacing: 2,
+            ),
+            itemCount: daysInMonth + firstWeekdayIndex, 
+            itemBuilder: (context, index) {
+              if (index < firstWeekdayIndex) return const SizedBox();
+              
+              int dayNumber = index - firstWeekdayIndex + 1;
+              bool isToday = dayNumber == now.day;
+
+              return Center(
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: isToday ? const Color.fromARGB(255, 139, 174, 174).withOpacity(0.4) : Colors.transparent,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Text(
+                    "$dayNumber",
+                    style: TextStyle(
+                      fontSize: 10, 
+                      fontWeight: isToday ? FontWeight.bold : FontWeight.w500,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8.0),
+          child: ElevatedButton(
+            onPressed: () {},
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: Colors.black,
+              elevation: 0,
+              side: const BorderSide(color: Colors.black12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text("CREATE appointment", style: TextStyle(fontSize: 10)),
+          ),
+        ),
+      ],
+    );
   }
-} // Final bracket fixes compilation error
+}
