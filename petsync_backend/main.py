@@ -7,6 +7,7 @@ from fastapi import FastAPI, HTTPException
 # ensures that the data entering the user manager or pet manger is typed and validated
 from pydantic import BaseModel
 
+from fastapi.middleware.cors import CORSMiddleware
 
 # process historical health data stored in the database
 # make comparisons between data entries
@@ -28,6 +29,14 @@ from petsync_backend.routers import health
 app = FastAPI(
     title="PetSync API",
     version="1.0.0"
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 #app.include_router(auth.router, prefix="/auth", tags=["auth"])

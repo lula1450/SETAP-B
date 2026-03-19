@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 
 class MetricsPage extends StatefulWidget {
   const MetricsPage({super.key});
@@ -9,27 +11,19 @@ class MetricsPage extends StatefulWidget {
 }
 
 class _MetricsPageState extends State<MetricsPage> {
+  final HealthService _healthService = HealthService();
+
+  // Local storage for values from the backend
+  Map<String, String> _latestValues = {};
+
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = "";
 
   final List<String> _metrics = [
-    "Weight",
-    "Stool Quality",
-    "Energy Level",
-    "Appetite",
-    "Water Intake",
-    "Litter Box Usage",
-    "Grooming Frequency",
-    "Vomit Events",
-    "Feather Condition",
-    "Wing Strength",
-    "Perch Activity",
-    "Vocalisation Level",
-    "Basking Time",
-    "Shedding_quality",
-    "Humidity Level",
-    "Stool pellets",
-    "Chewing Behaviour",
+    "Weight", "Stool Quality", "Energy Level", "Appetite", "Water Intake",
+    "Litter Box Usage", "Grooming Frequency", "Vomit Events", "Feather Condition",
+    "Wing Strength", "Perch Activity", "Vocalisation Level", "Basking Time",
+    "Shedding Quality", "Humidity Level", "Stool pellets", "Chewing Behaviour",
     "Wheel Activity"
   ];
 
@@ -39,7 +33,26 @@ class _MetricsPageState extends State<MetricsPage> {
   void initState() {
     super.initState();
     _loadFavorites();
+    _refreshAllMetrics(); // Fetch backend data immediately on start
   }
+
+  // Refreshes the "Current Level" for all metrics in the list
+  Future<void> _refreshAllMetrics() async {
+  setState(() {
+    _latestValues = {}; // Clear the map to trigger shimmer loading
+  });
+
+  for (var metric in _metrics) {
+    String backendName = metric.toLowerCase().replaceAll(" ", "_");
+    String val = await _healthService.getLatestMetric(1, backendName);
+    
+    if (mounted) {
+      setState(() {
+        _latestValues[metric] = val; // This replaces shimmer with the value
+      });
+    }
+  }
+}
 
   Future<void> _loadFavorites() async {
     final prefs = await SharedPreferences.getInstance();
@@ -83,7 +96,6 @@ class _MetricsPageState extends State<MetricsPage> {
     });
 
     return Scaffold(
-
       endDrawer: Drawer(
         child: ListView(
           padding: EdgeInsets.zero,
@@ -92,57 +104,32 @@ class _MetricsPageState extends State<MetricsPage> {
               decoration: BoxDecoration(color: Color.fromARGB(255, 139, 174, 174)),
               child: Text('Settings', style: TextStyle(color: Colors.white, fontSize: 24)),
             ),
-            ListTile(
-              leading: const Icon(Icons.person),
-              title: const Text('Edit Profile'),
-              onTap: () => Navigator.pop(context),
-            ),
-            ListTile(
-              leading: const Icon(Icons.notifications),
-              title: const Text('Notifications'),
-              onTap: () => Navigator.pop(context),
-            ),
-            ListTile(
-              leading: const Icon(Icons.palette),
-              title: const Text('Report History'),
-              onTap: () => Navigator.pop(context),
-            ),
-            ListTile(
-              leading: const Icon(Icons.logout),
-              title: const Text('Logout'),
-              onTap: () => Navigator.pop(context),
-            ),
+            ListTile(leading: const Icon(Icons.person), title: const Text('Edit Profile'), onTap: () => Navigator.pop(context)),
+            ListTile(leading: const Icon(Icons.notifications), title: const Text('Notifications'), onTap: () => Navigator.pop(context)),
+            ListTile(leading: const Icon(Icons.palette), title: const Text('Report History'), onTap: () => Navigator.pop(context)),
+            ListTile(leading: const Icon(Icons.logout), title: const Text('Logout'), onTap: () => Navigator.pop(context)),
           ],
         ),
       ),
-      // 1. Updated AppBar to include centered profile pic and title
       appBar: AppBar(
         backgroundColor: const Color.fromARGB(255, 139, 174, 174),
         elevation: 0,
-        toolbarHeight: 120, // Increased height for the stacked image and text
+        toolbarHeight: 120,
         centerTitle: true,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Column(
+        title: const Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Same CircleAvatar structure as Dashboard
-            const CircleAvatar(
+            CircleAvatar(
               radius: 30,
               backgroundColor: Colors.white,
-              child: Icon(
-                Icons.add_a_photo, 
-                size: 20, 
-                color: Color.fromARGB(255, 139, 174, 174)
-              ),
+              child: Icon(Icons.add_a_photo, size: 20, color: Color.fromARGB(255, 139, 174, 174)),
             ),
-            const SizedBox(height: 8),
-            const Text(
-              'Snuggles Metrics', 
-              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 18)
-            ),
+            SizedBox(height: 8),
+            Text('Snuggles Metrics', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 18)),
           ],
         ),
       ),
@@ -169,31 +156,13 @@ class _MetricsPageState extends State<MetricsPage> {
                   padding: const EdgeInsets.all(16.0),
                   child: TextField(
                     controller: _searchController,
-                    onChanged: (value) {
-                      setState(() {
-                        _searchQuery = value.toLowerCase();
-                      });
-                    },
+                    onChanged: (value) => setState(() => _searchQuery = value.toLowerCase()),
                     decoration: InputDecoration(
                       hintText: 'SEARCH BAR',
-                      hintStyle: const TextStyle(fontSize: 12),
                       fillColor: Colors.white.withOpacity(0.9),
                       filled: true,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 20),
                       prefixIcon: const Icon(Icons.search, size: 20, color: Colors.grey),
-                      suffixIcon: _searchQuery.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.clear, size: 20),
-                              onPressed: () {
-                                _searchController.clear();
-                                setState(() => _searchQuery = "");
-                              },
-                            )
-                          : null,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(30),
-                        borderSide: BorderSide.none,
-                      ),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
                     ),
                   ),
                 ),
@@ -202,13 +171,11 @@ class _MetricsPageState extends State<MetricsPage> {
                     itemCount: filteredMetrics.length,
                     itemBuilder: (context, index) {
                       String title = filteredMetrics[index];
-                      String goal = _getGoalText(title);
-
                       return _metricRow(
                         context,
                         title,
-                        "Current\nLevel",
-                        goal,
+                        _latestValues[title] ?? "...", // Fix: titile -> title
+                        _getGoalText(title),
                         _favorites.contains(title),
                       );
                     },
@@ -222,33 +189,7 @@ class _MetricsPageState extends State<MetricsPage> {
     );
   }
 
-  // Rest of helper functions remain unchanged
-  Widget _buildBackgroundDecorations() {
-    return Stack(
-      children: [
-        Align(
-          alignment: Alignment.topLeft,
-          child: Stack(
-            children: [
-              _backgroundCircle(190, Colors.white.withOpacity(0.3)),
-              _backgroundCircle(170, Colors.white.withOpacity(0.2)),
-              _backgroundCircle(180, Colors.white.withOpacity(0.4)),
-            ],
-          ),
-        ),
-        Align(
-          alignment: Alignment.bottomRight,
-          child: Stack(
-            children: [
-              _backgroundCircle(190, Colors.white.withOpacity(0.4)),
-              _backgroundCircle(170, Colors.white.withOpacity(0.2)),
-              _backgroundCircle(180, Colors.white.withOpacity(0.3)),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
+  // --- UI Helpers ---
 
   String _getGoalText(String title) {
     if (title == "Weight") return "Goal (kg)";
@@ -258,13 +199,57 @@ class _MetricsPageState extends State<MetricsPage> {
     return "Goal";
   }
 
-  Widget _backgroundCircle(double size, Color color) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: color, width: 25),
+  void _showEditDialog(BuildContext context, String title) {
+    final TextEditingController valueController = TextEditingController();
+    bool isLogging = false;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+            title: Text("Log $title"),
+            content: TextField(
+              controller: valueController,
+              keyboardType: title == "Weight" || title == "Water Intake"
+              ? TextInputType.numberWithOptions(decimal: true)
+              : TextInputType.text, 
+              decoration: const InputDecoration(hintText: "e.g. 4.5 or lethargic"),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+              isLogging
+                  ? const CircularProgressIndicator()
+                  : ElevatedButton(
+                      onPressed: () async {
+                        if (valueController.text.isEmpty) return;
+                        setDialogState(() => isLogging = true);
+
+                        String backendMetricName = title.toLowerCase().replaceAll(" ", "_");
+                        final result = await _healthService.logMetric(
+                          petId: 1,
+                          metricName: backendMetricName,
+                          value: valueController.text,
+                        );
+
+                        if (context.mounted) {
+                          Navigator.pop(context);
+                          _refreshAllMetrics(); // Update UI with the new data
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(result['analysis'] ?? result['error']),
+                              backgroundColor: const Color.fromARGB(255, 139, 174, 174),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        }
+                      },
+                      child: const Text("Save"),
+                    ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -275,10 +260,7 @@ class _MetricsPageState extends State<MetricsPage> {
       child: Row(
         children: [
           IconButton(
-            icon: Icon(
-              isFavorite ? Icons.star : Icons.star_border,
-              color: isFavorite ? Colors.amber : Colors.white70,
-            ),
+            icon: Icon(isFavorite ? Icons.star : Icons.star_border, color: isFavorite ? Colors.amber : Colors.white70),
             onPressed: () => _toggleFavorite(title),
           ),
           Expanded(flex: 3, child: _metricButton(title, Colors.white.withOpacity(0.8), () => _showEditDialog(context, title))),
@@ -307,19 +289,80 @@ class _MetricsPageState extends State<MetricsPage> {
     );
   }
 
-  void _showEditDialog(BuildContext context, String title) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-        title: Text("Log $title"),
-        content: const Text("Use the options below to increase or decrease the current value."),
-        actions: [
-          IconButton(icon: const Icon(Icons.remove), onPressed: () {}),
-          IconButton(icon: const Icon(Icons.add), onPressed: () {}),
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Save")),
-        ],
-      ),
+  Widget _buildBackgroundDecorations() {
+    return Container(); // Placeholder for your circle decorations
+  }
+}
+
+// --- SERVICES ---
+
+class HealthService {
+  static const String baseUrl = "http://localhost:8000"; 
+
+  Future<Map<String, dynamic>> logMetric({
+    required int petId,
+    required String metricName,
+    required dynamic value,
+    String? notes,
+  }) async {
+    final url = Uri.parse("$baseUrl/health/log");
+    try {
+      final response = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "pet_id": petId,
+          "metric_name": metricName,
+          "value": value,
+          "notes": notes ?? "Logged from Flutter",
+        }),
+      );
+      return response.statusCode == 200 ? jsonDecode(response.body) : {"error": "Server error"};
+    } catch (e) {
+      return {"error": "Connection failed"};
+    }
+  }
+
+  Future<String> getLatestMetric(int petId, String metricName) async {
+    final url = Uri.parse("$baseUrl/health/latest?pet_id=$petId&metric_name=$metricName");
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['value'].toString();
+      }
+      return "---";
+    } catch (e) {
+      return "Err";
+    }
+  }
+}
+
+class ShimmerLoading extends StatelessWidget {
+  final double width;
+  final double height;
+
+  const ShimmerLoading({super.key, required this.width, required this.height});
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0.3, end: 1.0),
+      duration: const Duration(milliseconds: 800),
+      builder: (context, opacity, child) {
+        return Opacity(
+          opacity: opacity,
+          child: Container(
+            width: width,
+            height: height,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.3),
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+      },
+      onEnd: () {}, // Optional: can trigger reverse if needed
     );
   }
 }

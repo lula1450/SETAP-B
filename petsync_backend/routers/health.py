@@ -142,6 +142,23 @@ async def analyze_health_metric(pet_id, metric_name, value, unit, db):
         except ValueError:
             return "ERROR: Quantitative metric received non-numeric value."
         
+@router.get("/latest")
+async def get_latest_metric(
+    pet_id: int, 
+    metric_name: MetricName, 
+    db: Session = Depends(get_db)
+):
+    # Joins the metric definition and filters by pet and metric name
+    record = db.query(HealthMetric).join(MetricDefinition).filter(
+        HealthMetric.pet_id == pet_id,
+        MetricDefinition.metric_name == metric_name
+    ).order_by(HealthMetric.metric_time.desc()).first()
+    
+    if not record:
+        return {"value": "---"}
+    
+    return {"value": record.metric_value}
+        
         
 
 
