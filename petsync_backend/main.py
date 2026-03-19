@@ -15,7 +15,7 @@ import pandas as pd
 # validatae that appointments are not set in the past - allows timestamps - chronological order
 from datetime import datetime
 
-from routers import auth, pets, health, schedule, reports
+from petsync_backend.routers import health
 
 # create the FastAPI app instance
 
@@ -30,11 +30,11 @@ app = FastAPI(
     version="1.0.0"
 )
 
-app.include_router(auth.router, prefix="/auth", tags=["auth"])
-app.include_router(pets.router, prefix="/pets", tags=["pets"])
+#app.include_router(auth.router, prefix="/auth", tags=["auth"])
+#app.include_router(pets.router, prefix="/pets", tags=["pets"])
 app.include_router(health.router, prefix="/health", tags=["health"])
-app.include_router(schedule.router, prefix="/schedule", tags=["schedule"])
-app.include_router(reports.router, prefix="/reports", tags=["reports"])
+#app.include_router(schedule.router, prefix="/schedule", tags=["schedule"])
+#app.include_router(reports.router, prefix="/reports", tags=["reports"])
 
 @app.get("/")
 async def root():

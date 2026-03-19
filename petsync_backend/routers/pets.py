@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+"""from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from petsync_backend import models, schemas
 from petsync_backend.database import get_db
@@ -12,9 +12,9 @@ router = APIRouter()
 @router.post("/", response_model=schemas.PetResponse)
 def create_pet(pet: schemas.PetCreate, db: Session = Depends(get_db)):
     """
-    Create pet profile with species-specific data.
-    Checks if the owner exists before creating the pet.
-    """
+   # Create pet profile with species-specific data.
+   # Checks if the owner exists before creating the pet.
+"""
     owner = db.query(models.User).filter(models.User.user_id == pet.owner_id).first()
     if not owner:
         raise HTTPException(status_code=404, detail="Owner not found")
@@ -108,9 +108,9 @@ router = APIRouter()
 @router.post("/", response_model=schemas.PetResponse)
 def create_pet(pet: schemas.PetCreate, db: Session = Depends(get_db)):
     """
-    Create pet profile with species-specific data.
-    Checks if the owner exists before creating the pet.
-    """
+    #Create pet profile with species-specific data.
+    #Checks if the owner exists before creating the pet.
+"""
     owner = db.query(models.User).filter(models.User.user_id == pet.owner_id).first()
     if not owner:
         raise HTTPException(status_code=404, detail="Owner not found")
@@ -191,3 +191,5 @@ def list_all_pets(owner_id: int, db: Session = Depends(get_db)):
         )
         for pet in pets
     ]
+
+"""
