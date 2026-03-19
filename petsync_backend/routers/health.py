@@ -35,12 +35,24 @@ async def log_health_metric(
     if not metric_def:
         raise HTTPException(status_code=404, detail="Metric type not defined.")
 
+    metric_val_to_save = 0
+    notes_to_save = log.notes
+
+    if metric_def.metric_unit == MetricUnit.text:
+        metric_val_to_save = 0
+        notes_to_save = str(log.value)
+    else:
+        try:
+            metric_val_to_save = float(log.value)
+        except ValueError:
+            return {"status": "Error", "analysis": "ERROR: Quantitative metric received non-numeric value."}
+
     new_log = HealthMetric(
         pet_id=log.pet_id,
         metric_def_id=metric_def.metric_def_id,
-        metric_value=log.value,  # Must be metric_value
+        metric_value=metric_val_to_save,  # Must be metric_value
         metric_time=datetime.utcnow(), # Must be metric_time
-        notes=log.notes
+        notes=notes_to_save
     )
     db.add(new_log)
     db.commit() 
@@ -53,11 +65,18 @@ async def log_health_metric(
         metric_def.metric_unit, 
         db
     )
-
+    
     return {"status": "Logged", "analysis": analysis}
 
 
 async def analyze_health_metric(pet_id, metric_name, value, unit, db):
+    
+    if unit == MetricUnit.text:
+        keywords = ["abnormal", "poor", "lethargic", "blood", "diarrhea"]
+        if any(word in value.lower() for word in keywords):
+            return "ALERT: Potential health issue detected based on notes."
+        return "No concerning keywords detected in notes."
+    
     # Fetch the previous record for baseline comparison
     previous = db.query(HealthMetric).join(MetricDefinition).filter(
             HealthMetric.pet_id == pet_id,
@@ -67,17 +86,17 @@ async def analyze_health_metric(pet_id, metric_name, value, unit, db):
     if not previous:
         return "Baseline established."
 
-    # QUANTITATIVE METRICS -- LOOK INTO CHANGING DEVIATION THRESHOLDS
-
     if unit in [MetricUnit.kg, MetricUnit.grams, MetricUnit.ml, MetricUnit.scale_1_5]:
         try:
             current_value = float(value)
             previous_value = float(previous.metric_value)
 
+    
             if metric_name == MetricName.weight:
-                diff = abs(current_value - previous_value) / previous_value
                 if previous_value == 0:
                     return "Baseline was zero, increment detected."
+                
+                diff = abs(current_value - previous_value) / previous_value
                 if diff >= 0.15:
                     return f"ALERT: Significant weight change ({round(diff * 100, 1)}%) detected."
                 return "Weight stable."
@@ -126,12 +145,5 @@ async def analyze_health_metric(pet_id, metric_name, value, unit, db):
         
 
 
-    # QUALITATIVE METRICS
 
-    if unit == MetricUnit.text:
-        keywords = ["abnormal", "poor", "lethargic", "blood", "diarrhea"]
-        if any(word in value.lower() for word in keywords):
-            return "ALERT: Potential health issue detected based on notes."
-        return "No concerning keywords detected in notes."
-    
-    return "Logged successfully"
+   
