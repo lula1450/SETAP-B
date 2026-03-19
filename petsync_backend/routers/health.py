@@ -26,34 +26,36 @@ class HealthMetricLogCreate(BaseModel):
 
 @router.post("/log")
 async def log_health_metric(
-    pet_id: int, 
-    metric_name: MetricName, 
-    value: str, 
-    notes: str = None, 
+    log: HealthMetricLogCreate,
     db: Session = Depends(get_db)
 ):
-    
-    # find the metric definition for the given metric name
     metric_def = db.query(MetricDefinition).filter(
-        MetricDefinition.metric_name == metric_name).first()
-
+        MetricDefinition.metric_name == log.metric_name).first()
+    
     if not metric_def:
         raise HTTPException(status_code=404, detail="Metric type not defined.")
-    
-    # create new log entry
-    new_log = HealthMetric(
-        pet_id = pet_id,
-        metric_def_id = metric_def.metric_def_id,
-        metric_value = value,
-        metric_time = datetime.utcnow(),
-        notes = notes
-    )   
-    db.add(new_log)
-    db.commit()
 
-    analysis = await analyze_health_metric(pet_id, metric_def.metric_name, new_log.metric_value, metric_def.metric_unit, db)
+    new_log = HealthMetric(
+        pet_id=log.pet_id,
+        metric_def_id=metric_def.metric_def_id,
+        metric_value=log.value,  # Must be metric_value
+        metric_time=datetime.utcnow(), # Must be metric_time
+        notes=log.notes
+    )
+    db.add(new_log)
+    db.commit() 
+    db.refresh(new_log)
+
+    analysis = await analyze_health_metric(
+        log.pet_id, 
+        log.metric_name, 
+        log.value, 
+        metric_def.metric_unit, 
+        db
+    )
 
     return {"status": "Logged", "analysis": analysis}
+
 
 async def analyze_health_metric(pet_id, metric_name, value, unit, db):
     # Fetch the previous record for baseline comparison
@@ -74,6 +76,8 @@ async def analyze_health_metric(pet_id, metric_name, value, unit, db):
 
             if metric_name == MetricName.weight:
                 diff = abs(current_value - previous_value) / previous_value
+                if previous_value == 0:
+                    return "Baseline was zero, increment detected."
                 if diff >= 0.15:
                     return f"ALERT: Significant weight change ({round(diff * 100, 1)}%) detected."
                 return "Weight stable."

@@ -106,6 +106,7 @@ class MetricName(enum.Enum):
     stool_pellets = "stool_pellets"
     chewing_behaviour = "chewing_behaviour"
     wheel_activity = "wheel_activity"
+    notes = "notes"
     custom = "custom"
 
 class MetricUnit(enum.Enum):
