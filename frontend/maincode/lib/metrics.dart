@@ -159,7 +159,7 @@ class _MetricsPageState extends State<MetricsPage> {
                     onChanged: (value) => setState(() => _searchQuery = value.toLowerCase()),
                     decoration: InputDecoration(
                       hintText: 'SEARCH BAR',
-                      fillColor: Colors.white.withOpacity(0.9),
+                      fillColor: Colors.white.withValues(alpha: 0.9),
                       filled: true,
                       prefixIcon: const Icon(Icons.search, size: 20, color: Colors.grey),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
@@ -263,11 +263,11 @@ class _MetricsPageState extends State<MetricsPage> {
             icon: Icon(isFavorite ? Icons.star : Icons.star_border, color: isFavorite ? Colors.amber : Colors.white70),
             onPressed: () => _toggleFavorite(title),
           ),
-          Expanded(flex: 3, child: _metricButton(title, Colors.white.withOpacity(0.8), () => _showEditDialog(context, title))),
+          Expanded(flex: 3, child: _metricButton(title, Colors.white.withValues(alpha: 0.8), () => _showEditDialog(context, title))),
           const SizedBox(width: 8),
-          Expanded(flex: 1, child: _metricButton(current, const Color.fromARGB(255, 214, 248, 248).withOpacity(0.9), () {})),
+          Expanded(flex: 1, child: _metricButton(current, const Color.fromARGB(255, 214, 248, 248).withValues(alpha: 0.9), () {})),
           const SizedBox(width: 8),
-          Expanded(flex: 1, child: _metricButton(goal, const Color.fromARGB(255, 237, 254, 231).withOpacity(0.9), () {})),
+          Expanded(flex: 1, child: _metricButton(goal, const Color.fromARGB(255, 237, 254, 231).withValues(alpha: 0.9), () {})),
         ],
       ),
     );
@@ -356,7 +356,7 @@ class ShimmerLoading extends StatelessWidget {
             width: width,
             height: height,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.3),
+              color: Colors.white.withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(12),
             ),
           ),
