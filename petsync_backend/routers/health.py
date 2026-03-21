@@ -24,7 +24,11 @@ class HealthMetricLogCreate(BaseModel):
 
 #ROUTES
 
-@router.post("/log")
+class HealthMetricLogResponse(BaseModel):
+    status: str
+    analysis: str
+
+@router.post("/log", response_model=HealthMetricLogResponse)
 async def log_health_metric(
     log: HealthMetricLogCreate,
     db: Session = Depends(get_db)

@@ -16,8 +16,6 @@ import pandas as pd
 # validatae that appointments are not set in the past - allows timestamps - chronological order
 from datetime import datetime
 
-from petsync_backend.routers import health
-
 # create the FastAPI app instance
 
 # pip install - uvicorn - environment to host api - ensures the application layer remains stable
@@ -40,7 +38,7 @@ app.add_middleware(
 )
 
 #app.include_router(auth.router, prefix="/auth", tags=["auth"])
-#app.include_router(pets.router, prefix="/pets", tags=["pets"])
+app.include_router(pets.router, prefix="/pets", tags=["pets"])
 app.include_router(health.router, tags=["health"])
 #app.include_router(schedule.router, prefix="/schedule", tags=["schedule"])
 #app.include_router(reports.router, prefix="/reports", tags=["reports"])

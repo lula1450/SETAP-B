@@ -1,4 +1,4 @@
-"""from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from petsync_backend import models, schemas
 from petsync_backend.database import get_db
@@ -15,7 +15,7 @@ def create_pet(pet: schemas.PetCreate, db: Session = Depends(get_db)):
    # Create pet profile with species-specific data.
    # Checks if the owner exists before creating the pet.
 """
-    owner = db.query(models.User).filter(models.User.user_id == pet.owner_id).first()
+    owner = db.query(models.Owner).filter(models.Owner.owner_id == pet.owner_id).first()
     if not owner:
         raise HTTPException(status_code=404, detail="Owner not found")
 
@@ -26,6 +26,7 @@ def create_pet(pet: schemas.PetCreate, db: Session = Depends(get_db)):
         pet_last_name=pet.pet_last_name,
         pet_address1=pet.pet_address1,
         pet_address2=pet.pet_address2,
+        pet_postcode=pet.pet_postcode,
         pet_city=pet.pet_city,
     )
 
@@ -41,6 +42,7 @@ def create_pet(pet: schemas.PetCreate, db: Session = Depends(get_db)):
         pet_last_name=db_pet.pet_last_name,
         pet_address1=db_pet.pet_address1,
         pet_address2=db_pet.pet_address2,
+        pet_postcode=db_pet.pet_postcode,
         pet_city=db_pet.pet_city,
     )
 
@@ -52,7 +54,7 @@ def get_pet(pet_id: int, db: Session = Depends(get_db)):
     if not pet:
         raise HTTPException(status_code=404, detail="Pet not found")
 
-    species = db.query(models.SpeciesConfig).filter(models.SpeciesConfig.species_id == pet.species_id).first()
+    species = db.query(models.Species_config).filter(models.Species_config.species_id == pet.species_id).first()
     species_name = species.species_name if species else "Unknown"
 
     return schemas.PetResponse(
@@ -78,7 +80,7 @@ def list_all_pets(owner_id: int, db: Session = Depends(get_db)):
     # Pre-fetch species info to avoid repeated queries
     species_map = {
         s.species_id: s.species_name
-        for s in db.query(models.SpeciesConfig).all()
+        for s in db.query(models.Species_config).all()
     }
 
     return [
@@ -96,4 +98,33 @@ def list_all_pets(owner_id: int, db: Session = Depends(get_db)):
         for pet in pets
     ]
 
-"""
+# Update pet profile
+@router.put("/{pet_id}", response_model=schemas.PetResponse)
+def update_pet(pet_id: int, pet_update: schemas.PetCreate, db: Session = Depends(get_db)):
+    db_pet = db.query(models.Pet).filter(models.Pet.pet_id == pet_id).first()
+    if not db_pet:
+        raise HTTPException(status_code=404, detail="Pet not found")
+
+    # Update fields
+    db_pet.pet_first_name = pet_update.pet_first_name
+    db_pet.pet_last_name = pet_update.pet_last_name
+    db_pet.pet_address1 = pet_update.pet_address1
+    db_pet.pet_city = pet_update.pet_city
+    # Note: species_id and owner_id usually don't change, so we leave them
+
+    db.commit()
+    db.refresh(db_pet)
+    return db_pet
+
+# petsync_backend/routers/pets.py
+
+@router.delete("/{pet_id}")
+def delete_pet(pet_id: int, db: Session = Depends(get_db)):
+    db_pet = db.query(models.Pet).filter(models.Pet.pet_id == pet_id).first()
+    if not db_pet:
+        raise HTTPException(status_code=404, detail="Pet not found")
+    
+    db.delete(db_pet)
+    db.commit()
+    return {"message": f"Pet {pet_id} and all associated data deleted successfully"}
+
