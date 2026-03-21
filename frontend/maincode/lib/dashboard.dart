@@ -12,6 +12,8 @@ class DashboardPage extends StatefulWidget {
 }
 
 class _DashboardPageState extends State<DashboardPage> {
+  int _selectedPetIndex = 0;
+
   final PetService _petService = PetService();
   List<dynamic> _pets = [];
   bool _isLoading = true;
@@ -51,6 +53,7 @@ class _DashboardPageState extends State<DashboardPage> {
             _drawerTile(Icons.notifications, 'Notifications'),
             _drawerTile(Icons.palette, 'Report History'),
             _drawerTile(Icons.logout, 'Logout'),
+            _drawerTile(Icons.delete_forever, 'Delete Account', color: Colors.red),
           ],
         ),
       ),
@@ -97,7 +100,7 @@ class _DashboardPageState extends State<DashboardPage> {
   // --- HELPER FUNCTIONS (ALL INSIDE CLASS) ---
 
   Widget _appBarTitle() {
-    String petName = _pets.isNotEmpty ? _pets[0]['pet_first_name'] : "Pet";
+    String petName = _pets.isNotEmpty ? _pets[_selectedPetIndex]['pet_first_name'] : "Pet";
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -113,6 +116,44 @@ class _DashboardPageState extends State<DashboardPage> {
       ],
     );
   }
+
+  void _showDeleteConfirmation() {
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+      title: const Text("Delete Account?"),
+      content: const Text(
+        "This will permanently delete your profile and all associated pet data. This action cannot be undone.",
+        style: TextStyle(fontSize: 14),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context), // Close the dialog
+          child: const Text("Cancel", style: TextStyle(color: Colors.grey)),
+        ),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.red,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          onPressed: () async {
+            // TODO: Call your backend DELETE route here
+            // Example: await _petService.deleteOwner(1);
+            
+            Navigator.pop(context); // Close dialog
+            Navigator.pop(context); // Close drawer
+            
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("Account successfully deleted")),
+            );
+          },
+          child: const Text("Delete", style: TextStyle(color: Colors.white)),
+        ),
+      ],
+    ),
+  );
+}
 
   Widget _changePetButton() {
     return TextButton(
@@ -140,11 +181,17 @@ class _DashboardPageState extends State<DashboardPage> {
         itemBuilder: (context, index) => ListTile(
           leading: const Icon(Icons.pets, color: Color.fromARGB(255, 139, 174, 174)),
           title: Text(_pets[index]['pet_first_name']),
-          onTap: () => Navigator.pop(context),
-        ),
+          trailing: _selectedPetIndex == index ? const Icon(Icons.check, color: Colors.green) : null,
+          onTap: () {
+            setState(() {
+               _selectedPetIndex = index;
+            });
+          Navigator.pop(context);
+        },
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _calendarSection() {
     return SizedBox(
@@ -236,7 +283,7 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Widget _dailyInfoSection() {
-    String petName = _pets.isNotEmpty ? _pets[0]['pet_first_name'] : "your pet";
+    String petName = _pets.isNotEmpty ? _pets[_selectedPetIndex]['pet_first_name'] : "your pet";
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
       child: Column(children: [
@@ -312,7 +359,17 @@ class _DashboardPageState extends State<DashboardPage> {
     return Container(width: size, height: size, decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: color, width: 20)));
   }
 
-  Widget _drawerTile(IconData icon, String title) {
-    return ListTile(leading: Icon(icon), title: Text(title), onTap: () => Navigator.pop(context));
-  }
+  Widget _drawerTile(IconData icon, String title, {Color? color}) {
+  return ListTile(
+    leading: Icon(icon, color: color),
+    title: Text(title, style: TextStyle(color: color)),
+    onTap: () {
+      if (title == 'Delete Account') {
+        _showDeleteConfirmation();
+      } else {
+        Navigator.pop(context);
+      }
+    },
+  );
+}
 }

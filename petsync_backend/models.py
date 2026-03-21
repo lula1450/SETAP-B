@@ -6,6 +6,7 @@ from sqlalchemy import Column, Integer, String, Date, Time, ForeignKey, DateTime
 from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
 import enum
+from sqlalchemy.orm import relationship
 
 #change
 # Creates a class that where if a class inherits it, it is a database table
@@ -25,6 +26,7 @@ class Owner(Base):
     owner_address2 = Column(String(100))
     owner_postcode = Column(String(10), nullable=False)
     owner_city = Column(String(30), nullable=False, default="London")
+    pets = relationship("Pet", backref="owner", cascade="all, delete")
 
 #Creation of Pet table
 class Pet(Base):

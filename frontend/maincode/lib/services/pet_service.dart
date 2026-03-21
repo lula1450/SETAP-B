@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:flutter/foundation.dart'; // Add this line
 
 class PetService {
   // Use 10.0.2.2 if using Android Emulator, or your IP if using a real device
@@ -30,4 +31,16 @@ class PetService {
       throw Exception('Failed to create pet');
     }
   }
+
+  Future<bool> deleteOwner(int ownerId) async {
+  // Use 10.0.2.2 for Android, 127.0.0.1 for iOS
+  final url = Uri.parse("http://127.0.0.1:8000/owners/$ownerId"); 
+  try {
+    final response = await http.delete(url);
+    return response.statusCode == 200;
+  } catch (e) {
+    debugPrint("Delete Error: $e");
+    return false;
+  }
+}
 }
