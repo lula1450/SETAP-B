@@ -159,7 +159,7 @@ class _MetricsPageState extends State<MetricsPage> {
                     onChanged: (value) => setState(() => _searchQuery = value.toLowerCase()),
                     decoration: InputDecoration(
                       hintText: 'SEARCH BAR',
-                      fillColor: Colors.white.withOpacity(0.9),
+                      fillColor: Colors.white.withValues(alpha: 0.9),
                       filled: true,
                       prefixIcon: const Icon(Icons.search, size: 20, color: Colors.grey),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
@@ -263,11 +263,11 @@ class _MetricsPageState extends State<MetricsPage> {
             icon: Icon(isFavorite ? Icons.star : Icons.star_border, color: isFavorite ? Colors.amber : Colors.white70),
             onPressed: () => _toggleFavorite(title),
           ),
-          Expanded(flex: 3, child: _metricButton(title, Colors.white.withOpacity(0.8), () => _showEditDialog(context, title))),
+          Expanded(flex: 3, child: _metricButton(title, Colors.white.withValues(alpha: 0.8), () => _showEditDialog(context, title))),
           const SizedBox(width: 8),
-          Expanded(flex: 1, child: _metricButton(current, const Color.fromARGB(255, 214, 248, 248).withOpacity(0.9), () {})),
+          Expanded(flex: 1, child: _metricButton(current, const Color.fromARGB(255, 214, 248, 248).withValues(alpha: 0.9), () {})),
           const SizedBox(width: 8),
-          Expanded(flex: 1, child: _metricButton(goal, const Color.fromARGB(255, 237, 254, 231).withOpacity(0.9), () {})),
+          Expanded(flex: 1, child: _metricButton(goal, const Color.fromARGB(255, 237, 254, 231).withValues(alpha: 0.9), () {})),
         ],
       ),
     );
@@ -297,7 +297,8 @@ class _MetricsPageState extends State<MetricsPage> {
 // --- SERVICES ---
 
 class HealthService {
-  static const String baseUrl = "http://localhost:8000"; 
+  // Use 10.0.2.2 for Android Emulator, 127.0.0.1 for iOS
+  static const String baseUrl = "http://127.0.0.1:8000"; 
 
   Future<Map<String, dynamic>> logMetric({
     required int petId,
@@ -306,29 +307,46 @@ class HealthService {
     String? notes,
   }) async {
     final url = Uri.parse("$baseUrl/health/log");
+    
+    // IMPORTANT: Ensure the value is handled based on the backend Union[float, int, str]
+    // If it's a number, try to send it as a number, otherwise a string.
+    var formattedValue = double.tryParse(value.toString()) ?? value.toString();
+
     try {
       final response = await http.post(
         url,
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
           "pet_id": petId,
-          "metric_name": metricName,
-          "value": value,
+          "metric_name": metricName, // Must match Python MetricName Enum exactly
+          "value": formattedValue,
           "notes": notes ?? "Logged from Flutter",
         }),
       );
-      return response.statusCode == 200 ? jsonDecode(response.body) : {"error": "Server error"};
+
+      debugPrint("Backend Response Status: ${response.statusCode}");
+      debugPrint("Backend Response Body: ${response.body}");
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        // This will help you see if it's a 422 (Validation Error) or 500 (Crash)
+        return {"error": "Server returned ${response.statusCode}", "analysis": "Check backend console"};
+      }
     } catch (e) {
+      debugPrint("Flutter Connection Error: $e");
       return {"error": "Connection failed"};
     }
   }
 
   Future<String> getLatestMetric(int petId, String metricName) async {
+    // Your backend uses Query Parameters: ?pet_id=1&metric_name=weight
     final url = Uri.parse("$baseUrl/health/latest?pet_id=$petId&metric_name=$metricName");
     try {
       final response = await http.get(url);
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
+        // In your Python code, if no record exists, you return {"value": "---"}
         return data['value'].toString();
       }
       return "---";
@@ -356,7 +374,7 @@ class ShimmerLoading extends StatelessWidget {
             width: width,
             height: height,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.3),
+              color: Colors.white.withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(12),
             ),
           ),

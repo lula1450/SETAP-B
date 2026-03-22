@@ -1,7 +1,7 @@
 # data validation 
 
 # basemodel = data contract, field = add constraints and desciptions 
-from pydantic import BaseModel, Field 
+from pydantic import BaseModel, Field, ConfigDict
 
 # allows health log and reports to be chronologiaclly tracked for the dashboard
 from datetime import datetime
@@ -55,18 +55,41 @@ class PetResponse(BaseModel):
 from pydantic import BaseModel
 
 class PetCreate(BaseModel):
-    species_id: int
-    owner_id: int
-    pet_first_name: str
-    pet_last_name: str | None = None
-    pet_address1: str | None = None
-    pet_address2: str | None = None
-    pet_city: str | None = None
+    species_id: int 
+    owner_id: int 
+    pet_first_name: str = Field(..., min_length=1, max_length=50)
+    pet_last_name: Optional[str] = None
+    pet_address1: Optional[str] = None
+    pet_address2: Optional[str] = None
+    pet_postcode: Optional[str] = None
+    pet_city: Optional[str] = None
 
 class PetResponse(PetCreate):
     pet_id: int
-    species_name: str | None = None
+    species_name: Optional[str] = "Unknown"
 
+    class Config:
+        from_attributes = True
+
+# petsync_backend/schemas.py
+
+class OwnerBase(BaseModel):
+    owner_first_name: str
+    owner_last_name: str
+    owner_email: str
+    owner_phone_number: str
+    owner_address1: str
+    owner_address2: Optional[str] = None
+    owner_postcode: str
+    owner_city: str
+
+class OwnerCreate(OwnerBase):
+    pass
+
+class OwnerResponse(OwnerBase):
+    owner_id: int
+
+    model_config = ConfigDict(from_attributes=True)
 
 """
 # REPORTS 
