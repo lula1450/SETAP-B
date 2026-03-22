@@ -3,6 +3,7 @@ import 'package:maincode/petinfo.dart';
 import 'package:maincode/recentlylogged.dart';
 import 'metrics.dart';
 import 'package:maincode/services/pet_service.dart';
+import 'package:maincode/health_records.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -312,7 +313,7 @@ class _DashboardPageState extends State<DashboardPage> {
           crossAxisSpacing: 7,
           children: [
             _gridButton("Generate\nreport"),
-            _gridButton("Health\nrecords"),
+            _gridButton("Health\nrecords", onTap: () {Navigator.push(context, MaterialPageRoute(builder: (context) => const HealthRecordsPage()));}),
             _gridButton("Feeding\nschedule"),
             _gridButton("Surprise!"),
           ],
@@ -348,10 +349,13 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  Widget _gridButton(String label) {
-    return Container(
-      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.5), borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.black12)),
-      child: Center(child: Text(label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold))),
+  Widget _gridButton(String label, {VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.5), borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.black12)),
+        child: Center(child: Text(label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold))),
+      ),
     );
   }
 
