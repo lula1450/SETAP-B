@@ -10,7 +10,7 @@ from typing import Optional, Union
 #from petsync_backend import models, schemas
 
 router = APIRouter(
-    prefix="/health",
+    prefix="",
     tags=["Health"]
 )
 

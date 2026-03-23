@@ -45,12 +45,12 @@ class Pet(Base):
 
 #Creation of species_config table
 class SpeciesType(enum.Enum):
-    dog = "Dog"
-    cat = "Cat"
-    hamster = "Hamster"
-    snake = "Snake"
-    bird = "Bird"
-    rabbit = "Rabbit"
+    dog = "dog"
+    cat = "cat"
+    hamster = "hamster"
+    snake = "snake"
+    bird = "bird"
+    rabbit = "rabbit"
 
 class Species_config(Base):
     __tablename__ = "species_config"
