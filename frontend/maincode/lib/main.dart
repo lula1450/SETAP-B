@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'dashboard.dart';
+import 'package:maincode/login_page.dart';
 
 
 void main() {
@@ -12,14 +12,14 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       title: 'Petsync',
       theme: ThemeData(
         // Seed color based on your ARGB Top Color
         colorScheme: ColorScheme.fromSeed(seedColor: const Color.fromARGB(255, 139, 174, 174)),
         useMaterial3: true,
       ),
-      debugShowCheckedModeBanner: false,
-      home: const DashboardPage(),
+      home: const LoginPage(),
     );
   }
 }

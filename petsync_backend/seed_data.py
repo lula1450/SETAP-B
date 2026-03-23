@@ -1,17 +1,37 @@
 from sqlalchemy.orm import Session
-from petsync_backend.database import SessionLocal, engine
-from petsync_backend.models import Base, Species_config, MetricDefinition, MetricName, MetricUnit, SpeciesType
+from petsync_backend.database import SessionLocal, engine, Base
+from petsync_backend.models import (
+    Species_config, MetricDefinition, MetricName, 
+    MetricUnit, SpeciesType, Owner, Pet # Added Pet here
+)
 
 def seed_data():
+    # 1. Create tables if they don't exist
+    Base.metadata.create_all(bind=engine)
     db: Session = SessionLocal()
-    
-    # 1. OPTIONAL: Clear existing data to avoid 'Unique Constraint' errors
-    # Base.metadata.drop_all(bind=engine) # Uncomment if you want a TOTAL reset
-    # Base.metadata.create_all(bind=engine)
 
-    print("Seeding Species...")
+    print("Seeding Owners...")
+    existing_owner = db.query(Owner).filter(Owner.owner_email == "test@petsync.com").first()
     
-    # Note: 'type' must match the EXACT values in your SpeciesType Enum in models.py
+    if not existing_owner:
+        new_owner = Owner(
+            owner_first_name="Lauren",
+            owner_last_name="Coppin",
+            owner_email="test@petsync.com", # Use this in your Flutter Login
+            password="password123",
+            owner_phone_number="07123456789",
+            owner_address1="123 Pet Lane",
+            owner_postcode="PO1 2AB",
+            owner_city="Portsmouth"
+        )
+        db.add(new_owner)
+        db.commit()
+        db.refresh(new_owner)
+        owner_id = new_owner.owner_id
+    else:
+        owner_id = existing_owner.owner_id
+        
+    print("Seeding Species...")
     species_data = [ 
         {"type": SpeciesType.dog, "breed": "Labrador", "notes": "Monitor joints"},
         {"type": SpeciesType.cat, "breed": "Maine Coon", "notes": "Heart health"},
@@ -23,7 +43,6 @@ def seed_data():
 
     species_objects = []
     for item in species_data:
-        # Check if already exists to prevent duplicates
         existing = db.query(Species_config).filter(
             Species_config.breed_name == item["breed"]
         ).first()
@@ -43,12 +62,10 @@ def seed_data():
 
     print("Seeding Metric Definitions...")
     metric_defs = []
-
     for s_obj in species_objects:
         s_id = s_obj.species_id
-        s_type = s_obj.species_name # This is now an Enum object
+        s_type = s_obj.species_name 
 
-        # Match based on the Enum value
         if s_type == SpeciesType.dog:
             metric_defs.extend([
                 {"s_id": s_id, "name": MetricName.weight, "unit": MetricUnit.kg},
@@ -61,15 +78,12 @@ def seed_data():
                 {"s_id": s_id, "name": MetricName.litter_box_usage, "unit": MetricUnit.count_day},
                 {"s_id": s_id, "name": MetricName.vomit_events, "unit": MetricUnit.text}
             ])
-        # Add other elifs here for bird, snake, etc.
 
     for m in metric_defs:
-        # Check if definition already exists for this species
         exists = db.query(MetricDefinition).filter(
             MetricDefinition.species_id == m["s_id"],
             MetricDefinition.metric_name == m["name"]
         ).first()
-        
         if not exists:
             definition = MetricDefinition(
                 species_id=m["s_id"],
@@ -77,7 +91,24 @@ def seed_data():
                 metric_unit=m["unit"]
             )
             db.add(definition)
+
+    print("Seeding Pets...")
+    # Grab the Labrador species specifically for Snuggles
+    dog_species = db.query(Species_config).filter(Species_config.species_name == SpeciesType.dog).first()
+
+    if dog_species:
+        if not db.query(Pet).filter(Pet.pet_first_name == "Snuggles").first():
+            snuggles = Pet(
+                pet_first_name="Snuggles",
+                species_id=dog_species.species_id,
+                owner_id=owner_id, 
+                pet_address1="123 Pet Lane",
+                pet_postcode="PO1 2AB",
+                pet_city="Portsmouth"
+            )
+            db.add(snuggles) # Now Snuggles is added correctly!
     
+    # Final Commit to save EVERYTHING
     db.commit()
     db.close()
     print("✅ Database Seeded successfully!")

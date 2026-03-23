@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:maincode/petinfo.dart';
 import 'package:maincode/recentlylogged.dart';
-import 'metrics.dart';
+import 'package:maincode/metrics.dart';
 import 'package:maincode/services/pet_service.dart';
 import 'package:maincode/health_records.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:maincode/add_pet.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -26,18 +28,36 @@ class _DashboardPageState extends State<DashboardPage> {
     _fetchPets();
   }
 
-  Future<void> _fetchPets() async {
-    try {
-      final data = await _petService.getOwnerPets(1);
-      setState(() {
-        _pets = data;
-        _isLoading = false;
-      });
-    } catch (e) {
-      debugPrint("Error fetching pets: $e");
-      setState(() => _isLoading = false);
+  // Inside _DashboardPageState
+Future<void> _fetchPets() async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final int ownerId = prefs.getInt('owner_id') ?? 0;
+
+    // Call backend
+    final data = await _petService.getOwnerPets(ownerId);
+    
+    if (mounted) {
+      if (data.isEmpty) {
+        // Use a slight delay to ensure the Dashboard is ready before pushing the next page
+        Future.delayed(Duration.zero, () {
+          Navigator.push(
+            context, 
+            MaterialPageRoute(builder: (context) => const AddPetPage())
+          ).then((_) => _fetchPets()); // Refresh when they come back from adding a pet
+        });
+      } else {
+        setState(() {
+          _pets = data;
+          _isLoading = false;
+        });
+      }
     }
+  } catch (e) {
+    debugPrint("Error: $e");
+    setState(() => _isLoading = false);
   }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -173,23 +193,51 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   void _showPetPicker() {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (context) => ListView.builder(
-        shrinkWrap: true,
-        itemCount: _pets.length,
-        itemBuilder: (context, index) => ListTile(
+  showModalBottomSheet(
+    context: context,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (context) => ListView.builder(
+      shrinkWrap: true,
+      // Add +1 to the length to account for the "Add Pet" button
+      itemCount: _pets.length + 1, 
+      itemBuilder: (context, index) {
+        // If it's the last item in the list, show the "Add New Pet" option
+        if (index == _pets.length) {
+          return ListTile(
+            leading: const Icon(Icons.add_circle_outline, color: Colors.blueGrey),
+            title: const Text(
+              "Add New Pet",
+              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blueGrey),
+            ),
+            onTap: () {
+              Navigator.pop(context); // Close the bottom sheet
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const AddPetPage()),
+              ).then((value) {
+                if (value == true) _fetchPets(); // Refresh if a pet was added
+              });
+            },
+          );
+        }
+
+        // Otherwise, show the normal pet list tiles
+        return ListTile(
           leading: const Icon(Icons.pets, color: Color.fromARGB(255, 139, 174, 174)),
           title: Text(_pets[index]['pet_first_name']),
-          trailing: _selectedPetIndex == index ? const Icon(Icons.check, color: Colors.green) : null,
+          trailing: _selectedPetIndex == index 
+              ? const Icon(Icons.check, color: Colors.green) 
+              : null,
           onTap: () {
             setState(() {
-               _selectedPetIndex = index;
+              _selectedPetIndex = index;
             });
-          Navigator.pop(context);
-        },
-      ),
+            Navigator.pop(context);
+          },
+        );
+      },
     ),
   );
 }

@@ -1,49 +1,48 @@
-
-
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from datetime import datetime
 from petsync_backend.database import get_db
-from petsync_backend.models import HealthMetric, MetricDefinition, MetricName, MetricUnit
+from petsync_backend.models import HealthMetric, MetricDefinition, MetricName, MetricUnit, Pet
 from pydantic import BaseModel, Field
 from typing import Optional, Union
-#from petsync_backend import models, schemas
+
 
 router = APIRouter(
     prefix="",
     tags=["Health"]
 )
 
-#SCHEMAS
-
+# SCHEMAS
 class HealthMetricLogCreate(BaseModel):
     pet_id: int = Field(..., gt=0)
     metric_name: MetricName
     value: Union[float, int, str]
     notes: Optional[str] = Field(None, max_length=1000)
 
-#ROUTES
-
 class HealthMetricLogResponse(BaseModel):
     status: str
     analysis: str
 
+# ROUTES
 @router.post("/log", response_model=HealthMetricLogResponse)
-async def log_health_metric(
-    log: HealthMetricLogCreate,
-    db: Session = Depends(get_db)
-):
+async def log_health_metric(log: HealthMetricLogCreate, db: Session = Depends(get_db)):
+    # Fetch pet first to get species_id for the metric definition check
+    pet = db.query(Pet).filter(Pet.pet_id == log.pet_id).first()
+    if not pet:
+        raise HTTPException(status_code=404, detail="Pet not found.")
+
     metric_def = db.query(MetricDefinition).filter(
-        MetricDefinition.metric_name == log.metric_name).first()
+        MetricDefinition.metric_name == log.metric_name,
+        MetricDefinition.species_id == pet.species_id
+    ).first()
     
     if not metric_def:
-        raise HTTPException(status_code=404, detail="Metric type not defined.")
+        raise HTTPException(status_code=404, detail="Metric type not defined for this species.")
 
     metric_val_to_save = 0
     notes_to_save = log.notes
 
     if metric_def.metric_unit == MetricUnit.text:
-        metric_val_to_save = 0
         notes_to_save = str(log.value)
     else:
         try:
@@ -54,8 +53,8 @@ async def log_health_metric(
     new_log = HealthMetric(
         pet_id=log.pet_id,
         metric_def_id=metric_def.metric_def_id,
-        metric_value=metric_val_to_save,  # Must be metric_value
-        metric_time=datetime.utcnow(), # Must be metric_time
+        metric_value=metric_val_to_save,
+        metric_time=datetime.utcnow(),
         notes=notes_to_save
     )
     db.add(new_log)
@@ -65,106 +64,99 @@ async def log_health_metric(
     analysis = await analyze_health_metric(
         log.pet_id, 
         log.metric_name, 
-        log.value, 
-        metric_def.metric_unit, 
+        metric_val_to_save, # Use the parsed float
+        metric_def, # Pass the whole definition object
         db
     )
     
     return {"status": "Logged", "analysis": analysis}
 
-
-async def analyze_health_metric(pet_id, metric_name, value, unit, db):
+async def analyze_health_metric(pet_id, metric_name, current_value, metric_def, db):
+    unit = metric_def.metric_unit
     
+    # Text Analysis
     if unit == MetricUnit.text:
+        val_str = str(current_value).lower()
         keywords = ["abnormal", "poor", "lethargic", "blood", "diarrhea"]
-        if any(word in value.lower() for word in keywords):
+        if any(word in val_str for word in keywords):
             return "ALERT: Potential health issue detected based on notes."
-        return "No concerning keywords detected in notes."
-    
-    # Fetch the previous record for baseline comparison
-    previous = db.query(HealthMetric).join(MetricDefinition).filter(
+        return "No concerning keywords detected."
+
+    # Goal Analysis (Comparing current to target)
+    if metric_def.target_value:
+        try:
+            target = float(metric_def.target_value)
+            if metric_name == MetricName.weight and current_value > target:
+                return f"Notice: Snuggles is currently {round(current_value - target, 2)}kg over target."
+        except ValueError:
+            pass # Target wasn't a number
+
+    # Fetch previous for baseline
+    previous = db.query(HealthMetric).filter(
             HealthMetric.pet_id == pet_id,
-            MetricDefinition.metric_name == metric_name
+            HealthMetric.metric_def_id == metric_def.metric_def_id
     ).order_by(HealthMetric.metric_time.desc()).offset(1).first()
 
     if not previous:
         return "Baseline established."
 
-    if unit in [MetricUnit.kg, MetricUnit.grams, MetricUnit.ml, MetricUnit.scale_1_5]:
-        try:
-            current_value = float(value)
-            previous_value = float(previous.metric_value)
+    previous_value = float(previous.metric_value)
 
+    # Comparison Logic
+    if metric_name == MetricName.weight:
+        diff = abs(current_value - previous_value) / (previous_value if previous_value != 0 else 1)
+        if diff >= 0.15:
+            return f"ALERT: Significant weight change ({round(diff * 100, 1)}%) detected."
+        return "Weight stable."
     
-            if metric_name == MetricName.weight:
-                if previous_value == 0:
-                    return "Baseline was zero, increment detected."
-                
-                diff = abs(current_value - previous_value) / previous_value
-                if diff >= 0.15:
-                    return f"ALERT: Significant weight change ({round(diff * 100, 1)}%) detected."
-                return "Weight stable."
-            
-            elif metric_name == MetricName.water_intake:
-                diff = abs(current_value - previous_value)
-                if diff >= 0.2:
-                    return f"ALERT: Significant water intake change ({round(diff * 100, 1)}%) detected."
-                return "Water intake stable."
-            
-            elif metric_name == MetricName.vomit_events:
-                if current_value > previous_value:
-                    return f"ALERT: Increase in vomit events from {previous_value} to {current_value}."
-                return "Vomit events stable or decreased."
-            
-            elif metric_name == MetricName.energy_level:
-                if current_value < previous_value:
-                    return f"ALERT: Decrease in energy level from {previous_value} to {current_value}."
-                return "Energy level stable or increased."
-            
-            elif metric_name == MetricName.appetite:
-                if current_value < previous_value:
-                    return f"ALERT: Decrease in appetite from {previous_value} to {current_value}."
-                return "Appetite stable or increased."
-            
-            elif metric_name == MetricName.basking_time:
-                if current_value < previous_value:
-                    return f"ALERT: Decrease in basking time from {previous_value} to {current_value}."
-                return "Basking time stable or increased."
-            
-            elif metric_name == MetricName.wheel_activity:
-                if current_value < previous_value:
-                    return f"ALERT: Decrease in wheel activity from {previous_value} to {current_value}."
-                return "Wheel activity stable or increased."
-            
-            elif metric_name == MetricName.humidity_level:
-                diff = abs(current_value - previous_value)
-                if diff >= 10:
-                    return f"ALERT: Significant humidity level change ({round(diff)}%) detected."
-                return "Humidity level stable."
-            
-            return f"Change from last record: {round(current_value - previous_value, 2)} {unit.value}."
-        except ValueError:
-            return "ERROR: Quantitative metric received non-numeric value."
-        
+    # ... (Keep your other elifs for energy, water, etc. using current_value and previous_value)
+    
+    return f"Change from last record: {round(current_value - previous_value, 2)} {unit.value}."
+
+# petsync_backend/routers/health.py
+
 @router.get("/latest")
-async def get_latest_metric(
-    pet_id: int, 
-    metric_name: MetricName, 
-    db: Session = Depends(get_db)
-):
-    # Joins the metric definition and filters by pet and metric name
-    record = db.query(HealthMetric).join(MetricDefinition).filter(
-        HealthMetric.pet_id == pet_id,
+def get_latest_metric(pet_id: int, metric_name: str, db: Session = Depends(get_db)):
+    # 1. Find the pet's species
+    pet = db.query(Pet).filter(Pet.pet_id == pet_id).first()
+    if not pet:
+        raise HTTPException(status_code=404, detail="Pet not found")
+
+    # 2. Find the metric definition
+    metric_def = db.query(MetricDefinition).filter(
+        MetricDefinition.species_id == pet.species_id,
         MetricDefinition.metric_name == metric_name
-    ).order_by(HealthMetric.metric_time.desc()).first()
-    
-    if not record:
-        return {"value": "---"}
-    
-    return {"value": record.metric_value}
+    ).first()
+
+    # SAFE CHECK: If the metric doesn't exist for this species, return a placeholder
+    if not metric_def:
+        return {"value": "N/A", "unit": ""}
+
+    # 3. Find the latest log
+    latest_log = db.query(HealthMetric).filter(
+        HealthMetric.pet_id == pet_id,
+        HealthMetric.metric_def_id == metric_def.metric_def_id # This line used to crash
+    ).order_by(HealthMetric.timestamp.desc()).first()
+
+    if not latest_log:
+        return {"value": "---", "unit": metric_def.metric_unit}
+
+    return {"value": latest_log.value, "unit": metric_def.metric_unit}
+
+@router.post("/goal")
+def set_metric_goal(pet_id: int, metric_name: str, goal: str, db: Session = Depends(get_db)):
+    pet = db.query(Pet).filter(Pet.pet_id == pet_id).first()
+    if not pet:
+        raise HTTPException(status_code=404, detail="Pet not found")
         
-        
+    metric_def = db.query(MetricDefinition).filter(
+        MetricDefinition.species_id == pet.species_id,
+        MetricDefinition.metric_name == metric_name
+    ).first()
 
+    if not metric_def:
+        raise HTTPException(status_code=404, detail="Metric definition not found")
 
-
-   
+    metric_def.target_value = goal
+    db.commit()
+    return {"status": "success", "message": "Goal updated."}
