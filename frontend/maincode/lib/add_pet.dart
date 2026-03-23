@@ -24,15 +24,32 @@ class _AddPetPageState extends State<AddPetPage> {
     {'id': 6, 'name': 'Snake'},
   ];
 
+  // Inside _AddPetPageState class
+  
   void _savePet() async {
+    // 1. Basic validation
+    if (_nameController.text.isEmpty || _cityController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please fill in all fields")),
+      );
+      return;
+    }
+
+    // 2. Call the service
     final success = await PetService().createPet(
       _nameController.text,
       _selectedSpeciesId,
       _cityController.text,
     );
 
+    // 3. Handle the response
     if (success && mounted) {
-      Navigator.pop(context); // Return to Dashboard
+      // CRITICAL: We pass 'true' back so Dashboard knows to run _fetchPets()
+      Navigator.pop(context, true); 
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Failed to save pet. Check your server connection.")),
+      );
     }
   }
 

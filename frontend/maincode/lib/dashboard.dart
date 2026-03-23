@@ -211,14 +211,16 @@ Future<void> _fetchPets() async {
               "Add New Pet",
               style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blueGrey),
             ),
-            onTap: () {
+            onTap: () async {
               Navigator.pop(context); // Close the bottom sheet
-              Navigator.push(
+              
+              final bool? wasAdded = await Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const AddPetPage()),
-              ).then((value) {
-                if (value == true) _fetchPets(); // Refresh if a pet was added
-              });
+                MaterialPageRoute(builder: (context) => const AddPetPage() ,)
+              );
+              if (wasAdded == true) {
+                _fetchPets();
+              }
             },
           );
         }
