@@ -69,7 +69,7 @@ class PetInfoPage extends StatelessWidget {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-              )
+              ),
               // Two-column section: Info and Care tips
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
