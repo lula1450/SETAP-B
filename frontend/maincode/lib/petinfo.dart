@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class PetInfoPage extends StatelessWidget {
   const PetInfoPage({super.key});
@@ -52,16 +53,23 @@ class PetInfoPage extends StatelessWidget {
               ),
               const SizedBox(height: 8),
 
-              // URL as plain text
-              Text(
-                "Link to general help page: $helpUrl",
-                style: TextStyle(
-                  color: Colors.blue[800],
-                  decoration: TextDecoration.none,
+              // URL 
+              GestureDetector(
+                onTap: () async {
+                  final Uri url = Uri.parse(helpUrl);
+                  if (await canLaunchUrl(url)) {
+                    await launchUrl(url);
+                  }
+                },
+                child: Text(
+                  "General Help Guide",
+                  style: TextStyle(
+                    color: Colors.blue[800],
+                    decoration: TextDecoration.underline,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
-
+              )
               // Two-column section: Info and Care tips
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
