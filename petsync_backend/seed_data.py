@@ -97,9 +97,9 @@ def seed_data():
     dog_species = db.query(Species_config).filter(Species_config.species_name == SpeciesType.dog).first()
 
     if dog_species:
-        if not db.query(Pet).filter(Pet.pet_first_name == "Snuggles").first():
+        if not db.query(Pet).filter(Pet.pet_first_name == "Bentley").first():
             snuggles = Pet(
-                pet_first_name="Snuggles",
+                pet_first_name="Bentley",
                 species_id=dog_species.species_id,
                 owner_id=owner_id, 
                 pet_address1="123 Pet Lane",

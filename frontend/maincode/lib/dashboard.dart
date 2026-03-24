@@ -131,7 +131,7 @@ Future<void> _fetchPets() async {
             child: Icon(Icons.add_a_photo, size: 20, color: Color.fromARGB(255, 139, 174, 174))),
         const SizedBox(height: 8),
         Text(
-          _isLoading ? 'Loading...' : '$petName Dashboard',
+          _isLoading ? 'Loading...' : "${petName}'s Dashboard",
           style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
         ),
       ],
@@ -375,14 +375,57 @@ Future<void> _fetchPets() async {
   Widget _actionButton(BuildContext context, String text) {
     return InkWell(
       onTap: () {
-        if (text.contains("Log")) Navigator.push(context, MaterialPageRoute(builder: (context) => const MetricsPage()));
-        if (text.contains("Recently")) Navigator.push(context, MaterialPageRoute(builder: (context) => const RecentlyLoggedDataPage()));
-        if (text.contains("Find out")) Navigator.push(context, MaterialPageRoute(builder: (context) => const PetInfoPage()));
+        // 1. Log daily metrics - Needs pet details
+        if (text.contains("Log")) {
+          if (_pets.isNotEmpty) {
+            final currentPet = _pets[_selectedPetIndex]; // Define inside the logic block
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => MetricsPage(
+                  petId: currentPet['pet_id'],
+                  petName: currentPet['pet_first_name'],
+                ),
+              ),
+            );
+          } else {
+            // Safety check in case Lauren hasn't added a pet yet
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("Please add a pet first!")),
+            );
+          }
+        } 
+        
+        // 2. Recently logged data
+        else if (text.contains("Recently")) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const RecentlyLoggedDataPage()),
+          );
+        } 
+        
+        // 3. Find out more about pet
+        else if (text.contains("Find out")) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const PetInfoPage()),
+          );
+        }
       },
       child: Container(
-        width: 85, height: 85, alignment: Alignment.center,
-        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.5), borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.black12)),
-        child: Text(text, textAlign: TextAlign.center, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold)),
+        width: 85,
+        height: 85,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(color: Colors.black12),
+        ),
+        child: Text(
+          text,
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold),
+        ),
       ),
     );
   }

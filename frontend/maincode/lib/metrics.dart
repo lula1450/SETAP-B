@@ -4,7 +4,14 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class MetricsPage extends StatefulWidget {
-  const MetricsPage({super.key});
+  final int petId;
+  final String petName;
+
+  const MetricsPage({
+    super.key,
+    required this.petId,
+    required this.petName,
+    });
 
   @override
   State<MetricsPage> createState() => _MetricsPageState();
@@ -44,7 +51,7 @@ class _MetricsPageState extends State<MetricsPage> {
 
   for (var metric in _metrics) {
     String backendName = metric.toLowerCase().replaceAll(" ", "_");
-    String val = await _healthService.getLatestMetric(1, backendName);
+    String val = await _healthService.getLatestMetric(widget.petId, backendName);
     
     if (mounted) {
       setState(() {
@@ -120,7 +127,7 @@ class _MetricsPageState extends State<MetricsPage> {
           icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Column(
+        title: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             CircleAvatar(
@@ -129,7 +136,9 @@ class _MetricsPageState extends State<MetricsPage> {
               child: Icon(Icons.add_a_photo, size: 20, color: Color.fromARGB(255, 139, 174, 174)),
             ),
             SizedBox(height: 8),
-            Text('Snuggles Metrics', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 18)),
+            Text(
+              "${widget.petName}'s Metrics", 
+              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 18)),
           ],
         ),
       ),
@@ -228,7 +237,7 @@ class _MetricsPageState extends State<MetricsPage> {
 
                         String backendMetricName = title.toLowerCase().replaceAll(" ", "_");
                         final result = await _healthService.logMetric(
-                          petId: 1,
+                          petId: widget.petId,
                           metricName: backendMetricName,
                           value: valueController.text,
                         );
