@@ -65,18 +65,27 @@ class _MetricsPageState extends State<MetricsPage> {
   }
 
   // Refreshes the "Current Level" for all metrics in the list
-  Future<void> _refreshAllMetrics() async {
+  // lib/metrics.dart
+
+// lib/metrics.dart
+
+Future<void> _refreshAllMetrics() async {
+  // 1. Clear the old pet's data immediately so you don't see 
+  // the previous pet's values while the new ones load.
   setState(() {
-    _latestValues = {}; // Clear the map to trigger shimmer loading
+    _latestValues = {}; 
   });
 
   for (var metric in _metrics) {
     String backendName = metric.toLowerCase().replaceAll(" ", "_");
+    
+    // 2. Fetch the latest value using the UNIQUE petId from the widget
     String val = await _healthService.getLatestMetric(widget.petId, backendName);
     
     if (mounted) {
       setState(() {
-        _latestValues[metric] = val; // This replaces shimmer with the value
+        // 3. Store the value in the map tied to this specific pet instance
+        _latestValues[metric] = val; 
       });
     }
   }
@@ -157,7 +166,8 @@ class _MetricsPageState extends State<MetricsPage> {
             CircleAvatar(
               radius: 30,
               backgroundColor: Colors.white,
-              child: Icon(Icons.add_a_photo, 
+              child: Icon(
+                Icons.add_a_photo, 
                 size: 20, 
                 color: petThemeColor,
               ),
@@ -263,11 +273,13 @@ class _MetricsPageState extends State<MetricsPage> {
                         setDialogState(() => isLogging = true);
 
                         String backendMetricName = title.toLowerCase().replaceAll(" ", "_");
-                        final result = await _healthService.logMetric(
-                          petId: widget.petId,
-                          metricName: backendMetricName,
-                          value: valueController.text,
-                        );
+                        // Inside _showEditDialog -> ElevatedButton -> onPressed:
+
+                          final result = await _healthService.logMetric(
+                            petId: widget.petId, // PASS THE DYNAMIC ID
+                            metricName: backendMetricName,
+                            value: valueController.text,
+                          );
 
                         if (context.mounted) {
                           Navigator.pop(context);

@@ -19,6 +19,7 @@ class HealthService {
     var formattedValue = double.tryParse(value.toString()) ?? value.toString();
 
     try {
+      debugPrint("DEBUG: Sending Pet ID: $petId for Metric: $metricName");
       final response = await http.post(
         url,
         headers: {"Content-Type": "application/json"},

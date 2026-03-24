@@ -200,3 +200,18 @@ class Reminder(Base):
     reminder_status = Column(Enum(ReminderStatus, name="reminder_status"), nullable=False, default=ReminderStatus.pending)
     reminder_notes = Column(Text)
 
+# lib/models.py
+
+class PetGoal(Base):
+    __tablename__ = "pet_goal"
+
+    pet_goal_id = Column(Integer, primary_key=True, index=True)
+    pet_id = Column(Integer, ForeignKey("pet.pet_id"), nullable=False, index=True)
+    metric_def_id = Column(Integer, ForeignKey("metric_definition.metric_def_id"), nullable=False)
+    
+    target_value = Column(String(50), nullable=True) # Using String so it handles "4.5" or "High"
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships to make querying easier
+    pet = relationship("Pet", backref="goals")
+    metric_definition = relationship("MetricDefinition")
