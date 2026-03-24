@@ -9,12 +9,9 @@ router = APIRouter()
 
 
 # Create a pet profile
-@router.post("/", response_model=schemas.PetResponse)
+# Create a pet profile
+@router.post("/create", response_model=schemas.PetResponse) # Changed from "/" to "/create"
 def create_pet(pet: schemas.PetCreate, db: Session = Depends(get_db)):
-    """
-   # Create pet profile with species-specific data.
-   # Checks if the owner exists before creating the pet.
-"""
     owner = db.query(models.Owner).filter(models.Owner.owner_id == pet.owner_id).first()
     if not owner:
         raise HTTPException(status_code=404, detail="Owner not found")
@@ -23,7 +20,8 @@ def create_pet(pet: schemas.PetCreate, db: Session = Depends(get_db)):
         species_id=pet.species_id,
         owner_id=pet.owner_id,
         pet_first_name=pet.pet_first_name,
-        pet_last_name=pet.pet_last_name,
+        # If the frontend sends an empty string or null, this stays clean
+        pet_last_name=pet.pet_last_name or "", 
         pet_address1=pet.pet_address1,
         pet_address2=pet.pet_address2,
         pet_postcode=pet.pet_postcode,
@@ -33,7 +31,8 @@ def create_pet(pet: schemas.PetCreate, db: Session = Depends(get_db)):
     db.add(db_pet)
     db.commit()
     db.refresh(db_pet)
-
+    
+    # Rest of the return logic stays the same...
     return schemas.PetResponse(
         pet_id=db_pet.pet_id,
         species_id=db_pet.species_id,

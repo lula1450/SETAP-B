@@ -40,6 +40,16 @@ class _MetricsPageState extends State<MetricsPage> {
     _refreshAllMetrics();
   }
 
+  @override
+  void didUpdateWidget(covariant MetricsPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // If the petId changed, reload everything for the new pet
+    if (oldWidget.petId != widget.petId) {
+      _loadFavorites();
+      _refreshAllMetrics();
+    }
+  }
+
   Future<void> _refreshAllMetrics() async {
     setState(() => _latestValues = {});
     for (var metric in _metrics) {
@@ -51,19 +61,28 @@ class _MetricsPageState extends State<MetricsPage> {
     }
   }
 
+  // Load favorites specifically for THIS pet
   Future<void> _loadFavorites() async {
     final prefs = await SharedPreferences.getInstance();
-    setState(() => _favorites = prefs.getStringList('favoriteMetrics') ?? []);
+    setState(() {
+      // Key is now unique, e.g., "favorites_1"
+      _favorites = prefs.getStringList('favorites_${widget.petId}') ?? [];
+    });
   }
 
+  // Save favorites specifically for THIS pet
   Future<void> _saveFavorites() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList('favoriteMetrics', _favorites);
+    await prefs.setStringList('favorites_${widget.petId}', _favorites);
   }
 
   void _toggleFavorite(String title) {
     setState(() {
-      _favorites.contains(title) ? _favorites.remove(title) : _favorites.add(title);
+      if (_favorites.contains(title)) {
+        _favorites.remove(title);
+      } else {
+        _favorites.add(title);
+      }
     });
     _saveFavorites();
   }
@@ -93,7 +112,6 @@ class _MetricsPageState extends State<MetricsPage> {
     return "Goal";
   }
 
-  // --- UPDATED DIALOG LOGIC ---
   void _showEditDialog(BuildContext context, String title) {
     final TextEditingController valueController = TextEditingController();
     final TextEditingController goalController = TextEditingController();
@@ -140,7 +158,6 @@ class _MetricsPageState extends State<MetricsPage> {
                             value: valueController.text,
                           );
                         }
-
                         if (goalController.text.isNotEmpty) {
                           await _healthService.syncGoalToBackend(
                             widget.petId, 
@@ -148,7 +165,6 @@ class _MetricsPageState extends State<MetricsPage> {
                             goalController.text
                           );
                         }
-
                         if (context.mounted) {
                           Navigator.pop(context);
                           _refreshAllMetrics();
@@ -203,14 +219,45 @@ class _MetricsPageState extends State<MetricsPage> {
         ),
         child: Column(
           children: [
+            // Search Bar
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: TextField(
                 controller: _searchController,
                 onChanged: (val) => setState(() => _searchQuery = val.toLowerCase()),
-                decoration: InputDecoration(hintText: 'Search Metrics...', fillColor: Colors.white.withOpacity(0.9), filled: true, prefixIcon: const Icon(Icons.search), border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none)),
+                decoration: InputDecoration(
+                  hintText: 'Search Metrics...', 
+                  fillColor: Colors.white.withOpacity(0.9), 
+                  filled: true, 
+                  prefixIcon: const Icon(Icons.search), 
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none)
+                ),
               ),
             ),
+            
+            // --- NEW COLUMN HEADERS ---
+            Padding(
+              padding: const EdgeInsets.only(left: 65.0, right: 16.0, bottom: 8.0),
+              child: Row(
+                children: [
+                  const Expanded(flex: 3, child: SizedBox()), // Space above Metric Title
+                  Expanded(
+                    flex: 1, 
+                    child: Text("Current", 
+                      textAlign: TextAlign.center, 
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blueGrey[900])),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    flex: 1, 
+                    child: Text("Target", 
+                      textAlign: TextAlign.center, 
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blueGrey[900])),
+                  ),
+                ],
+              ),
+            ),
+
             Expanded(
               child: ListView.builder(
                 itemCount: filteredMetrics.length,
@@ -258,7 +305,6 @@ class _MetricsPageState extends State<MetricsPage> {
   }
 }
 
-// --- UPDATED SERVICES ---
 class HealthService {
   static const String baseUrl = "http://127.0.0.1:8000"; 
 
@@ -286,7 +332,6 @@ class HealthService {
   }
 
   Future<void> syncGoalToBackend(int petId, String metricName, String goal) async {
-    // Encodes query parameters safely for the URL
     final uri = Uri.parse("$baseUrl/health/goal").replace(queryParameters: {
       "pet_id": petId.toString(),
       "metric_name": metricName,

@@ -435,6 +435,10 @@ Future<void> _fetchPets() async {
   }
 
   Widget _actionButton(BuildContext context, String text) {
+    String petName = _pets.isNotEmpty ? _pets[_selectedPetIndex]['pet_first_name'] : "";
+
+    String buttontext = text.replaceAll("pet", petName);
+    
     return InkWell(
       onTap: () {
         // 1. Log daily metrics - Needs pet details
