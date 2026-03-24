@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-import '../services/auth_service.dart'; // Ensure this path is correct
-import 'dashboard.dart'; // Or your dashboard page
+import 'package:maincode/register.dart';
+import '../services/auth_service.dart';
+import 'dashboard.dart'; 
+import 'register.dart'; // <--- DON'T FORGET THIS IMPORT
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -16,6 +18,13 @@ class _LoginPageState extends State<LoginPage> {
   bool _isLoading = false;
 
   void _handleLogin() async {
+    if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please fill in all fields")),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     bool success = await _authService.login(
@@ -26,7 +35,6 @@ class _LoginPageState extends State<LoginPage> {
     if (mounted) {
       setState(() => _isLoading = false);
       if (success) {
-        // Go to Metrics/Dashboard and prevent going back to Login
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const DashboardPage()),
@@ -65,6 +73,8 @@ class _LoginPageState extends State<LoginPage> {
             const SizedBox(height: 20),
             _buildTextField(_passwordController, "Password", Icons.lock, true),
             const SizedBox(height: 30),
+            
+            // --- LOGIN BUTTON ---
             _isLoading
                 ? const CircularProgressIndicator(color: Colors.white)
                 : SizedBox(
@@ -80,6 +90,31 @@ class _LoginPageState extends State<LoginPage> {
                       child: const Text("LOGIN", style: TextStyle(fontWeight: FontWeight.bold)),
                     ),
                   ),
+
+            const SizedBox(height: 20), // Spacing
+
+            // --- SIGN UP LINK ---
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text("Don't have an account?", style: TextStyle(color: Colors.black54)),
+                TextButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const RegisterPage()),
+                    );
+                  },
+                  child: const Text(
+                    "Sign Up",
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF8BAEAE),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),
