@@ -109,7 +109,7 @@ Future<void> _fetchPets() async {
           padding: const EdgeInsets.only(left: 8.0),
           child: _changePetButton(),
         ),
-        leadingWidth: 70,
+        leadingWidth: 90,
         title: _appBarTitle(),
       ),
       body: Container(
@@ -160,7 +160,8 @@ Future<void> _fetchPets() async {
               Icons.add_a_photo, 
               size: 20, 
               color: petColor, // Dynamic color applied here!
-            )),
+            ),
+          ),
         const SizedBox(height: 8),
         Text(
           _isLoading ? 'Loading...' : "${petName}'s Dashboard",
@@ -209,39 +210,46 @@ Future<void> _fetchPets() async {
 }
 
   Widget _changePetButton() {
-    // 1. Get the current active pet's name
-    String petName = _pets.isNotEmpty ? _pets[_selectedPetIndex]['pet_first_name'] : "";
-    
-    // 2. Calculate the specific color for this pet name
-    Color activePetColor = _pets.isNotEmpty 
-        ? _getPetColor(petName) 
-        : const Color.fromARGB(255, 139, 174, 174); // Default teal if list is empty
+  // 1. Get the current active pet's name and color
+  String petName = _pets.isNotEmpty ? _pets[_selectedPetIndex]['pet_first_name'] : "";
+  Color activePetColor = _pets.isNotEmpty 
+      ? _getPetColor(petName) 
+      : const Color.fromARGB(255, 139, 174, 174);
 
-    return TextButton(
-      onPressed: () {
-        if (_pets.isNotEmpty) _showPetPicker();
-      },
-      style: TextButton.styleFrom(
-        // 3. Set the background to the dynamic pet color
-        backgroundColor: activePetColor.withValues(alpha: 0.8),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(50),
-          // 4. Add a white border to help the colored button stand out
-          side: const BorderSide(color: Colors.white, width: 1),
+  return Column(
+    mainAxisAlignment: MainAxisAlignment.center,
+    children: [
+      RawMaterialButton(
+        onPressed: () {
+          if (_pets.isNotEmpty) _showPetPicker();
+        },
+        elevation: 4.0,
+        // 2. Fill the button with the pet's unique color
+        fillColor: activePetColor,
+        padding: const EdgeInsets.all(10.0),
+        // 3. CircleBorder creates the "pad" shape
+        shape: const CircleBorder(
+          side: BorderSide(color: Colors.white, width: 2),
+        ),
+        child: const Icon(
+          Icons.pets, // The Paw Icon
+          color: Colors.white,
+          size: 24,
         ),
       ),
-      child: const Text(
-        "Change\nPet",
-        textAlign: TextAlign.center,
+      const SizedBox(height: 4),
+      const Text(
+        "CHANGE",
         style: TextStyle(
-          fontSize: 8, 
-          color: Colors.white, // White text for best contrast on colored backgrounds
-          fontWeight: FontWeight.bold
+          color: Colors.white, 
+          fontSize: 7, 
+          fontWeight: FontWeight.bold,
+          letterSpacing: 0.5,
         ),
       ),
-    );
-  }
+    ],
+  );
+}
 
   void _showPetPicker() {
   showModalBottomSheet(

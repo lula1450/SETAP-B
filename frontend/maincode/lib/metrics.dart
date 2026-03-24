@@ -20,6 +20,27 @@ class MetricsPage extends StatefulWidget {
 class _MetricsPageState extends State<MetricsPage> {
   final HealthService _healthService = HealthService();
 
+    Color _getPetColor(String name) {
+    final List<Color> nameColors = [
+      const Color.fromARGB(255, 146, 179, 236),
+      const Color.fromRGBO(212, 162, 221, 1),
+      const Color.fromARGB(255, 182, 139, 83),
+      const Color.fromRGBO(223, 128, 158, 1),
+      const Color.fromARGB(255, 219, 247, 240),
+      const Color.fromARGB(255, 126, 140, 224),
+      const Color.fromARGB(255, 255, 171, 145),
+      const Color.fromARGB(255, 167, 235, 244),
+    ];
+
+    int hash = 0;
+    for (int i = 0; i < name.length; i++) {
+      hash += name.codeUnitAt(i);
+    }
+    return nameColors[hash % nameColors.length];
+  }
+
+
+
   // Local storage for values from the backend
   Map<String, String> _latestValues = {};
 
@@ -92,6 +113,9 @@ class _MetricsPageState extends State<MetricsPage> {
 
   @override
   Widget build(BuildContext context) {
+
+    final Color petThemeColor = _getPetColor(widget.petName);
+
     List<String> filteredMetrics = _metrics
         .where((metric) => metric.toLowerCase().contains(_searchQuery))
         .toList();
@@ -133,9 +157,12 @@ class _MetricsPageState extends State<MetricsPage> {
             CircleAvatar(
               radius: 30,
               backgroundColor: Colors.white,
-              child: Icon(Icons.add_a_photo, size: 20, color: Color.fromARGB(255, 139, 174, 174)),
+              child: Icon(Icons.add_a_photo, 
+                size: 20, 
+                color: petThemeColor,
+              ),
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Text(
               "${widget.petName}'s Metrics", 
               style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 18)),
