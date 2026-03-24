@@ -16,7 +16,6 @@ class DashboardPage extends StatefulWidget {
 
 class _DashboardPageState extends State<DashboardPage> {
   int _selectedPetIndex = 0;
-
   final PetService _petService = PetService();
   List<dynamic> _pets = [];
   bool _isLoading = true;
@@ -27,6 +26,29 @@ class _DashboardPageState extends State<DashboardPage> {
     super.initState();
     _fetchPets();
   }
+
+  Color _getPetColor(String name) {
+  final List<Color> nameColors = [
+    const Color.fromARGB(255, 146, 179, 236),
+    const Color.fromRGBO(212, 162, 221, 1),
+    const Color.fromARGB(255, 182, 139, 83),
+    const Color.fromRGBO(223, 128, 158, 1),
+    const Color.fromARGB(255, 219, 247, 240),
+    const Color.fromARGB(255, 126, 140, 224),
+    const Color.fromARGB(255, 255, 171, 145),
+    const Color.fromARGB(255, 167, 235, 244),
+  ];
+
+  // Sum up the character codes of the name (e.g., 'A' = 65)
+  int hash = 0;
+  for (int i = 0; i < name.length; i++) {
+    hash += name.codeUnitAt(i);
+  }
+
+  // Use the modulo operator (%) to pick a color from the list
+  return nameColors[hash % nameColors.length];
+}
+  
 
   // Inside _DashboardPageState
 Future<void> _fetchPets() async {
@@ -122,13 +144,23 @@ Future<void> _fetchPets() async {
 
   Widget _appBarTitle() {
     String petName = _pets.isNotEmpty ? _pets[_selectedPetIndex]['pet_first_name'] : "Pet";
+    
+    // Get the dynamic color for the current pet
+    Color petColor = _pets.isNotEmpty 
+        ? _getPetColor(petName) 
+        : const Color.fromARGB(255, 139, 174, 174);
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const CircleAvatar(
+        CircleAvatar(
             radius: 30,
             backgroundColor: Colors.white,
-            child: Icon(Icons.add_a_photo, size: 20, color: Color.fromARGB(255, 139, 174, 174))),
+            child: Icon(
+              Icons.add_a_photo, 
+              size: 20, 
+              color: petColor, // Dynamic color applied here!
+            )),
         const SizedBox(height: 8),
         Text(
           _isLoading ? 'Loading...' : "${petName}'s Dashboard",
@@ -177,18 +209,37 @@ Future<void> _fetchPets() async {
 }
 
   Widget _changePetButton() {
+    // 1. Get the current active pet's name
+    String petName = _pets.isNotEmpty ? _pets[_selectedPetIndex]['pet_first_name'] : "";
+    
+    // 2. Calculate the specific color for this pet name
+    Color activePetColor = _pets.isNotEmpty 
+        ? _getPetColor(petName) 
+        : const Color.fromARGB(255, 139, 174, 174); // Default teal if list is empty
+
     return TextButton(
       onPressed: () {
         if (_pets.isNotEmpty) _showPetPicker();
       },
       style: TextButton.styleFrom(
-        backgroundColor: Colors.white.withValues(alpha: 0.6),
+        // 3. Set the background to the dynamic pet color
+        backgroundColor: activePetColor.withValues(alpha: 0.8),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(50)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(50),
+          // 4. Add a white border to help the colored button stand out
+          side: const BorderSide(color: Colors.white, width: 1),
+        ),
       ),
-      child: const Text("Change\nPet",
-          textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 8, color: Color.fromARGB(255, 139, 174, 174), fontWeight: FontWeight.bold)),
+      child: const Text(
+        "Change\nPet",
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          fontSize: 8, 
+          color: Colors.white, // White text for best contrast on colored backgrounds
+          fontWeight: FontWeight.bold
+        ),
+      ),
     );
   }
 
@@ -227,7 +278,10 @@ Future<void> _fetchPets() async {
 
         // Otherwise, show the normal pet list tiles
         return ListTile(
-          leading: const Icon(Icons.pets, color: Color.fromARGB(255, 139, 174, 174)),
+          leading: Icon(
+            Icons.pets, 
+            color: _getPetColor(_pets[index]['pet_first_name']),
+          ),
           title: Text(_pets[index]['pet_first_name']),
           trailing: _selectedPetIndex == index 
               ? const Icon(Icons.check, color: Colors.green) 
