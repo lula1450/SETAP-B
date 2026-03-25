@@ -26,6 +26,7 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   void initState() {
     super.initState();
+    _selectedDay = DateTime.now().day; // Default to today
     _fetchPets();
   }
 
@@ -73,6 +74,13 @@ class _DashboardPageState extends State<DashboardPage> {
   bool _hasAppointment(int day) {
     String dateString = "${_focusedDay.year}-${_focusedDay.month.toString().padLeft(2, '0')}-${day.toString().padLeft(2, '0')}";
     return _appointments.any((a) => a['pet_appointment_date'] == dateString);
+  }
+
+  bool _isToday(int day) {
+    DateTime now = DateTime.now();
+    return day == now.day && 
+       _focusedDay.month == now.month && 
+       _focusedDay.year == now.year;
   }
 
   // NEW: Booking Dialog for "Fake Vet"
@@ -242,29 +250,64 @@ class _DashboardPageState extends State<DashboardPage> {
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 7, mainAxisSpacing: 2),
             itemCount: daysInMonth + firstWeekdayIndex,
             itemBuilder: (context, index) {
-              if (index < firstWeekdayIndex) return const SizedBox();
-              int day = index - firstWeekdayIndex + 1;
-              bool hasAppt = _hasAppointment(day);
+  if (index < firstWeekdayIndex) return const SizedBox();
+  int day = index - firstWeekdayIndex + 1;
+  
+  bool isToday = _isToday(day); // Uses your existing helper
+  bool isSelected = _selectedDay == day;
+  bool hasAppt = _hasAppointment(day);
 
-              return InkWell(
-                onTap: () => setState(() => _selectedDay = day),
-                onDoubleTap: () => _showBookingDialog(day),
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Container(
-                      decoration: BoxDecoration(
-                        color: _selectedDay == day ? Colors.teal.withOpacity(0.2) : Colors.transparent,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Center(child: Text("$day", style: const TextStyle(fontSize: 10))),
-                    ),
-                    if (hasAppt)
-                      Positioned(bottom: 2, child: Container(width: 4, height: 4, decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle))),
-                  ],
-                ),
-              );
-            },
+  return InkWell(
+    onTap: () => setState(() => _selectedDay = day),
+    onDoubleTap: () => _showBookingDialog(day),
+    child: Stack(
+      alignment: Alignment.center,
+      children: [
+        // The Background/Highlight Layer
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            // 1. Highlight Today with a Border
+            border: isToday 
+                ? Border.all(color: const Color(0xFF8BAEAE), width: 2) 
+                : null,
+            // 2. Highlight Selected day with a Teal fill
+            color: isSelected 
+                ? const Color(0xFF8BAEAE).withOpacity(0.3) 
+                : Colors.transparent,
+          ),
+          child: Center(
+            child: Text(
+              "$day",
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
+                // Make the text match the theme if it's today
+                color: isToday ? const Color(0xFF8BAEAE) : Colors.black87,
+              ),
+            ),
+          ),
+        ),
+        // 3. The Appointment Dot (Red)
+        if (hasAppt)
+          Positioned(
+            bottom: 2,
+            child: Container(
+              width: 4,
+              height: 4,
+              decoration: const BoxDecoration(
+                color: Colors.redAccent,
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+      ],
+    ),
+  );
+},
           ),
         ),
       ],
