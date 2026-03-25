@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 class PetInfoPage extends StatelessWidget {
   const PetInfoPage({super.key});
 
+//URL for general help - can be changed just using for now
   final String helpUrl =
       "https://www.golden-retriever-owners.co.uk/info-guides/general-care-and-welfare-advice";
 
@@ -33,25 +34,30 @@ class PetInfoPage extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Page title
-              const Center(
-                child: Text(
-                  "Find out more about your pet",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
+              Column(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadiusGeometry.circular(16),
+                    child: Image.network(
+                      "https://images.unsplash.com/photo-1552053831-71594a27632d",
+                      height: 250,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      alignment: Alignment(0, -0.4),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    "Golden Retriever",
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    "Friendly • Intelligent • Loyal",
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ],
               ),
-              const SizedBox(height: 16),
-
-              // Profile card
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: _cardStyle(),
-                child: const Text(
-                  "Golden Retriever Profile Card",
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-              const SizedBox(height: 8),
 
               // URL 
               GestureDetector(
@@ -78,13 +84,24 @@ class PetInfoPage extends StatelessWidget {
                     child: Container(
                       padding: const EdgeInsets.all(12),
                       decoration: _cardStyle(),
-                      child: const Text(
-                        "Golden Retriever\n\n"
-                        "Size: Large\n"
-                        "Lifespan: 10-12 Years\n"
-                        "Energy level: High\n"
-                        "Trainability: *****",
-                      ),
+                      child: const Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "Golden Retriever",
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                            ),
+                            SizedBox(height: 8),
+
+                            Text("• Size: Large"),
+                            Text("• Lifespan: 10–12 years"),
+                            Text("• Energy level: High"),
+                            Text("• Trainability: Excellent"),
+                          ],
+                        ),
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -94,7 +111,10 @@ class PetInfoPage extends StatelessWidget {
                       decoration: _cardStyle(color: Colors.blue[50]),
                       child: const Text(
                         "Care tips\n"
-                        ".....",
+                        "• Daily excercise (1-2 hours)\n"
+                        "• Brush coat 2-3 times weekly\n"
+                        "• Social animals\n"
+                        "• Regular vet checkups\n",
                       ),
                     ),
                   ),
