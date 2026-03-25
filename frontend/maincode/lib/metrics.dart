@@ -88,14 +88,26 @@ class _MetricsPageState extends State<MetricsPage> {
   }
 
   Color _getPetColor(String name) {
+    // 1. Exact same color list as Dashboard
     final List<Color> nameColors = [
       const Color.fromARGB(255, 146, 179, 236),
       const Color.fromRGBO(212, 162, 221, 1),
       const Color.fromARGB(255, 182, 139, 83),
       const Color.fromRGBO(223, 128, 158, 1),
+      const Color.fromARGB(255, 219, 247, 240),
       const Color.fromARGB(255, 126, 140, 224),
+      const Color.fromARGB(255, 255, 171, 145),
+      const Color.fromARGB(255, 167, 235, 244),
     ];
-    int hash = name.isEmpty ? 0 : name.codeUnits.reduce((a, b) => a + b);
+
+    // 2. Exact same "Clean & Hash" math as Dashboard
+    final String cleanName = name.trim().toLowerCase();
+    int hash = 0;
+    for (int i = 0; i < cleanName.length; i++) {
+      hash += cleanName.codeUnitAt(i);
+    }
+
+    // 3. Modulo based on the NEW list length (8)
     return nameColors[hash % nameColors.length];
   }
 
