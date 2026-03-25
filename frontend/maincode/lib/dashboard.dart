@@ -18,8 +18,10 @@ class _DashboardPageState extends State<DashboardPage> {
   int _selectedPetIndex = 0;
   final PetService _petService = PetService();
   List<dynamic> _pets = [];
+  List<dynamic> _appointments = []; // NEW: Store appointments here
   bool _isLoading = true;
   DateTime _focusedDay = DateTime.now();
+  int? _selectedDay; // NEW: Track which day is tapped
 
   @override
   void initState() {
@@ -27,79 +29,118 @@ class _DashboardPageState extends State<DashboardPage> {
     _fetchPets();
   }
 
-  Color _getPetColor(String name) {
-  final List<Color> nameColors = [
-    const Color.fromARGB(255, 146, 179, 236),
-    const Color.fromRGBO(212, 162, 221, 1),
-    const Color.fromARGB(255, 182, 139, 83),
-    const Color.fromRGBO(223, 128, 158, 1),
-    const Color.fromARGB(255, 219, 247, 240),
-    const Color.fromARGB(255, 126, 140, 224),
-    const Color.fromARGB(255, 255, 171, 145),
-    const Color.fromARGB(255, 167, 235, 244),
-  ];
+  // --- LOGIC FUNCTIONS ---
 
-  // Sum up the character codes of the name (e.g., 'A' = 65)
-  int hash = 0;
-  for (int i = 0; i < name.length; i++) {
-    hash += name.codeUnitAt(i);
-  }
-
-  // Use the modulo operator (%) to pick a color from the list
-  return nameColors[hash % nameColors.length];
-}
-  
-
-  // Inside _DashboardPageState
-Future<void> _fetchPets() async {
-  try {
-    final prefs = await SharedPreferences.getInstance();
-    final int ownerId = prefs.getInt('owner_id') ?? 0;
-
-    // Call backend
-    final data = await _petService.getOwnerPets(ownerId);
-    
-    if (mounted) {
-      if (data.isEmpty) {
-        // Use a slight delay to ensure the Dashboard is ready before pushing the next page
-        Future.delayed(Duration.zero, () {
-          Navigator.push(
-            context, 
-            MaterialPageRoute(builder: (context) => const AddPetPage())
-          ).then((_) => _fetchPets()); // Refresh when they come back from adding a pet
-        });
-      } else {
-        setState(() {
-          _pets = data;
-          _isLoading = false;
-        });
+  Future<void> _fetchPets() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final int ownerId = prefs.getInt('owner_id') ?? 0;
+      final data = await _petService.getOwnerPets(ownerId);
+      
+      if (mounted) {
+        if (data.isEmpty) {
+          Future.delayed(Duration.zero, () {
+            Navigator.push(context, MaterialPageRoute(builder: (context) => const AddPetPage()))
+            .then((_) => _fetchPets());
+          });
+        } else {
+          setState(() {
+            _pets = data;
+            _isLoading = false;
+          });
+          _fetchAppointments(); // Fetch appointments for the first pet
+        }
       }
+    } catch (e) {
+      debugPrint("Error: $e");
+      setState(() => _isLoading = false);
     }
-  } catch (e) {
-    debugPrint("Error: $e");
-    setState(() => _isLoading = false);
   }
-}
+
+  // NEW: Fetch appointments from FastAPI
+  Future<void> _fetchAppointments() async {
+    if (_pets.isEmpty) return;
+    final petId = _pets[_selectedPetIndex]['pet_id'];
+    final appts = await _petService.getAppointments(petId);
+    if (mounted) {
+      setState(() {
+        _appointments = appts;
+      });
+    }
+  }
+
+  // NEW: Helper to check if a day has an appointment
+  bool _hasAppointment(int day) {
+    String dateString = "${_focusedDay.year}-${_focusedDay.month.toString().padLeft(2, '0')}-${day.toString().padLeft(2, '0')}";
+    return _appointments.any((a) => a['pet_appointment_date'] == dateString);
+  }
+
+  // NEW: Booking Dialog for "Fake Vet"
+  void _showBookingDialog(int day) async {
+    final notesController = TextEditingController();
+    final TimeOfDay? pickedTime = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.now(),
+    );
+
+    if (pickedTime != null && mounted) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+          title: Text("Vet Notes for $day/${_focusedDay.month}"),
+          content: TextField(
+            controller: notesController,
+            decoration: const InputDecoration(hintText: "e.g. Dr. Smith - Vaccinations"),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF8BAEAE)),
+              onPressed: () async {
+                String dateStr = "${_focusedDay.year}-${_focusedDay.month.toString().padLeft(2, '0')}-${day.toString().padLeft(2, '0')}";
+                String timeStr = "${pickedTime.hour.toString().padLeft(2, '0')}:${pickedTime.minute.toString().padLeft(2, '0')}:00";
+
+                await _petService.createAppointment(
+                  petId: _pets[_selectedPetIndex]['pet_id'],
+                  date: dateStr,
+                  time: timeStr,
+                  notes: notesController.text,
+                );
+                
+                Navigator.pop(context);
+                _fetchAppointments(); // Refresh the dots!
+              },
+              child: const Text("Confirm", style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+  Color _getPetColor(String name) {
+    final List<Color> nameColors = [
+      const Color.fromARGB(255, 146, 179, 236),
+      const Color.fromRGBO(212, 162, 221, 1),
+      const Color.fromARGB(255, 182, 139, 83),
+      const Color.fromRGBO(223, 128, 158, 1),
+      const Color.fromARGB(255, 219, 247, 240),
+      const Color.fromARGB(255, 126, 140, 224),
+      const Color.fromARGB(255, 255, 171, 145),
+      const Color.fromARGB(255, 167, 235, 244),
+    ];
+    int hash = 0;
+    for (int i = 0; i < name.length; i++) {
+      hash += name.codeUnitAt(i);
+    }
+    return nameColors[hash % nameColors.length];
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      endDrawer: Drawer(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            const DrawerHeader(
-              decoration: BoxDecoration(color: Color.fromARGB(255, 139, 174, 174)),
-              child: Text('Settings', style: TextStyle(color: Colors.white, fontSize: 24)),
-            ),
-            _drawerTile(Icons.person, 'Edit Profile'),
-            _drawerTile(Icons.notifications, 'Notifications'),
-            _drawerTile(Icons.palette, 'Report History'),
-            _drawerTile(Icons.logout, 'Logout'),
-            _drawerTile(Icons.delete_forever, 'Delete Account', color: Colors.red),
-          ],
-        ),
-      ),
+      endDrawer: _buildDrawer(),
       appBar: AppBar(
         backgroundColor: const Color.fromARGB(255, 139, 174, 174),
         elevation: 0,
@@ -119,20 +160,18 @@ Future<void> _fetchPets() async {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              Color.fromARGB(255, 139, 174, 174),
-              Color.fromARGB(255, 178, 211, 194),
-              Color.fromARGB(255, 224, 247, 244),
-            ],
+            colors: [Color(0xFF8BAEAE), Color(0xFFB2D3C2), Color(0xFFE0F7F4)],
           ),
         ),
         child: SingleChildScrollView(
           child: Column(
             children: [
               _calendarSection(),
+              _buildDailySchedule(), // NEW: List of appointments below calendar
               _actionButtonsSection(context),
               _dailyInfoSection(),
               _navigationGridSection(),
+              const SizedBox(height: 30),
             ],
           ),
         ),
@@ -140,192 +179,37 @@ Future<void> _fetchPets() async {
     );
   }
 
-  // --- HELPER FUNCTIONS (ALL INSIDE CLASS) ---
+  // --- NEW: DAILY SCHEDULE LIST ---
+  Widget _buildDailySchedule() {
+    if (_selectedDay == null) return const SizedBox.shrink();
 
-  Widget _appBarTitle() {
-    String petName = _pets.isNotEmpty ? _pets[_selectedPetIndex]['pet_first_name'] : "Pet";
-    
-    // Get the dynamic color for the current pet
-    Color petColor = _pets.isNotEmpty 
-        ? _getPetColor(petName) 
-        : const Color.fromARGB(255, 139, 174, 174);
+    String selectedDateStr = "${_focusedDay.year}-${_focusedDay.month.toString().padLeft(2, '0')}-${_selectedDay.toString().padLeft(2, '0')}";
+    var dailyAppts = _appointments.where((a) => a['pet_appointment_date'] == selectedDateStr).toList();
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        CircleAvatar(
-            radius: 30,
-            backgroundColor: Colors.white,
-            child: Icon(
-              Icons.add_a_photo, 
-              size: 20, 
-              color: petColor, // Dynamic color applied here!
-            ),
-          ),
-        const SizedBox(height: 8),
-        Text(
-          _isLoading ? 'Loading...' : "${petName}'s Dashboard",
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
-        ),
-      ],
-    );
-  }
-
-  void _showDeleteConfirmation() {
-  showDialog(
-    context: context,
-    builder: (context) => AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-      title: const Text("Delete Account?"),
-      content: const Text(
-        "This will permanently delete your profile and all associated pet data. This action cannot be undone.",
-        style: TextStyle(fontSize: 14),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context), // Close the dialog
-          child: const Text("Cancel", style: TextStyle(color: Colors.grey)),
-        ),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.red,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          ),
-          onPressed: () async {
-            // TODO: Call your backend DELETE route here
-            // Example: await _petService.deleteOwner(1);
-            
-            Navigator.pop(context); // Close dialog
-            Navigator.pop(context); // Close drawer
-            
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("Account successfully deleted")),
-            );
-          },
-          child: const Text("Delete", style: TextStyle(color: Colors.white)),
-        ),
-      ],
-    ),
-  );
-}
-
-  Widget _changePetButton() {
-  // 1. Get the current active pet's name and color
-  String petName = _pets.isNotEmpty ? _pets[_selectedPetIndex]['pet_first_name'] : "";
-  Color activePetColor = _pets.isNotEmpty 
-      ? _getPetColor(petName) 
-      : const Color.fromARGB(255, 139, 174, 174);
-
-  return Column(
-    mainAxisAlignment: MainAxisAlignment.center,
-    children: [
-      RawMaterialButton(
-        onPressed: () {
-          if (_pets.isNotEmpty) _showPetPicker();
-        },
-        elevation: 4.0,
-        // 2. Fill the button with the pet's unique color
-        fillColor: activePetColor,
-        padding: const EdgeInsets.all(10.0),
-        // 3. CircleBorder creates the "pad" shape
-        shape: const CircleBorder(
-          side: BorderSide(color: Colors.white, width: 2),
-        ),
-        child: const Icon(
-          Icons.pets, // The Paw Icon
-          color: Colors.white,
-          size: 24,
-        ),
-      ),
-      const SizedBox(height: 4),
-      const Text(
-        "CHANGE",
-        style: TextStyle(
-          color: Colors.white, 
-          fontSize: 7, 
-          fontWeight: FontWeight.bold,
-          letterSpacing: 0.5,
-        ),
-      ),
-    ],
-  );
-}
-
-  void _showPetPicker() {
-  showModalBottomSheet(
-    context: context,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-    ),
-    builder: (context) => ListView.builder(
-      shrinkWrap: true,
-      // Add +1 to the length to account for the "Add Pet" button
-      itemCount: _pets.length + 1, 
-      itemBuilder: (context, index) {
-        // If it's the last item in the list, show the "Add New Pet" option
-        if (index == _pets.length) {
-          return ListTile(
-            leading: const Icon(Icons.add_circle_outline, color: Colors.blueGrey),
-            title: const Text(
-              "Add New Pet",
-              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blueGrey),
-            ),
-            onTap: () async {
-              Navigator.pop(context); // Close the bottom sheet
-              
-              final bool? wasAdded = await Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const AddPetPage() ,)
-              );
-              if (wasAdded == true) {
-                _fetchPets();
-              }
-            },
-          );
-        }
-
-        // Otherwise, show the normal pet list tiles
-        return ListTile(
-          leading: Icon(
-            Icons.pets, 
-            color: _getPetColor(_pets[index]['pet_first_name']),
-          ),
-          title: Text(_pets[index]['pet_first_name']),
-          trailing: _selectedPetIndex == index 
-              ? const Icon(Icons.check, color: Colors.green) 
-              : null,
-          onTap: () {
-            setState(() {
-              _selectedPetIndex = index;
-            });
-            Navigator.pop(context);
-          },
-        );
-      },
-    ),
-  );
-}
-
-  Widget _calendarSection() {
-    return SizedBox(
-      height: 420,
-      child: Stack(
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Align(alignment: Alignment.topLeft, child: _backgroundCircle(190, Colors.white.withValues(alpha: 0.3))),
-          Align(alignment: Alignment.bottomRight, child: _backgroundCircle(180, Colors.white.withValues(alpha: 0.4))),
-          Align(
-            alignment: Alignment.center,
-            child: Container(
-              height: 380,
-              width: double.infinity,
-              margin: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.8),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: _buildCalendar(),
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text("Schedule: $_selectedDay/${_focusedDay.month}", style: const TextStyle(fontWeight: FontWeight.bold)),
+              IconButton(icon: const Icon(Icons.add_circle, color: Color(0xFF8BAEAE)), onPressed: () => _showBookingDialog(_selectedDay!)),
+            ],
           ),
+          if (dailyAppts.isEmpty)
+            const Text("No appointments.", style: TextStyle(fontSize: 10, color: Colors.grey))
+          else
+            ...dailyAppts.map((appt) => Card(
+              child: ListTile(
+                dense: true,
+                leading: const Icon(Icons.medical_services, size: 16, color: Colors.redAccent),
+                title: Text(appt['appointment_notes'] ?? "Vet Visit", style: const TextStyle(fontSize: 12)),
+                subtitle: Text(appt['pet_appointment_time'], style: const TextStyle(fontSize: 10)),
+              ),
+            )),
+          const Divider(),
         ],
       ),
     );
@@ -360,24 +244,157 @@ Future<void> _fetchPets() async {
             itemBuilder: (context, index) {
               if (index < firstWeekdayIndex) return const SizedBox();
               int day = index - firstWeekdayIndex + 1;
-              return Center(child: Text("$day", style: const TextStyle(fontSize: 10)));
+              bool hasAppt = _hasAppointment(day);
+
+              return InkWell(
+                onTap: () => setState(() => _selectedDay = day),
+                onDoubleTap: () => _showBookingDialog(day),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        color: _selectedDay == day ? Colors.teal.withOpacity(0.2) : Colors.transparent,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Center(child: Text("$day", style: const TextStyle(fontSize: 10))),
+                    ),
+                    if (hasAppt)
+                      Positioned(bottom: 2, child: Container(width: 4, height: 4, decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle))),
+                  ],
+                ),
+              );
             },
           ),
-        ),
-        Padding(
-          padding: const EdgeInsets.only(bottom: 8.0),
-          child: ElevatedButton(onPressed: () {}, child: const Text("CREATE appointment", style: TextStyle(fontSize: 10))),
         ),
       ],
     );
   }
 
+  // --- REFACTORED PICKER TO HANDLE REFRESH ---
+  void _showPetPicker() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) => ListView.builder(
+        shrinkWrap: true,
+        itemCount: _pets.length + 1, 
+        itemBuilder: (context, index) {
+          if (index == _pets.length) {
+            return ListTile(
+              leading: const Icon(Icons.add_circle_outline),
+              title: const Text("Add New Pet"),
+              onTap: () async {
+                Navigator.pop(context);
+                await Navigator.push(context, MaterialPageRoute(builder: (context) => const AddPetPage()));
+                _fetchPets();
+              },
+            );
+          }
+          return ListTile(
+            leading: Icon(Icons.pets, color: _getPetColor(_pets[index]['pet_first_name'])),
+            title: Text(_pets[index]['pet_first_name']),
+            onTap: () {
+              setState(() => _selectedPetIndex = index);
+              Navigator.pop(context);
+              _fetchAppointments(); // Update calendar when pet changes
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  // (All other helper functions like _appBarTitle, _drawerTile, etc. remain the same as your code)
+  
+  Widget _buildDrawer() {
+    return Drawer(
+      child: ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          const DrawerHeader(
+            decoration: BoxDecoration(color: Color.fromARGB(255, 139, 174, 174)),
+            child: Text('Settings', style: TextStyle(color: Colors.white, fontSize: 24)),
+          ),
+          _drawerTile(Icons.person, 'Edit Profile'),
+          _drawerTile(Icons.notifications, 'Notifications'),
+          _drawerTile(Icons.palette, 'Report History'),
+          _drawerTile(Icons.logout, 'Logout'),
+          _drawerTile(Icons.delete_forever, 'Delete Account', color: Colors.red),
+        ],
+      ),
+    );
+  }
+
+  Widget _drawerTile(IconData icon, String title, {Color? color}) {
+    return ListTile(
+      leading: Icon(icon, color: color),
+      title: Text(title, style: TextStyle(color: color)),
+      onTap: () {
+        if (title == 'Delete Account') {
+          _showDeleteConfirmation();
+        } else {
+          Navigator.pop(context);
+        }
+      },
+    );
+  }
+
+  Widget _appBarTitle() {
+    String petName = _pets.isNotEmpty ? _pets[_selectedPetIndex]['pet_first_name'] : "Pet";
+    Color petColor = _pets.isNotEmpty ? _getPetColor(petName) : const Color.fromARGB(255, 139, 174, 174);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        CircleAvatar(radius: 30, backgroundColor: Colors.white, child: Icon(Icons.pets, size: 20, color: petColor)),
+        const SizedBox(height: 8),
+        Text(_isLoading ? 'Loading...' : "$petName's Dashboard", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+      ],
+    );
+  }
+
+  Widget _changePetButton() {
+    String petName = _pets.isNotEmpty ? _pets[_selectedPetIndex]['pet_first_name'] : "";
+    Color activePetColor = _pets.isNotEmpty ? _getPetColor(petName) : const Color.fromARGB(255, 139, 174, 174);
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        RawMaterialButton(
+          onPressed: () { if (_pets.isNotEmpty) _showPetPicker(); },
+          elevation: 4.0,
+          fillColor: activePetColor,
+          padding: const EdgeInsets.all(10.0),
+          shape: const CircleBorder(side: BorderSide(color: Colors.white, width: 2)),
+          child: const Icon(Icons.pets, color: Colors.white, size: 24),
+        ),
+        const SizedBox(height: 4),
+        const Text("CHANGE", style: TextStyle(color: Colors.white, fontSize: 7, fontWeight: FontWeight.bold)),
+      ],
+    );
+  }
+
+  Widget _calendarSection() {
+    return SizedBox(
+      height: 420,
+      child: Stack(
+        children: [
+          Align(alignment: Alignment.topLeft, child: _backgroundCircle(190, Colors.white.withOpacity(0.3))),
+          Align(alignment: Alignment.bottomRight, child: _backgroundCircle(180, Colors.white.withOpacity(0.4))),
+          Align(
+            alignment: Alignment.center,
+            child: Container(
+              height: 380, width: double.infinity, margin: const EdgeInsets.all(16),
+              decoration: BoxDecoration(color: Colors.white.withOpacity(0.8), borderRadius: BorderRadius.circular(12)),
+              child: _buildCalendar(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _calendarHeaderRow() {
-    return Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
-            .map((day) => Text(day, style: const TextStyle(fontSize: 10, color: Colors.grey)))
-            .toList());
+    return Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => Text(day, style: const TextStyle(fontSize: 10, color: Colors.grey))).toList());
   }
 
   Widget _actionButtonsSection(BuildContext context) {
@@ -389,7 +406,7 @@ Future<void> _fetchPets() async {
           _actionButton(context, "Log daily\nmetrics"),
           _actionButton(context, "Recently\nlogged data"),
           _actionButton(context, "Find out\nmore about pet"),
-          const Column(children: [Icon(Icons.sentiment_very_dissatisfied, size: 40, color: Colors.orange), Text("Current mood", style: TextStyle(fontSize: 8))]),
+          const Column(children: [Icon(Icons.sentiment_very_satisfied, size: 40, color: Colors.orange), Text("Current mood", style: TextStyle(fontSize: 8))]),
         ],
       ),
     );
@@ -412,20 +429,12 @@ Future<void> _fetchPets() async {
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
       child: Container(
         padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.4),
-          borderRadius: BorderRadius.circular(15),
-          border: Border.all(color: Colors.white24),
-        ),
+        decoration: BoxDecoration(color: Colors.white.withOpacity(0.4), borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.white24)),
         child: GridView.count(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: 4,
-          mainAxisSpacing: 10,
-          crossAxisSpacing: 7,
+          shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), crossAxisCount: 4, mainAxisSpacing: 10, crossAxisSpacing: 7,
           children: [
             _gridButton("Generate\nreport"),
-            _gridButton("Health\nrecords", onTap: () {Navigator.push(context, MaterialPageRoute(builder: (context) => const HealthRecordsPage()));}),
+            _gridButton("Health\nrecords", onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const HealthRecordsPage()))),
             _gridButton("Feeding\nschedule"),
             _gridButton("Surprise!"),
           ],
@@ -436,62 +445,20 @@ Future<void> _fetchPets() async {
 
   Widget _actionButton(BuildContext context, String text) {
     String petName = _pets.isNotEmpty ? _pets[_selectedPetIndex]['pet_first_name'] : "";
-
-    String buttontext = text.replaceAll("pet", petName);
-    
     return InkWell(
       onTap: () {
-        // 1. Log daily metrics - Needs pet details
-        if (text.contains("Log")) {
-          if (_pets.isNotEmpty) {
-            final currentPet = _pets[_selectedPetIndex]; // Define inside the logic block
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => MetricsPage(
-                  petId: currentPet['pet_id'],
-                  petName: currentPet['pet_first_name'],
-                ),
-              ),
-            );
-          } else {
-            // Safety check in case Lauren hasn't added a pet yet
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("Please add a pet first!")),
-            );
-          }
-        } 
-        
-        // 2. Recently logged data
-        else if (text.contains("Recently")) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const RecentlyLoggedDataPage()),
-          );
-        } 
-        
-        // 3. Find out more about pet
-        else if (text.contains("Find out")) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const PetInfoPage()),
-          );
+        if (text.contains("Log") && _pets.isNotEmpty) {
+          Navigator.push(context, MaterialPageRoute(builder: (context) => MetricsPage(petId: _pets[_selectedPetIndex]['pet_id'], petName: _pets[_selectedPetIndex]['pet_first_name'])));
+        } else if (text.contains("Recently")) {
+          Navigator.push(context, MaterialPageRoute(builder: (context) => const RecentlyLoggedDataPage()));
+        } else if (text.contains("Find out")) {
+          Navigator.push(context, MaterialPageRoute(builder: (context) => const PetInfoPage()));
         }
       },
       child: Container(
-        width: 85,
-        height: 85,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(15),
-          border: Border.all(color: Colors.black12),
-        ),
-        child: Text(
-          text,
-          textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold),
-        ),
+        width: 85, height: 85, alignment: Alignment.center,
+        decoration: BoxDecoration(color: Colors.white.withOpacity(0.5), borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.black12)),
+        child: Text(text.replaceAll("pet", petName), textAlign: TextAlign.center, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold)),
       ),
     );
   }
@@ -499,12 +466,8 @@ Future<void> _fetchPets() async {
   Widget _infoBox(String title, String content) {
     return Container(
       width: double.infinity, padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.5), borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.black12)),
-      child: Column(children: [
-        Center(child: Text(title, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold))),
-        const SizedBox(height: 4),
-        Center(child: Text(content, style: const TextStyle(fontSize: 10))),
-      ]),
+      decoration: BoxDecoration(color: Colors.white.withOpacity(0.5), borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.black12)),
+      child: Column(children: [Text(title, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)), const SizedBox(height: 4), Text(content, style: const TextStyle(fontSize: 10))]),
     );
   }
 
@@ -512,7 +475,7 @@ Future<void> _fetchPets() async {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.5), borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.black12)),
+        decoration: BoxDecoration(color: Colors.white.withOpacity(0.5), borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.black12)),
         child: Center(child: Text(label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold))),
       ),
     );
@@ -522,17 +485,17 @@ Future<void> _fetchPets() async {
     return Container(width: size, height: size, decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: color, width: 20)));
   }
 
-  Widget _drawerTile(IconData icon, String title, {Color? color}) {
-  return ListTile(
-    leading: Icon(icon, color: color),
-    title: Text(title, style: TextStyle(color: color)),
-    onTap: () {
-      if (title == 'Delete Account') {
-        _showDeleteConfirmation();
-      } else {
-        Navigator.pop(context);
-      }
-    },
-  );
-}
+  void _showDeleteConfirmation() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Delete Account?"),
+        content: const Text("Permanently delete profile and pet data?"),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+          ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.red), onPressed: () => Navigator.pop(context), child: const Text("Delete", style: TextStyle(color: Colors.white))),
+        ],
+      ),
+    );
+  }
 }

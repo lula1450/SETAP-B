@@ -1,39 +1,30 @@
-"""
 from fastapi import APIRouter, HTTPException, Depends, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from datetime import date, time
+from typing import List, Optional
 
-# database session provider
-from petsync_backend import models, schemas
+# Database session provider and models
+from petsync_backend import models
 from petsync_backend.database import get_db
 
-# database models
-from models import PetAppointment, FeedingSchedule, Reminder
-
-
 router = APIRouter(
-    prefix="/schedule",
+    prefix="",
     tags=["Scheduling & Reminders"]
 )
 
-
-# simple test route
-@router.get("/")
-async def status_check():
-    return {"message": "Feature pending implementation"}
-
-
-# SCHEMAS
+# --- 1. SCHEMAS (Data Validation) ---
 
 class AppointmentCreate(BaseModel):
     pet_id: int
     appointment_date: date
     appointment_time: time
+    notes: Optional[str] = None
 
 class AppointmentUpdate(BaseModel):
     new_date: date
     new_time: time
+    notes: Optional[str] = None
 
 class FeedingScheduleCreate(BaseModel):
     pet_id: int
@@ -42,9 +33,10 @@ class FeedingScheduleCreate(BaseModel):
 
 class FeedingScheduleUpdate(BaseModel):
     new_time: time
+    food_type: Optional[str] = None
 
 class ReminderCreate(BaseModel):
-    pet_id : int
+    pet_id: int
     reminder_time: time
     reminder_message: str
 
@@ -52,125 +44,86 @@ class ReminderUpdate(BaseModel):
     new_time: time
     new_message: str
 
-#CREATE
+# --- 2. CREATE ROUTES ---
 
 @router.post("/appointments", status_code=status.HTTP_201_CREATED)
 def create_pet_appointment(appointment: AppointmentCreate, db: Session = Depends(get_db)):
-    new_appointment = PetAppointment(
+    new_appointment = models.PetAppointment(
         pet_id=appointment.pet_id,
         pet_appointment_date=appointment.appointment_date,
         pet_appointment_time=appointment.appointment_time,
-        appointment_status="SCHEDULED"
+        appointment_status="Scheduled",
+        appointment_notes=appointment.notes
     )
-
     db.add(new_appointment)
     db.commit()
     db.refresh(new_appointment)
-
     return new_appointment
 
 @router.post("/feeding-schedules", status_code=status.HTTP_201_CREATED)
 def create_feeding_schedule(schedule: FeedingScheduleCreate, db: Session = Depends(get_db)):
-    new_schedule = FeedingSchedule(
+    new_schedule = models.FeedingSchedule(
         pet_id=schedule.pet_id,
         feeding_time=schedule.feeding_time,
         food_name=schedule.food_type
     )
-
     db.add(new_schedule)
     db.commit()
     db.refresh(new_schedule)
-
     return new_schedule
 
 @router.post("/reminders", status_code=status.HTTP_201_CREATED)
 def create_reminder(reminder: ReminderCreate, db: Session = Depends(get_db)):
-    new_reminder = Reminder(
+    new_reminder = models.Reminder(
         pet_id=reminder.pet_id,
         reminder_time=reminder.reminder_time,
         reminder_message=reminder.reminder_message
     )
-
     db.add(new_reminder)
     db.commit()
     db.refresh(new_reminder)
-
     return new_reminder
 
+# --- 3. GET (READ) ROUTES ---
 
-# UPDATE
+@router.get("/appointments/pet/{pet_id}")
+def get_pet_appointments(pet_id: int, db: Session = Depends(get_db)):
+    return db.query(models.PetAppointment).filter(models.PetAppointment.pet_id == pet_id).all()
+
+@router.get("/feeding-schedules/pet/{pet_id}")
+def get_feeding_schedules(pet_id: int, db: Session = Depends(get_db)):
+    return db.query(models.FeedingSchedule).filter(models.FeedingSchedule.pet_id == pet_id).all()
+
+# --- 4. UPDATE ROUTES ---
 
 @router.put("/appointments/{appointment_id}")
-def update_pet_appointment(appointment_id: int, appointment_update: AppointmentUpdate, db: Session = Depends(get_db)):
-    appointment = db.get(PetAppointment, appointment_id)
-
+def update_pet_appointment(appointment_id: int, update: AppointmentUpdate, db: Session = Depends(get_db)):
+    appointment = db.query(models.PetAppointment).filter(
+        models.PetAppointment.pet_appointment_id == appointment_id
+    ).first()
+    
     if not appointment:
         raise HTTPException(status_code=404, detail="Appointment not found")
-
-    appointment.pet_appointment_date = appointment_update.new_date
-    appointment.pet_appointment_time = appointment_update.new_time
+    
+    appointment.pet_appointment_date = update.new_date
+    appointment.pet_appointment_time = update.new_time
+    appointment.appointment_notes = update.notes
+    
     db.commit()
     db.refresh(appointment)
-
     return appointment
 
-@router.put("/feeding-schedules/{schedule_id}")
-def update_feeding_schedule(schedule_id: int, schedule_update: FeedingScheduleUpdate, db: Session = Depends(get_db)):
-    schedule = db.get(FeedingSchedule, schedule_id)
-
-    if not schedule:
-        raise HTTPException(status_code=404, detail="Feeding schedule not found")
-
-    schedule.feeding_time = schedule_update.new_time
-    db.commit()
-    db.refresh(schedule)
-
-    return schedule
-
-@router.put("/reminders/{reminder_id}")
-def update_reminder(reminder_id: int, reminder_update: ReminderUpdate, db: Session = Depends(get_db)):
-    reminder = db.get(Reminder, reminder_id)
-
-    if not reminder:
-        raise HTTPException(status_code=404, detail="Reminder not found")
-
-    reminder.reminder_time = reminder_update.new_time
-    reminder.reminder_message = reminder_update.new_message
-    db.commit()
-    db.refresh(reminder)
-
-    return reminder
-
-# DELETE
+# --- 5. DELETE ROUTES ---
 
 @router.delete("/appointments/{appointment_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_pet_appointment(appointment_id: int, db: Session = Depends(get_db)):
-    appointment = db.get(PetAppointment, appointment_id)
-
+    appointment = db.query(models.PetAppointment).filter(
+        models.PetAppointment.pet_appointment_id == appointment_id
+    ).first()
+    
     if not appointment:
         raise HTTPException(status_code=404, detail="Appointment not found")
-
+    
     db.delete(appointment)
     db.commit()
-
-@router.delete("/feeding-schedules/{schedule_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_feeding_schedule(schedule_id: int, db: Session = Depends(get_db)):
-    schedule = db.get(FeedingSchedule, schedule_id)
-
-    if not schedule:
-        raise HTTPException(status_code=404, detail="Feeding schedule not found")
-
-    db.delete(schedule)
-    db.commit()
-
-@router.delete("/reminders/{reminder_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_reminder(reminder_id: int, db: Session = Depends(get_db)):
-    reminder = db.get(Reminder, reminder_id)
-
-    if not reminder:
-        raise HTTPException(status_code=404, detail="Reminder not found")
-
-    db.delete(reminder)
-    db.commit()
-
-"""
+    return None

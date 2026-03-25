@@ -1,23 +1,17 @@
-# This manager represents the ERD in python, used so other managers can import the tables
-# each class represents a table along with its PKs and FKs. Uses SQLalchemy to create the tables
-
-#imports necessary to create the database tables in python
 from sqlalchemy import Column, Integer, String, Date, Time, ForeignKey, DateTime, Enum, Text, Numeric, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
 import enum
 from sqlalchemy.orm import relationship
 
-#change
-# Creates a class that where if a class inherits it, it is a database table
+# Base class for all models
 Base = declarative_base()
 
-#Creation of owner table
+# --- 1. OWNER TABLE ---
 class Owner(Base):
     __tablename__ = "owner"
 
     owner_id = Column(Integer, primary_key=True)
-
     owner_first_name = Column(String(50), nullable=False, index=True)
     owner_last_name = Column(String(100), nullable=False, index=True)
     owner_email = Column(String(100), unique=True, nullable=False, index=True)
@@ -27,9 +21,28 @@ class Owner(Base):
     owner_address2 = Column(String(100))
     owner_postcode = Column(String(10), nullable=False)
     owner_city = Column(String(30), nullable=False, default="London")
+    
+    # Relationship to pets
     pets = relationship("Pet", backref="owner", cascade="all, delete")
 
-#Creation of Pet table
+# --- 2. SPECIES CONFIG TABLE ---
+class SpeciesType(enum.Enum):
+    dog = "dog"
+    cat = "cat"
+    hamster = "hamster"
+    snake = "snake"
+    bird = "bird"
+    rabbit = "rabbit"
+
+class Species_config(Base):
+    __tablename__ = "species_config"
+
+    species_id = Column(Integer, primary_key=True, nullable=False, index=True)
+    species_name = Column(Enum(SpeciesType, name="species_type"), nullable=False)
+    breed_name = Column(String(20), nullable=False)
+    notes = Column(Text, nullable=False)
+
+# --- 3. PET TABLE ---
 class Pet(Base):
     __tablename__ = "pet"
 
@@ -44,37 +57,16 @@ class Pet(Base):
     pet_postcode = Column(String(10), nullable=False)
     pet_city = Column(String(30), nullable=False)
 
-#Creation of species_config table
-class SpeciesType(enum.Enum):
-    dog = "dog"
-    cat = "cat"
-    hamster = "hamster"
-    snake = "snake"
-    bird = "bird"
-    rabbit = "rabbit"
-
-class Species_config(Base):
-    __tablename__ = "species_config"
-
-    species_id = Column(Integer, primary_key=True, nullable=False, index=True)
-    
-    species_name = Column(Enum(SpeciesType, name="species_type"), nullable=False)
-    breed_name = Column(String(20), nullable=False)
-    notes = Column(Text, nullable=False)
-
-#Creation of MedicalDetails table    
+# --- 4. MEDICAL & METADATA ---
 class SpayNeuteredStatus(enum.Enum):
     Yes = "Yes"
     No = "No"
     NA = "N/A"
 
 class MedicalDetail(Base):
-
     __tablename__ = "medical_detail"
-
     medical_detail_id = Column(Integer, primary_key=True)
     pet_id = Column(Integer, ForeignKey("pet.pet_id"), nullable=False)
-
     blood_type = Column(String(20))
     medical_notes = Column(Text)
     current_medication = Column(Text)
@@ -82,14 +74,13 @@ class MedicalDetail(Base):
     microchip_id = Column(String(15), unique=True)
     spay_neutered = Column(Enum(SpayNeuteredStatus, name="spay_neutered_status"), nullable=False, default=SpayNeuteredStatus.NA)
 
-#Creation of MetaDeta table
 class PetMetaData(Base):
     __tablename__ = "pet_metadata"
-
     meta_data_id = Column(Integer, primary_key=True)
     pet_id = Column(Integer, ForeignKey("pet.pet_id"), nullable=False, index=True)
     notes = Column(Text, nullable=False)
 
+# --- 5. METRIC DEFINITIONS & HEALTH ---
 class MetricName(enum.Enum):
     weight = "weight"
     stool_quality = "stool_quality"
@@ -123,20 +114,16 @@ class MetricUnit(enum.Enum):
     text = "text"
     custom = "custom"
 
-#Creation of MetricDefinition table
 class MetricDefinition(Base):
     __tablename__ = "metric_definition"
-
     metric_def_id = Column(Integer, primary_key=True, nullable=False, index=True)
     species_id = Column(Integer, ForeignKey("species_config.species_id"), nullable=False, index=True)
-    metric_name = Column(Enum(MetricName, name="metric_name"),nullable=False, index=True)
+    metric_name = Column(Enum(MetricName, name="metric_name"), nullable=False, index=True)
     metric_unit = Column(Enum(MetricUnit, name="metric_unit"), nullable=False)
     notes = Column(Text)
 
-#Creation of HealthMetric table
 class HealthMetric(Base):
     __tablename__ = "health_metric"
-
     health_metric_id = Column(Integer, primary_key=True, nullable=False, index=True)
     metric_def_id = Column(Integer, ForeignKey("metric_definition.metric_def_id"), nullable=False, index=True)
     pet_id = Column(Integer, ForeignKey("pet.pet_id"), nullable=False, index=True)
@@ -144,7 +131,7 @@ class HealthMetric(Base):
     metric_time = Column(DateTime, nullable=False, index=True)
     notes = Column(Text, nullable=True)
 
-#Creation of the PetAppointment table
+# --- 6. SCHEDULING & APPOINTMENTS ---
 class AppointmentStatus(enum.Enum):
     Scheduled = "Scheduled"
     Completed = "Completed"
@@ -167,21 +154,20 @@ class PetAppointment(Base):
     pet_appointment_date = Column(Date, nullable=False, index=True)
     pet_appointment_time = Column(Time, nullable=False, index=True)
     appointment_status = Column(Enum(AppointmentStatus, name="appointment_status"), nullable=False, default=AppointmentStatus.Scheduled)
+    appointment_notes = Column(Text, nullable=True) # For the Fake Vet notes
 
-#Creation of the FeedingSchedule table
 class FeedingSchedule(Base):
     __tablename__ = "feeding_schedule"
 
     feeding_schedule_id = Column(Integer, primary_key=True, index=True)
     pet_id = Column(Integer, ForeignKey("pet.pet_id"), nullable=False, index=True)
-
     feeding_schedule_start = Column(Date, nullable=False, index=True)
     feeding_schedule_end = Column(Date, nullable=False, index=True)
     feeding_time = Column(DateTime, nullable=False)
     portion_size = Column(Integer, nullable=False)
     food_name = Column(String(100), nullable=False)
 
-#Creation of the Reminder table
+# --- 7. REMINDERS & GOALS ---
 class ReminderStatus(enum.Enum):
     pending = "Pending"
     sent = "Sent"
@@ -195,12 +181,9 @@ class Reminder(Base):
     reminder_id = Column(Integer, primary_key=True, index=True)
     pet_appointment_id = Column(Integer, ForeignKey("pet_appointment.pet_appointment_id"), nullable=True)
     feeding_schedule_id = Column(Integer, ForeignKey("feeding_schedule.feeding_schedule_id"), nullable=True)
-
     reminder_datetime = Column(DateTime, nullable=False, index=True)
     reminder_status = Column(Enum(ReminderStatus, name="reminder_status"), nullable=False, default=ReminderStatus.pending)
     reminder_notes = Column(Text)
-
-# lib/models.py
 
 class PetGoal(Base):
     __tablename__ = "pet_goal"
@@ -208,10 +191,8 @@ class PetGoal(Base):
     pet_goal_id = Column(Integer, primary_key=True, index=True)
     pet_id = Column(Integer, ForeignKey("pet.pet_id"), nullable=False, index=True)
     metric_def_id = Column(Integer, ForeignKey("metric_definition.metric_def_id"), nullable=False)
-    
-    target_value = Column(String(50), nullable=True) # Using String so it handles "4.5" or "High"
+    target_value = Column(String(50), nullable=True) 
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    # Relationships to make querying easier
     pet = relationship("Pet", backref="goals")
     metric_definition = relationship("MetricDefinition")

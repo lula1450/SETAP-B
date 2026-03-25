@@ -1,13 +1,12 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:flutter/foundation.dart'; // Add this line
+import 'package:flutter/foundation.dart'; 
 import 'package:shared_preferences/shared_preferences.dart';
 
-
 class PetService {
-  // Use 10.0.2.2 if using Android Emulator, or your IP if using a real device
   final String baseUrl = "http://127.0.0.1:8000"; 
 
+  // --- 1. GET OWNER PETS ---
   Future<List<dynamic>> getOwnerPets(int ownerId) async {
     final response = await http.get(
       Uri.parse('$baseUrl/pets/owner/$ownerId'),
@@ -16,14 +15,13 @@ class PetService {
     if (response.statusCode == 200) {
       return json.decode(response.body);
     } else if (response.statusCode == 404) {
-      return []; // Return empty list if no pets found
+      return []; 
     } else {
       throw Exception('Failed to load pets');
     }
   }
 
-  // lib/services/pet_service.dart
-// lib/services/pet_service.dart
+  // --- 2. CREATE PET ---
   Future<bool> createPet({
     required String pet_first_name,
     required String pet_last_name,
@@ -31,13 +29,11 @@ class PetService {
   }) async {
     final prefs = await SharedPreferences.getInstance();
     
-    // 1. Pull the owner's logistical data saved during login
     final int? ownerId = prefs.getInt('owner_id');
     final String? ownerAddr = prefs.getString('owner_address1');
     final String? ownerPost = prefs.getString('owner_postcode');
     final String? ownerCity = prefs.getString('owner_city');
 
-    // If we don't have an owner ID, we can't create a pet
     if (ownerId == null) {
       debugPrint("Error: No owner_id found in SharedPreferences");
       return false;
@@ -45,7 +41,7 @@ class PetService {
 
     try {
       final response = await http.post(
-        Uri.parse("$baseUrl/pets/create"), // Ensure this matches your FastAPI route
+        Uri.parse("$baseUrl/pets/create"), 
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
           "pet_first_name": pet_first_name,
@@ -57,8 +53,6 @@ class PetService {
           "pet_city": ownerCity ?? "City not set",
         }),
       );
-
-      debugPrint("Create Pet Status: ${response.statusCode}");
       return response.statusCode == 200 || response.statusCode == 201;
     } catch (e) {
       debugPrint("Connection Error: $e");
@@ -66,15 +60,55 @@ class PetService {
     }
   }
 
-  Future<bool> deleteOwner(int ownerId) async {
-  // Use 10.0.2.2 for Android, 127.0.0.1 for iOS
-  final url = Uri.parse("http://127.0.0.1:8000/owners/$ownerId"); 
-  try {
-    final response = await http.delete(url);
-    return response.statusCode == 200;
-  } catch (e) {
-    debugPrint("Delete Error: $e");
-    return false;
+  // --- 3. CREATE APPOINTMENT (New for Calendar) ---
+  Future<bool> createAppointment({
+    required int petId,
+    required String date, // Format: "YYYY-MM-DD"
+    required String time, // Format: "HH:MM:SS"
+    required String notes,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse("$baseUrl/schedule/appointments"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "pet_id": petId,
+          "appointment_date": date,
+          "appointment_time": time,
+          "notes": notes, // Maps to 'appointment_notes' in your router
+        }),
+      );
+      return response.statusCode == 201;
+    } catch (e) {
+      debugPrint("Booking Error: $e");
+      return false;
+    }
   }
-}
+
+  // --- 4. FETCH APPOINTMENTS (New for Calendar Dots) ---
+  Future<List<dynamic>> getAppointments(int petId) async {
+    try {
+      final response = await http.get(
+        Uri.parse("$baseUrl/schedule/appointments/pet/$petId"),
+      );
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      }
+    } catch (e) {
+      debugPrint("Fetch Error: $e");
+    }
+    return [];
+  }
+
+  // --- 5. DELETE OWNER ---
+  Future<bool> deleteOwner(int ownerId) async {
+    final url = Uri.parse("$baseUrl/owners/$ownerId"); 
+    try {
+      final response = await http.delete(url);
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint("Delete Error: $e");
+      return false;
+    }
+  }
 }
