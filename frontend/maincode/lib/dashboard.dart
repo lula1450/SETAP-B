@@ -472,10 +472,21 @@ Future<void> _fetchPets() async {
         
         // 3. Find out more about pet
         else if (text.contains("Find out")) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const PetInfoPage()),
-          );
+          if (_pets.isNotEmpty) {
+            final currentPet = _pets[_selectedPetIndex];
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => PetInfoPage(
+                  speciesId: currentPet['species_id'],
+                )
+              ),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("Please add pet!")),
+            );
+          }
         }
       },
       child: Container(
