@@ -452,7 +452,14 @@ class _DashboardPageState extends State<DashboardPage> {
         } else if (text.contains("Recently")) {
           Navigator.push(context, MaterialPageRoute(builder: (context) => const RecentlyLoggedDataPage()));
         } else if (text.contains("Find out")) {
-          Navigator.push(context, MaterialPageRoute(builder: (context) => const PetInfoPage()));
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => PetInfoPage(
+                speciesId: _pets[_selectedPetIndex]['species_id'],
+              ),
+            ),
+          );
         }
       },
       child: Container(
