@@ -3,7 +3,6 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthService {
-  // Use 10.0.2.2 for Android Emulator, 127.0.0.1 for iOS/Web/Desktop
   static const String baseUrl = "http://127.0.0.1:8000";
 
   // --- LOGIN ---
@@ -19,7 +18,13 @@ class AuthService {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final prefs = await SharedPreferences.getInstance();
+        
+        // Save ID and Address info for pet registration later
         await prefs.setInt('owner_id', data['owner_id']);
+        await prefs.setString('owner_address1', data['owner_address1'] ?? "");
+        await prefs.setString('owner_postcode', data['owner_postcode'] ?? "");
+        await prefs.setString('owner_city', data['owner_city'] ?? "");
+        
         return true;
       }
       return false;
@@ -29,8 +34,17 @@ class AuthService {
     }
   }
 
-  // --- SIGN UP ---
-  Future<bool> signUp(String firstName, String lastName, String email, String password) async {
+  // --- SIGN UP (Updated with Address Fields) ---
+  Future<bool> signUp({
+    required String firstName,
+    required String lastName,
+    required String email,
+    required String password,
+    required String phone,
+    required String address,
+    required String postcode,
+    required String city,
+  }) async {
     try {
       final response = await http.post(
         Uri.parse("$baseUrl/auth/signup"),
@@ -40,10 +54,26 @@ class AuthService {
           "owner_last_name": lastName,
           "owner_email": email,
           "password": password,
-          "owner_phone": "0000000000" 
+          "owner_phone_number": phone, // Matches backend 'owner_phone_number'
+          "owner_address1": address,
+          "owner_postcode": postcode,
+          "owner_city": city,
         }),
       );
-      return response.statusCode == 200 || response.statusCode == 201;
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = jsonDecode(response.body);
+        final prefs = await SharedPreferences.getInstance();
+        
+        // IMPORTANT: Save these now so AddPetPage can auto-fill them
+        await prefs.setInt('owner_id', data['owner_id']);
+        await prefs.setString('owner_address1', address);
+        await prefs.setString('owner_postcode', postcode);
+        await prefs.setString('owner_city', city);
+        
+        return true;
+      }
+      return false;
     } catch (e) {
       print("SignUp error: $e");
       return false;

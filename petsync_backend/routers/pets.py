@@ -53,7 +53,11 @@ def get_pet(pet_id: int, db: Session = Depends(get_db)):
     if not pet:
         raise HTTPException(status_code=404, detail="Pet not found")
 
-    species = db.query(models.Species_config).filter(models.Species_config.species_id == pet.species_id).first()
+    species = db.query(models.Species_config).filter(
+        models.Species_config.species_id == pet.species_id
+    ).first()
+    
+    # SAFETY CHECK: If species is None, don't crash, just say "Unknown"
     species_name = species.species_name if species else "Unknown"
 
     return schemas.PetResponse(
@@ -61,9 +65,8 @@ def get_pet(pet_id: int, db: Session = Depends(get_db)):
         pet_first_name=pet.pet_first_name,
         pet_last_name=pet.pet_last_name,
         pet_address1=pet.pet_address1,
-        pet_address2=pet.pet_address2,
         pet_city=pet.pet_city,
-        species_name=species_name,
+        species_name=species_name, # Use the safe variable here
         owner_id=pet.owner_id,
         species_id=pet.species_id,
     )
