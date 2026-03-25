@@ -60,11 +60,11 @@ class PetService {
     }
   }
 
-  // --- 3. CREATE APPOINTMENT (New for Calendar) ---
+  // --- 3. CREATE APPOINTMENT ---
   Future<bool> createAppointment({
     required int petId,
-    required String date, // Format: "YYYY-MM-DD"
-    required String time, // Format: "HH:MM:SS"
+    required String date, 
+    required String time, 
     required String notes,
   }) async {
     try {
@@ -75,7 +75,7 @@ class PetService {
           "pet_id": petId,
           "appointment_date": date,
           "appointment_time": time,
-          "notes": notes, // Maps to 'appointment_notes' in your router
+          "notes": notes, 
         }),
       );
       return response.statusCode == 201;
@@ -85,17 +85,15 @@ class PetService {
     }
   }
 
-  // --- 4. FETCH APPOINTMENTS (New for Calendar Dots) ---
-  Future<List<dynamic>> getAppointments(int petId) async {
+  // --- 4. FETCH ALL APPOINTMENTS FOR HOUSEHOLD (Shared Calendar) ---
+  Future<List<dynamic>> getAllAppointments(int ownerId) async {
     try {
       final response = await http.get(
-        Uri.parse("$baseUrl/schedule/appointments/pet/$petId"),
+        Uri.parse("$baseUrl/schedule/appointments/owner/$ownerId")
       );
-      if (response.statusCode == 200) {
-        return json.decode(response.body);
-      }
+      if (response.statusCode == 200) return json.decode(response.body);
     } catch (e) {
-      debugPrint("Fetch Error: $e");
+      debugPrint("Fetch Household Appts Error: $e");
     }
     return [];
   }
@@ -111,4 +109,4 @@ class PetService {
       return false;
     }
   }
-}
+} // End of PetService class

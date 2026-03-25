@@ -86,9 +86,12 @@ def create_reminder(reminder: ReminderCreate, db: Session = Depends(get_db)):
 
 # --- 3. GET (READ) ROUTES ---
 
-@router.get("/appointments/pet/{pet_id}")
-def get_pet_appointments(pet_id: int, db: Session = Depends(get_db)):
-    return db.query(models.PetAppointment).filter(models.PetAppointment.pet_id == pet_id).all()
+# petsync_backend/routers/schedule.py
+
+@router.get("/appointments/owner/{owner_id}")
+def get_all_owner_appointments(owner_id: int, db: Session = Depends(get_db)):
+    # Join with the Pet table to ensure we only get pets belonging to this owner
+    return db.query(models.PetAppointment).join(models.Pet).filter(models.Pet.owner_id == owner_id).all()
 
 @router.get("/feeding-schedules/pet/{pet_id}")
 def get_feeding_schedules(pet_id: int, db: Session = Depends(get_db)):

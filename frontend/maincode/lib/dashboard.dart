@@ -18,15 +18,15 @@ class _DashboardPageState extends State<DashboardPage> {
   int _selectedPetIndex = 0;
   final PetService _petService = PetService();
   List<dynamic> _pets = [];
-  List<dynamic> _appointments = []; // NEW: Store appointments here
+  List<dynamic> _appointments = []; 
   bool _isLoading = true;
   DateTime _focusedDay = DateTime.now();
-  int? _selectedDay; // NEW: Track which day is tapped
+  int? _selectedDay; 
 
   @override
   void initState() {
     super.initState();
-    _selectedDay = DateTime.now().day; // Default to today
+    _selectedDay = DateTime.now().day; 
     _fetchPets();
   }
 
@@ -49,7 +49,7 @@ class _DashboardPageState extends State<DashboardPage> {
             _pets = data;
             _isLoading = false;
           });
-          _fetchAppointments(); // Fetch appointments for the first pet
+          _fetchAppointments(); // Fetch unified household schedule
         }
       }
     } catch (e) {
@@ -58,11 +58,11 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
-  // NEW: Fetch appointments from FastAPI
   Future<void> _fetchAppointments() async {
-    if (_pets.isEmpty) return;
-    final petId = _pets[_selectedPetIndex]['pet_id'];
-    final appts = await _petService.getAppointments(petId);
+    final prefs = await SharedPreferences.getInstance();
+    final int ownerId = prefs.getInt('owner_id') ?? 0;
+    // Note: Ensure PetService has getAllAppointments(ownerId) implemented
+    final appts = await _petService.getAllAppointments(ownerId);
     if (mounted) {
       setState(() {
         _appointments = appts;
@@ -70,20 +70,21 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
-  // NEW: Helper to check if a day has an appointment
-  bool _hasAppointment(int day) {
+  List<Color> _getAppointmentColorsForDay(int day) {
     String dateString = "${_focusedDay.year}-${_focusedDay.month.toString().padLeft(2, '0')}-${day.toString().padLeft(2, '0')}";
-    return _appointments.any((a) => a['pet_appointment_date'] == dateString);
+    var dayAppts = _appointments.where((a) => a['pet_appointment_date'] == dateString);
+  
+    return dayAppts.map((appt) {
+      var pet = _pets.firstWhere((p) => p['pet_id'] == appt['pet_id'], orElse: () => null);
+      return pet != null ? _getPetColor(pet['pet_first_name']) : Colors.grey;
+    }).toList();
   }
 
   bool _isToday(int day) {
     DateTime now = DateTime.now();
-    return day == now.day && 
-       _focusedDay.month == now.month && 
-       _focusedDay.year == now.year;
+    return day == now.day && _focusedDay.month == now.month && _focusedDay.year == now.year;
   }
 
-  // NEW: Booking Dialog for "Fake Vet"
   void _showBookingDialog(int day) async {
     final notesController = TextEditingController();
     final TimeOfDay? pickedTime = await showTimePicker(
@@ -117,7 +118,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 );
                 
                 Navigator.pop(context);
-                _fetchAppointments(); // Refresh the dots!
+                _fetchAppointments(); 
               },
               child: const Text("Confirm", style: TextStyle(color: Colors.white)),
             ),
@@ -162,12 +163,10 @@ class _DashboardPageState extends State<DashboardPage> {
         title: _appBarTitle(),
       ),
       body: Container(
-        width: double.infinity,
-        height: double.infinity,
+        width: double.infinity, height: double.infinity,
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
+            begin: Alignment.topCenter, end: Alignment.bottomCenter,
             colors: [Color(0xFF8BAEAE), Color(0xFFB2D3C2), Color(0xFFE0F7F4)],
           ),
         ),
@@ -175,7 +174,7 @@ class _DashboardPageState extends State<DashboardPage> {
           child: Column(
             children: [
               _calendarSection(),
-              _buildDailySchedule(), // NEW: List of appointments below calendar
+              _buildDailySchedule(), 
               _actionButtonsSection(context),
               _dailyInfoSection(),
               _navigationGridSection(),
@@ -187,7 +186,6 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  // --- NEW: DAILY SCHEDULE LIST ---
   Widget _buildDailySchedule() {
     if (_selectedDay == null) return const SizedBox.shrink();
 
@@ -202,21 +200,27 @@ class _DashboardPageState extends State<DashboardPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text("Schedule: $_selectedDay/${_focusedDay.month}", style: const TextStyle(fontWeight: FontWeight.bold)),
+              Text("Household Schedule: $_selectedDay/${_focusedDay.month}", style: const TextStyle(fontWeight: FontWeight.bold)),
               IconButton(icon: const Icon(Icons.add_circle, color: Color(0xFF8BAEAE)), onPressed: () => _showBookingDialog(_selectedDay!)),
             ],
           ),
           if (dailyAppts.isEmpty)
-            const Text("No appointments.", style: TextStyle(fontSize: 10, color: Colors.grey))
+            const Text("No appointments today.", style: TextStyle(fontSize: 11, color: Colors.grey))
           else
-            ...dailyAppts.map((appt) => Card(
-              child: ListTile(
-                dense: true,
-                leading: const Icon(Icons.medical_services, size: 16, color: Colors.redAccent),
-                title: Text(appt['appointment_notes'] ?? "Vet Visit", style: const TextStyle(fontSize: 12)),
-                subtitle: Text(appt['pet_appointment_time'], style: const TextStyle(fontSize: 10)),
-              ),
-            )),
+            ...dailyAppts.map((appt) {
+               var pet = _pets.firstWhere((p) => p['pet_id'] == appt['pet_id'], orElse: () => null);
+               String petName = pet != null ? pet['pet_first_name'] : "Pet";
+               Color petColor = _getPetColor(petName);
+
+               return Card(
+                 child: ListTile(
+                   dense: true,
+                   leading: CircleAvatar(radius: 12, backgroundColor: petColor, child: const Icon(Icons.pets, size: 12, color: Colors.white)),
+                   title: Text("$petName: ${appt['appointment_notes'] ?? 'Vet Visit'}", style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                   subtitle: Text(appt['pet_appointment_time'], style: const TextStyle(fontSize: 10)),
+                 ),
+               );
+            }),
           const Divider(),
         ],
       ),
@@ -250,71 +254,50 @@ class _DashboardPageState extends State<DashboardPage> {
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 7, mainAxisSpacing: 2),
             itemCount: daysInMonth + firstWeekdayIndex,
             itemBuilder: (context, index) {
-  if (index < firstWeekdayIndex) return const SizedBox();
-  int day = index - firstWeekdayIndex + 1;
-  
-  bool isToday = _isToday(day); // Uses your existing helper
-  bool isSelected = _selectedDay == day;
-  bool hasAppt = _hasAppointment(day);
+              if (index < firstWeekdayIndex) return const SizedBox();
+              int day = index - firstWeekdayIndex + 1;
+              bool isToday = _isToday(day);
+              bool isSelected = _selectedDay == day;
+              List<Color> apptColors = _getAppointmentColorsForDay(day);
 
-  return InkWell(
-    onTap: () => setState(() => _selectedDay = day),
-    onDoubleTap: () => _showBookingDialog(day),
-    child: Stack(
-      alignment: Alignment.center,
-      children: [
-        // The Background/Highlight Layer
-        AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          width: 32,
-          height: 32,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            // 1. Highlight Today with a Border
-            border: isToday 
-                ? Border.all(color: const Color(0xFF8BAEAE), width: 2) 
-                : null,
-            // 2. Highlight Selected day with a Teal fill
-            color: isSelected 
-                ? const Color(0xFF8BAEAE).withOpacity(0.3) 
-                : Colors.transparent,
-          ),
-          child: Center(
-            child: Text(
-              "$day",
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
-                // Make the text match the theme if it's today
-                color: isToday ? const Color(0xFF8BAEAE) : Colors.black87,
-              ),
-            ),
-          ),
-        ),
-        // 3. The Appointment Dot (Red)
-        if (hasAppt)
-          Positioned(
-            bottom: 2,
-            child: Container(
-              width: 4,
-              height: 4,
-              decoration: const BoxDecoration(
-                color: Colors.redAccent,
-                shape: BoxShape.circle,
-              ),
-            ),
-          ),
-      ],
-    ),
-  );
-},
+              return InkWell(
+                onTap: () => setState(() => _selectedDay = day),
+                onDoubleTap: () => _showBookingDialog(day),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: 32, height: 32,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: isToday ? Border.all(color: const Color(0xFF8BAEAE), width: 2) : null,
+                        color: isSelected ? const Color(0xFF8BAEAE).withOpacity(0.3) : Colors.transparent,
+                      ),
+                      child: Center(child: Text("$day", style: const TextStyle(fontSize: 10))),
+                    ),
+                    if (apptColors.isNotEmpty)
+                      Positioned(
+                        bottom: 2,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: apptColors.map((color) => Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 0.5),
+                            width: 4, height: 4,
+                            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+                          )).toList(),
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            },
           ),
         ),
       ],
     );
   }
 
-  // --- REFACTORED PICKER TO HANDLE REFRESH ---
   void _showPetPicker() {
     showModalBottomSheet(
       context: context,
@@ -340,7 +323,8 @@ class _DashboardPageState extends State<DashboardPage> {
             onTap: () {
               setState(() => _selectedPetIndex = index);
               Navigator.pop(context);
-              _fetchAppointments(); // Update calendar when pet changes
+              // We fetch unified schedule, so no need to refetch on switch, but good practice
+              _fetchAppointments(); 
             },
           );
         },
@@ -348,8 +332,6 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  // (All other helper functions like _appBarTitle, _drawerTile, etc. remain the same as your code)
-  
   Widget _buildDrawer() {
     return Drawer(
       child: ListView(
@@ -404,9 +386,7 @@ class _DashboardPageState extends State<DashboardPage> {
       children: [
         RawMaterialButton(
           onPressed: () { if (_pets.isNotEmpty) _showPetPicker(); },
-          elevation: 4.0,
-          fillColor: activePetColor,
-          padding: const EdgeInsets.all(10.0),
+          elevation: 4.0, fillColor: activePetColor, padding: const EdgeInsets.all(10.0),
           shape: const CircleBorder(side: BorderSide(color: Colors.white, width: 2)),
           child: const Icon(Icons.pets, color: Colors.white, size: 24),
         ),
@@ -495,14 +475,7 @@ class _DashboardPageState extends State<DashboardPage> {
         } else if (text.contains("Recently")) {
           Navigator.push(context, MaterialPageRoute(builder: (context) => const RecentlyLoggedDataPage()));
         } else if (text.contains("Find out")) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => PetInfoPage(
-                speciesId: _pets[_selectedPetIndex]['species_id'],
-              ),
-            ),
-          );
+          Navigator.push(context, MaterialPageRoute(builder: (context) => PetInfoPage(speciesId: _pets[_selectedPetIndex]['species_id'])));
         }
       },
       child: Container(
