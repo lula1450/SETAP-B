@@ -40,14 +40,33 @@ class _MetricsPageState extends State<MetricsPage> {
     _refreshAllMetrics();
   }
 
-  @override
-  void didUpdateWidget(covariant MetricsPage oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    // If the petId changed, reload everything for the new pet
-    if (oldWidget.petId != widget.petId) {
-      _loadFavorites();
-      _refreshAllMetrics();
+  // --- NEW: UNIT MAPPING LOGIC ---
+  String _getUnitForMetric(String metricName) {
+    final name = metricName.toLowerCase().trim();
+    switch (name) {
+      case "weight": return "kg";
+      case "water intake": return "ml";
+      case "basking time":
+      case "wheel activity": return "mins";
+      case "humidity level": return "%";
+      case "stool pellets":
+      case "vomit events": return "count";
+      case "stool quality":
+      case "energy level":
+      case "appetite":
+      case "vocalisation level":
+      case "wing strength":
+      case "feather condition":
+      case "perch activity":
+      case "shedding quality":
+      case "chewing behaviour": return "/5"; // Scale 1-5
+      default: return "";
     }
+  }
+
+  String _getGoalText(String title) {
+    final unit = _getUnitForMetric(title);
+    return unit.isNotEmpty ? "Goal ($unit)" : "Goal";
   }
 
   Future<void> _refreshAllMetrics() async {
@@ -61,16 +80,13 @@ class _MetricsPageState extends State<MetricsPage> {
     }
   }
 
-  // Load favorites specifically for THIS pet
   Future<void> _loadFavorites() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      // Key is now unique, e.g., "favorites_1"
       _favorites = prefs.getStringList('favorites_${widget.petId}') ?? [];
     });
   }
 
-  // Save favorites specifically for THIS pet
   Future<void> _saveFavorites() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList('favorites_${widget.petId}', _favorites);
@@ -88,7 +104,6 @@ class _MetricsPageState extends State<MetricsPage> {
   }
 
   Color _getPetColor(String name) {
-    // 1. Exact same color list as Dashboard
     final List<Color> nameColors = [
       const Color.fromARGB(255, 146, 179, 236),
       const Color.fromRGBO(212, 162, 221, 1),
@@ -99,34 +114,16 @@ class _MetricsPageState extends State<MetricsPage> {
       const Color.fromARGB(255, 255, 171, 145),
       const Color.fromARGB(255, 167, 235, 244),
     ];
-
-    // 2. Exact same "Clean & Hash" math as Dashboard
     final String cleanName = name.trim().toLowerCase();
     int hash = 0;
-    for (int i = 0; i < cleanName.length; i++) {
-      hash += cleanName.codeUnitAt(i);
-    }
-
-    // 3. Modulo based on the NEW list length (8)
+    for (int i = 0; i < cleanName.length; i++) { hash += cleanName.codeUnitAt(i); }
     return nameColors[hash % nameColors.length];
-  }
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  String _getGoalText(String title) {
-    if (title == "Weight") return "Goal (kg)";
-    if (title == "Water Intake") return "Goal (ml)";
-    if (["Stool Quality", "Energy Level", "Appetite"].contains(title)) return "Goal (Level)";
-    return "Goal";
   }
 
   void _showEditDialog(BuildContext context, String title) {
     final TextEditingController valueController = TextEditingController();
     final TextEditingController goalController = TextEditingController();
+    final String unit = _getUnitForMetric(title);
     bool isLogging = false;
 
     showDialog(
@@ -141,14 +138,22 @@ class _MetricsPageState extends State<MetricsPage> {
               children: [
                 TextField(
                   controller: valueController,
-                  keyboardType: TextInputType.text,
-                  decoration: InputDecoration(labelText: "Current $title", hintText: "e.g. 4.5"),
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: InputDecoration(
+                    labelText: "Current $title", 
+                    hintText: "e.g. 4.5",
+                    suffixText: unit,
+                  ),
                 ),
                 const SizedBox(height: 10),
                 TextField(
                   controller: goalController,
-                  keyboardType: TextInputType.text,
-                  decoration: const InputDecoration(labelText: "Target Goal (Optional)", hintText: "e.g. 5.0"),
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: InputDecoration(
+                    labelText: "Target Goal", 
+                    hintText: "e.g. 5.0",
+                    suffixText: unit,
+                  ),
                 ),
               ],
             ),
@@ -185,10 +190,8 @@ class _MetricsPageState extends State<MetricsPage> {
                           );
                         }
                       } catch (e) {
-                        if (context.mounted) {
-                          setDialogState(() => isLogging = false);
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Error saving data")));
-                        }
+                        setDialogState(() => isLogging = false);
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Error saving data")));
                       }
                     }, 
                     child: const Text("Save")
@@ -231,7 +234,6 @@ class _MetricsPageState extends State<MetricsPage> {
         ),
         child: Column(
           children: [
-            // Search Bar
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: TextField(
@@ -246,30 +248,17 @@ class _MetricsPageState extends State<MetricsPage> {
                 ),
               ),
             ),
-            
-            // --- NEW COLUMN HEADERS ---
             Padding(
               padding: const EdgeInsets.only(left: 65.0, right: 16.0, bottom: 8.0),
               child: Row(
                 children: [
-                  const Expanded(flex: 3, child: SizedBox()), // Space above Metric Title
-                  Expanded(
-                    flex: 1, 
-                    child: Text("Current", 
-                      textAlign: TextAlign.center, 
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blueGrey[900])),
-                  ),
+                  const Expanded(flex: 3, child: SizedBox()),
+                  Expanded(flex: 1, child: Text("Current", textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blueGrey[900]))),
                   const SizedBox(width: 8),
-                  Expanded(
-                    flex: 1, 
-                    child: Text("Target", 
-                      textAlign: TextAlign.center, 
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blueGrey[900])),
-                  ),
+                  Expanded(flex: 1, child: Text("Target", textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blueGrey[900]))),
                 ],
               ),
             ),
-
             Expanded(
               child: ListView.builder(
                 itemCount: filteredMetrics.length,
@@ -277,8 +266,7 @@ class _MetricsPageState extends State<MetricsPage> {
                   String title = filteredMetrics[index];
                   String currentVal = _latestValues[title]?['value'] ?? "...";
                   String targetVal = _latestValues[title]?['target'] ?? "";
-                  String goalDisplay = targetVal.isNotEmpty ? targetVal : _getGoalText(title);
-                  return _metricRow(context, title, currentVal, goalDisplay, _favorites.contains(title));
+                  return _metricRow(context, title, currentVal, targetVal, _favorites.contains(title));
                 },
               ),
             ),
@@ -288,7 +276,13 @@ class _MetricsPageState extends State<MetricsPage> {
     );
   }
 
-  Widget _metricRow(BuildContext context, String title, String current, String goal, bool isFavorite) {
+  Widget _metricRow(BuildContext context, String title, String current, String target, bool isFavorite) {
+    final String unit = _getUnitForMetric(title);
+    
+    // Formatting display text
+    String displayCurrent = (current == "..." || current == "---") ? current : "$current $unit";
+    String displayGoal = target.isNotEmpty ? "$target $unit" : _getGoalText(title);
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
       child: Row(
@@ -296,9 +290,9 @@ class _MetricsPageState extends State<MetricsPage> {
           IconButton(icon: Icon(isFavorite ? Icons.star : Icons.star_border, color: isFavorite ? Colors.amber : Colors.white70), onPressed: () => _toggleFavorite(title)),
           Expanded(flex: 3, child: _metricButton(title, Colors.white.withOpacity(0.8), () => _showEditDialog(context, title))),
           const SizedBox(width: 8),
-          Expanded(flex: 1, child: _metricButton(current, const Color(0xFFD6F8F8), () {})),
+          Expanded(flex: 1, child: _metricButton(displayCurrent, const Color(0xFFD6F8F8), () {})),
           const SizedBox(width: 8),
-          Expanded(flex: 1, child: _metricButton(goal, const Color(0xFFEDFEE7), () {})),
+          Expanded(flex: 1, child: _metricButton(displayGoal, const Color(0xFFEDFEE7), () {})),
         ],
       ),
     );
