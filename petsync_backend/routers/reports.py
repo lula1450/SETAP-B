@@ -1,59 +1,67 @@
-from fastapi import APIRouter
+# petsync_backend/routers/reports.py
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from petsync_backend.database import get_db
+from petsync_backend.models import HealthMetric, MetricDefinition, Pet, MetricName
+from petsync_backend.calculations import check_15_percent_deviation
 
-# This allows main.py to "include" this section of the API
-router = APIRouter()
+router = APIRouter(tags=["Reporting Engine"])
 
-@router.get("/")
-async def status():
-    return {"message": "Feature pending implementation"}
+@router.get("/analysis/{pet_id}/{metric_name}")
+async def get_metric_analysis(pet_id: int, metric_name: str, db: Session = Depends(get_db)):
+    # 1. Verify Pet and Metric Definition
+    pet = db.query(Pet).filter(Pet.pet_id == pet_id).first()
+    if not pet:
+        # This will tell us if the Pet simply doesn't exist in the API's view
+        raise HTTPException(status_code=404, detail=f"Pet ID {pet_id} not found in DB")
 
+    # Standardize the incoming string (e.g. 'Water Intake' -> 'water_intake')
+    # Standardize the incoming string (e.g. 'Weight' -> 'weight')
+    formatted_name = metric_name.lower().replace(" ", "_")
+    
+    # FIX: Use the string value of the enum for the filter
+    metric_def = db.query(MetricDefinition).filter(
+        MetricDefinition.species_id == pet.species_id,
+        MetricDefinition.metric_name == formatted_name  # SQLAlchemy handles the Enum cast automatically here
+    ).first()
 
+    if not metric_def:
+        # Change this to a 404 so the test knows why it failed
+        raise HTTPException(status_code=404, detail=f"Metric '{formatted_name}' not defined for this species")
 
-'''
+    # 2. Fetch ALL logs for this metric, sorted OLDEST to NEWEST
+    # This ensures the graph line moves forward in time.
+    logs = db.query(HealthMetric).filter(
+        HealthMetric.pet_id == pet_id,
+        HealthMetric.metric_def_id == metric_def.metric_def_id
+    ).order_by(HealthMetric.metric_time.asc()).all()
 
-# apirouter = allows you to split API into logical sections = easy to folllow
-# http = return standard error codes to user
-# depends = when connection starts
-from fastapi import APIRouter, HTTPException, Depends
+    if not logs:
+        return {"message": "No logs recorded yet", "points": [], "is_risk": False}
 
-from sqlalchemy.orm import Session # session = ensures connection is open
+    # 3. Process data for the Pandas Engine
+    values = [float(log.metric_value) for log in logs]
+    current_value = values[-1]
+    historical_values = values[:-1] # All entries except the latest one
 
-from datetime import datetime # allows timestamp
+    # 4. Perform the 15% deviation check
+    is_risk, baseline = check_15_percent_deviation(historical_values, current_value)
 
-from schemas import MetricLog, HealthReport # ensures report data follows the rules set in the schema
+    # 5. Format the data points specifically for Flutter's fl_chart (X and Y)
+    graph_points = [
+        {
+            "x": i, 
+            "y": float(log.metric_value), 
+            "date": log.metric_time.strftime("%d/%m")
+        } 
+        for i, log in enumerate(logs)
+    ]
 
-from calculations import check_15_percent_deviation # imports the math/ logic
-
-from database import get_db, HealthMetric # bridge database
-
-
-router = APIRouter(prefix="/reports", tags=["Reports Manager"])
-
-# sends data to the server for processing
-@router.post("/analyze", response_model=HealthReport) # ensures API only sends back specific details = protect sensitive data
-async def analyse_health_metric(log: MetricLog, db: Session = Depends(get_db)): # automatically validates using schema and gets live db
-
-# query last 7 entries for specific pet to establish a baseline
-    db_history = db.query(HealthMetric).filter(
-        HealthMetric.pet_id == log.pet_id
-    ).order_by(HealthMetric.metric_time.desc()).limit(7).all()
-
-# convert db object to list for engine
-    historical_values = [h.metric_value for h in db_history]
-
-    if not historical_values:
-        is_risk, baseline = False, log.metric_value # if no history, use current value as baseline and flag as not risk
-    else:
-        is_risk, baseline = check_15_percent_deviation(historical_values, log.metric_value)
-
-    report = HealthReport(
-        pet_id=log.pet_id, # links reports to correct pet
-        report_date=datetime.now(),
-        report_type="health_alert",
-        risk_flag=is_risk, # stores result of safety check
-        notes=f"Baseline established at {baseline:.2f}. Input value: {log.metric_value}."
-    )
-
-    return report
-
-'''
+    return {
+        "metric": metric_name,
+        "is_risk": is_risk,
+        "baseline": round(baseline, 2),
+        "current": current_value,
+        "message": "⚠️ Significant change detected!" if is_risk else "✅ Health stable",
+        "points": graph_points # These map to FlSpots in Flutter
+    }
