@@ -50,14 +50,14 @@ async def get_metric_analysis(pet_id: int, metric_name: str, db: Session = Depen
     is_risk, baseline = check_15_percent_deviation(historical_values, current_value)
 
     # 5. Format the data points specifically for Flutter's fl_chart (X and Y)
-    graph_points = [
-        {
-            "x": i, 
-            "y": float(log.metric_value), 
-            "date": log.metric_time.strftime("%d/%m")
-        } 
-        for i, log in enumerate(logs)
-    ]
+    graph_points = []
+    for i, log in enumerate(logs):
+        # Ensure each point has a 'date' key in the requested format e.g. "28 Mar, 19:40"
+        graph_points.append({
+            "x": i,
+            "y": float(log.metric_value),
+            "date": log.metric_time.strftime("%d %b, %H:%M")
+        })
 
     return {
         "metric": metric_name,

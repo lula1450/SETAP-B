@@ -3,6 +3,9 @@ import 'package:fl_chart/fl_chart.dart'; // Make sure to run 'flutter pub add fl
 import 'package:maincode/services/pet_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:maincode/utils/pdf_helper.dart';
+import 'dart:ui' as ui;
+import 'dart:typed_data';
+import 'package:flutter/rendering.dart';
 
 class ReportsPage extends StatefulWidget {
   final int petId;
@@ -19,11 +22,20 @@ class _ReportsPageState extends State<ReportsPage> {
   Map<String, dynamic> _analysisData = {};
   bool _isLoading = true;
   String _selectedMetric = "weight"; // Default to weight
+  final GlobalKey _chartKey = GlobalKey();
 
   @override
   void initState() {
     super.initState();
     _loadData();
+  }
+
+  // Capture the chart widget as PNG bytes
+  Future<Uint8List> _capturePng() async {
+    RenderRepaintBoundary boundary = _chartKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
+    ui.Image image = await boundary.toImage(pixelRatio: 3.0);
+    ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+    return byteData!.buffer.asUint8List();
   }
 
   Future<void> _loadData() async {
@@ -61,7 +73,10 @@ class _ReportsPageState extends State<ReportsPage> {
                   const SizedBox(height: 30),
                   const Text("Trend Analysis", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 10),
-                  _buildChart(isRisk),
+                  RepaintBoundary(
+                    key: _chartKey,
+                    child: _buildChart(isRisk),
+                  ),
                   const SizedBox(height: 30),
                   _buildBaselineInfo(),
                   const SizedBox(height: 20),
@@ -84,9 +99,16 @@ class _ReportsPageState extends State<ReportsPage> {
                       backgroundColor: Colors.blueGrey,
                       foregroundColor: Colors.white,
                     ),
-                    onPressed: () {
-                      // Pass the pet name and the analysis data we already fetched
-                      PdfHelper.generateReport(widget.petName, _analysisData);
+                    onPressed: () async {
+                      try {
+                        // Capture the chart image from the RepaintBoundary
+                        Uint8List chartImage = await _capturePng();
+                        // Generate and preview the PDF with the captured image
+                        await PdfHelper.generateReport(widget.petName, _analysisData, chartImage);
+                      } catch (e) {
+                        debugPrint('PDF preview error: $e');
+                        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not generate preview')));
+                      }
                     },
                   ),
                 ],
