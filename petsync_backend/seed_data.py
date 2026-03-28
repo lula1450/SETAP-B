@@ -1,3 +1,4 @@
+import random
 from sqlalchemy.orm import Session
 from petsync_backend.database import SessionLocal, engine, Base
 from petsync_backend.models import (
@@ -32,39 +33,26 @@ def seed_data():
         owner_id = existing_owner.owner_id
         
     print("Seeding 2 Breeds per Animal Type...")
-    # Expanded to include two distinct breeds for each category
     species_data = [ 
         {"type": SpeciesType.dog, "breed": "Labrador", "notes": "Monitor joints"},
         {"type": SpeciesType.dog, "breed": "Golden Retriever", "notes": "High exercise needs"},
-        
         {"type": SpeciesType.cat, "breed": "Maine Coon", "notes": "Heart health"},
         {"type": SpeciesType.cat, "breed": "Siamese", "notes": "Vocal and active"},
-        
         {"type": SpeciesType.rabbit, "breed": "Holland Lop", "notes": "Dental health"},
         {"type": SpeciesType.rabbit, "breed": "Rex", "notes": "Velvety coat care"},
-        
         {"type": SpeciesType.hamster, "breed": "Syrian", "notes": "Wheel focus"},
         {"type": SpeciesType.hamster, "breed": "Roborovski", "notes": "Very fast, small"},
-        
         {"type": SpeciesType.bird, "breed": "African Grey", "notes": "Plumage care"},
         {"type": SpeciesType.bird, "breed": "Cockatiel", "notes": "Social dynamics"},
-        
         {"type": SpeciesType.snake, "breed": "Corn Snake", "notes": "Shedding focus"},
         {"type": SpeciesType.snake, "breed": "Ball Python", "notes": "Humidity sensitive"}
     ]
 
     species_objects = []
     for item in species_data:
-        existing = db.query(Species_config).filter(
-            Species_config.breed_name == item["breed"]
-        ).first()
-        
+        existing = db.query(Species_config).filter(Species_config.breed_name == item["breed"]).first()
         if not existing:
-            species = Species_config(
-                species_name=item["type"], 
-                breed_name=item["breed"], 
-                notes=item["notes"]
-            )
+            species = Species_config(species_name=item["type"], breed_name=item["breed"], notes=item["notes"])
             db.add(species)
             db.commit()
             db.refresh(species)
@@ -72,7 +60,7 @@ def seed_data():
         else:
             species_objects.append(existing)
 
-    print("Seeding Metric Definitions for ALL 12 Species...")
+    print("Seeding Metric Definitions...")
     unit_mapping = {
         MetricName.weight: MetricUnit.kg,
         MetricName.water_intake: MetricUnit.ml,
@@ -80,114 +68,86 @@ def seed_data():
         MetricName.stool_quality: MetricUnit.scale_1_5,
         MetricName.energy_level: MetricUnit.scale_1_5,
         MetricName.appetite: MetricUnit.scale_1_5,
-        MetricName.vocalisation_level: MetricUnit.scale_1_5,
-        MetricName.wheel_activity: MetricUnit.minutes_day,
-        MetricName.basking_time: MetricUnit.minutes_day,
-        MetricName.litter_box_usage: MetricUnit.count_day,
-        MetricName.vomit_events: MetricUnit.count_day,
-        MetricName.stool_pellets: MetricUnit.count_day,
-        MetricName.grooming_frequency: MetricUnit.count_day,
     }
 
-    # This loop now covers all 12 breed variations
     for s_obj in species_objects:
         for m_name in MetricName:
-            if m_name in [MetricName.notes, MetricName.custom]:
-                continue
-
+            if m_name in [MetricName.notes, MetricName.custom]: continue
             exists = db.query(MetricDefinition).filter(
                 MetricDefinition.species_id == s_obj.species_id,
                 MetricDefinition.metric_name == m_name
             ).first()
-
             if not exists:
                 unit = unit_mapping.get(m_name, MetricUnit.text)
-                definition = MetricDefinition(
-                    species_id=s_obj.species_id,
-                    metric_name=m_name,
-                    metric_unit=unit
-                )
-                db.add(definition)
+                db.add(MetricDefinition(species_id=s_obj.species_id, metric_name=m_name, metric_unit=unit))
+
+    db.commit()
 
     print("Seeding Pets...")
-    # Bentley (Labrador Dog)
-    lab_species = db.query(Species_config).filter(Species_config.breed_name == "Labrador").first()
-    if lab_species:
-        if not db.query(Pet).filter(Pet.pet_first_name == "Bentley").first():
-            db.add(Pet(
-                pet_first_name="Bentley", pet_last_name="Coppin",
-                species_id=lab_species.species_id, owner_id=owner_id, 
-                pet_address1="123 Pet Lane", pet_postcode="PO1 2AB", pet_city="London"
-            ))
+    # Get Species IDs
+    lab_id = db.query(Species_config).filter(Species_config.breed_name == "Labrador").first().species_id
+    coon_id = db.query(Species_config).filter(Species_config.breed_name == "Maine Coon").first().species_id
 
-    # Maisie (Maine Coon Cat)
-    coon_species = db.query(Species_config).filter(Species_config.breed_name == "Maine Coon").first()
-    if coon_species:
-        if not db.query(Pet).filter(Pet.pet_first_name == "Maisie").first():
-            db.add(Pet(
-                pet_first_name="Maisie", pet_last_name="Coppin",
-                species_id=coon_species.species_id, owner_id=owner_id,
-                pet_address1="123 Pet Lane", pet_postcode="PO1 2AB", pet_city="London"
-            ))
-    
-    db.commit() # Commit Pets and Definitions first so they have IDs
-    
-    print("Generating Extended Health History...")
-    
-    # 1. BENTLEY
     bentley = db.query(Pet).filter(Pet.pet_first_name == "Bentley").first()
-    if bentley:
-        # We find the definition ID specifically for Bentley's species
-        b_weight_def = db.query(MetricDefinition).filter(
-            MetricDefinition.species_id == bentley.species_id,
-            MetricDefinition.metric_name == MetricName.weight
-        ).first()
-
-        if b_weight_def:
-            print(f"DEBUG: Linking Bentley (ID: {bentley.pet_id}) to Weight Def (ID: {b_weight_def.metric_def_id})")
-            history = [
-                (30, 15.0), (28, 15.2), (25, 15.1), 
-                (14, 11.0), (12, 10.5), (10, 10.0), 
-                (5, 11.5), (2, 12.0), (0, 12.8)
-            ]
-            for days_back, val in history:
-                log = HealthMetric(
-                    pet_id=bentley.pet_id,
-                    metric_def_id=b_weight_def.metric_def_id,
-                    metric_value=val,
-                    metric_time=datetime.utcnow() - timedelta(days=days_back)
-                )
-                db.add(log)
-        else:
-            print("DEBUG: Could not find Weight Definition for Bentley")
-
-    # 2. MAISIE
+    if not bentley:
+        bentley = Pet(pet_first_name="Bentley", pet_last_name="C", species_id=lab_id, owner_id=owner_id, pet_address1="123 Pet Lane", pet_postcode="PO1 2AB", pet_city="London")
+        db.add(bentley)
+    
     maisie = db.query(Pet).filter(Pet.pet_first_name == "Maisie").first()
-    if maisie:
-        m_water_def = db.query(MetricDefinition).filter(
-            MetricDefinition.species_id == maisie.species_id,
-            MetricDefinition.metric_name == MetricName.water_intake
+    if not maisie:
+        maisie = Pet(pet_first_name="Maisie", pet_last_name="C", species_id=coon_id, owner_id=owner_id, pet_address1="123 Pet Lane", pet_postcode="PO1 2AB", pet_city="London")
+        db.add(maisie)
+    
+    db.commit()
+
+    print("Generating Multi-Metric Health History...")
+    
+    # Define Scenarios: (Pet, Metric, BaseValue, Variance, TrendType)
+    scenarios = [
+        # Bentley's Data
+        (bentley, MetricName.weight, 15.0, 0.2, "recovery"),
+        (bentley, MetricName.appetite, 4.0, 1.0, "stable"),
+        (bentley, MetricName.energy_level, 3.0, 1.0, "stable"),
+        
+        # Maisie's Data
+        (maisie, MetricName.water_intake, 250.0, 30.0, "stable"),
+        (maisie, MetricName.weight, 6.5, 0.1, "stable"),
+        (maisie, MetricName.stool_quality, 4.0, 0.5, "stable"),
+        (maisie, MetricName.energy_level, 4.5, 0.5, "stable"),
+    ]
+
+    for pet, m_name, base, var, trend in scenarios:
+        m_def = db.query(MetricDefinition).filter(
+            MetricDefinition.species_id == pet.species_id,
+            MetricDefinition.metric_name == m_name
         ).first()
 
-        if m_water_def:
-            print(f"DEBUG: Linking Maisie (ID: {maisie.pet_id}) to Water Def (ID: {m_water_def.metric_def_id})")
-            for i in range(30, -1, -5):
-                log = HealthMetric(
-                    pet_id=maisie.pet_id,
-                    metric_def_id=m_water_def.metric_def_id,
-                    metric_value=250.0 + (i % 10),
-                    metric_time=datetime.utcnow() - timedelta(days=i)
-                )
-                db.add(log)
+        if m_def:
+            print(f"DEBUG: Seeding {m_name.value} for {pet.pet_first_name}")
+            # Generate 15 points over 30 days
+            for i in range(15):
+                days_back = i * 2
+                current_val = base
+                
+                if trend == "recovery":
+                    # Create a V-shape: drop for first 7 points, recover for next 8
+                    if i < 7: current_val -= (i * 0.7)
+                    else: current_val += ((i - 7) * 0.4)
+                else:
+                    # Random variance around the base
+                    current_val = base + random.uniform(-var, var)
 
-    db.commit() # Final commit for all health logs
-    
-    # Final Verification Print
-    total_logs = db.query(HealthMetric).count()
-    print(f"📈 Total Health Logs Seeded: {total_logs}")
-    
+                db.add(HealthMetric(
+                    pet_id=pet.pet_id,
+                    metric_def_id=m_def.metric_def_id,
+                    metric_value=round(current_val, 2),
+                    metric_time=datetime.utcnow() - timedelta(days=days_back)
+                ))
+
+    db.commit()
+    print(f"📈 Total Health Logs Seeded: {db.query(HealthMetric).count()}")
     db.close()
-    print("✅ Database Seeded with 12 species configurations!")
+    print("✅ Database Seeded Successfully!")
 
 if __name__ == "__main__":
     seed_data()
