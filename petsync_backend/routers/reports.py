@@ -107,3 +107,14 @@ async def export_pet_report(pet_id: int, metric_name: str, db: Session = Depends
         media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename={pet.pet_first_name}_report.pdf"}
     )
+
+@router.get("/logged-metrics/{pet_id}")
+async def get_logged_metrics(pet_id: int, db: Session = Depends(get_db)):
+    # This query finds all unique metric names that have at least one log for this pet
+    logged_metrics = db.query(MetricDefinition.metric_name)\
+        .join(HealthMetric, HealthMetric.metric_def_id == MetricDefinition.metric_def_id)\
+        .filter(HealthMetric.pet_id == pet_id)\
+        .distinct().all()
+    
+    # Convert list of tuples to a simple list of strings: ["weight", "water_intake"]
+    return [m[0] for m in logged_metrics]

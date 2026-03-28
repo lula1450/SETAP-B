@@ -132,4 +132,18 @@ class PetService {
       return {"is_risk": false, "points": [], "message": "Connection error"};
     }
   }
+
+  // New: Fetch the list of metric names that have logged data for a pet
+  Future<List<String>> getLoggedMetrics(int petId) async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/reports/logged-metrics/$petId'));
+      if (response.statusCode == 200) {
+        return List<String>.from(json.decode(response.body));
+      }
+    } catch (e) {
+      debugPrint('Error fetching logged metrics: $e');
+    }
+    // Fallback
+    return ['weight'];
+  }
 } // End of PetService class

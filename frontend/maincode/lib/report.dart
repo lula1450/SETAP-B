@@ -22,13 +22,33 @@ class _ReportsPageState extends State<ReportsPage> {
   Map<String, dynamic> _analysisData = {};
   bool _isLoading = true;
   String _selectedMetric = "weight"; // Default to weight
+  List<String> _availableMetrics = []; // available metrics fetched from backend
   final GlobalKey _chartKey = GlobalKey();
   DateTimeRange? _selectedDateRange;
 
   @override
   void initState() {
     super.initState();
-    _loadData();
+    _initializePage();
+  }
+
+  // Initialize page: fetch which metrics have logged data, pick a sensible default, then load data
+  Future<void> _initializePage() async {
+    setState(() => _isLoading = true);
+    try {
+      final metrics = await _service.getLoggedMetrics(widget.petId);
+      if (!mounted) return;
+      setState(() {
+        _availableMetrics = metrics;
+        if (!_availableMetrics.contains(_selectedMetric) && _availableMetrics.isNotEmpty) {
+          _selectedMetric = _availableMetrics.first;
+        }
+      });
+    } catch (e) {
+      debugPrint('Failed to fetch available metrics: $e');
+    }
+    // Then load the analysis for the selected metric
+    await _loadData();
   }
 
   // Capture the chart widget as PNG bytes
@@ -77,6 +97,44 @@ class _ReportsPageState extends State<ReportsPage> {
     });
   }
 
+  // Build a dropdown from the dynamically fetched metrics (safe fallback if empty)
+  Widget _buildMetricDropdown() {
+    if (_availableMetrics.isEmpty) {
+      return DropdownButton<String>(
+        value: _selectedMetric,
+        items: [
+          DropdownMenuItem(
+            value: _selectedMetric,
+            child: Text(_selectedMetric.replaceAll('_', ' ').toUpperCase()),
+          ),
+        ],
+        onChanged: (val) {
+          if (val != null) {
+            setState(() => _selectedMetric = val);
+            _loadData();
+          }
+        },
+      );
+    }
+
+    return DropdownButton<String>(
+      value: _selectedMetric,
+      isExpanded: true,
+      items: _availableMetrics.map((String value) {
+        return DropdownMenuItem<String>(
+          value: value,
+          child: Text(value.replaceAll('_', ' ').toUpperCase()),
+        );
+      }).toList(),
+      onChanged: (val) {
+        if (val != null) {
+          setState(() => _selectedMetric = val);
+          _loadData();
+        }
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final bool isRisk = _analysisData['is_risk'] == true;
@@ -122,18 +180,6 @@ class _ReportsPageState extends State<ReportsPage> {
                   ElevatedButton.icon(
                     icon: const Icon(Icons.picture_as_pdf),
                     label: const Text("Export Clinical Report"),
-                    onPressed: () async {
-                      final url = "${_service.baseUrl}/reports/export-pdf/${widget.petId}/$_selectedMetric";
-                      final uri = Uri.parse(url);
-                      if (await canLaunchUrl(uri)) {
-                        await launchUrl(uri, mode: LaunchMode.externalApplication);
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.picture_as_pdf),
-                    label: const Text("Preview Clinical Report"),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.blueGrey,
                       foregroundColor: Colors.white,
@@ -161,28 +207,40 @@ class _ReportsPageState extends State<ReportsPage> {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         const Text("Metric:", style: TextStyle(fontWeight: FontWeight.bold)),
-        Row(
-          children: [
-            DropdownButton<String>(
-              value: _selectedMetric,
-              items: const [
-                DropdownMenuItem(value: "weight", child: Text("Weight")),
-                DropdownMenuItem(value: "water_intake", child: Text("Water")),
-                DropdownMenuItem(value: "appetite", child: Text("Appetite")),
-              ],
-              onChanged: (val) {
-                if (val != null) {
-                  _selectedMetric = val;
-                  _loadData();
-                }
-              },
-            ),
-            IconButton(
-              icon: const Icon(Icons.date_range),
-              tooltip: 'Filter date range',
-              onPressed: () async => _selectDateRange(),
-            ),
-          ],
+        const SizedBox(width: 10),
+        Expanded(
+          child: Row(
+            children: [
+              Expanded(
+                child: DropdownButton<String>(
+                  value: _selectedMetric,
+                  isExpanded: true,
+                  items: (_availableMetrics.isNotEmpty
+                          ? _availableMetrics
+                              .map((String value) => DropdownMenuItem<String>(
+                                    value: value,
+                                    child: Text(value.replaceAll('_', ' ').toUpperCase()),
+                                  ))
+                              .toList()
+                          : [DropdownMenuItem<String>(
+                              value: _selectedMetric,
+                              child: Text(_selectedMetric.replaceAll('_', ' ').toUpperCase()),
+                            )]),
+                  onChanged: (val) {
+                    if (val != null) {
+                      setState(() => _selectedMetric = val);
+                      _loadData();
+                    }
+                  },
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.date_range),
+                tooltip: 'Filter date range',
+                onPressed: () async => _selectDateRange(),
+              ),
+            ],
+          ),
         ),
       ],
     );
