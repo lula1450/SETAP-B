@@ -4,6 +4,8 @@ from sqlalchemy.orm import Session
 from petsync_backend.database import get_db
 from petsync_backend.models import HealthMetric, MetricDefinition, Pet, MetricName
 from petsync_backend.calculations import check_15_percent_deviation
+from fastapi.responses import StreamingResponse
+from petsync_backend.utils.pdf_generator import generate_health_pdf
 
 router = APIRouter(tags=["Reporting Engine"])
 
@@ -59,9 +61,25 @@ async def get_metric_analysis(pet_id: int, metric_name: str, db: Session = Depen
 
     return {
         "metric": metric_name,
-        "is_risk": is_risk,
-        "baseline": round(baseline, 2),
-        "current": current_value,
+        "is_risk": bool(is_risk),    # ensure standard Python bool
+        "baseline": float(baseline), # ensure standard Python float
+        "current": float(current_value),
         "message": "⚠️ Significant change detected!" if is_risk else "✅ Health stable",
-        "points": graph_points # These map to FlSpots in Flutter
+        "points": graph_points
     }
+
+@router.get("/export-pdf/{pet_id}/{metric_name}")
+async def export_pet_report(pet_id: int, metric_name: str, db: Session = Depends(get_db)):
+    # 1. Reuse existing analysis logic to get the data
+    analysis = await get_metric_analysis(pet_id, metric_name, db)
+    pet = db.query(Pet).filter(Pet.pet_id == pet_id).first()
+
+    # 2. Generate the PDF buffer (expects BytesIO or file-like)
+    pdf_buffer = generate_health_pdf(pet.pet_first_name, metric_name, analysis)
+
+    # 3. Return as a downloadable file
+    return StreamingResponse(
+        pdf_buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={pet.pet_first_name}_report.pdf"}
+    )

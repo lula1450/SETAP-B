@@ -4,6 +4,7 @@ import 'package:maincode/recentlylogged.dart';
 import 'package:maincode/metrics.dart';
 import 'package:maincode/services/pet_service.dart';
 import 'package:maincode/health_records.dart';
+import 'package:maincode/report.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:maincode/add_pet.dart';
 
@@ -456,7 +457,18 @@ class _DashboardPageState extends State<DashboardPage> {
         child: GridView.count(
           shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), crossAxisCount: 4, mainAxisSpacing: 10, crossAxisSpacing: 7,
           children: [
-            _gridButton("Generate\nreport"),
+            _gridButton("Generate\nreport", onTap: () {
+              if (_pets.isNotEmpty) {
+                Navigator.push(context, MaterialPageRoute(builder: (context) => ReportsPage(
+                  petId: _pets[_selectedPetIndex]['pet_id'],
+                  petName: _pets[_selectedPetIndex]['pet_first_name'],
+                )));
+              } else {
+                // No pet selected/available - send user to add a pet then refresh
+                Navigator.pop(context);
+                Navigator.push(context, MaterialPageRoute(builder: (context) => const AddPetPage())).then((_) => _fetchPets());
+              }
+            }),
             _gridButton("Health\nrecords", onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const HealthRecordsPage()))),
             _gridButton("Feeding\nschedule"),
             _gridButton("Surprise!"),

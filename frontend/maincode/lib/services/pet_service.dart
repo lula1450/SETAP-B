@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class PetService {
-  final String baseUrl = "http://127.0.0.1:8000"; 
+  final String baseUrl = "http://localhost:8000"; 
 
   // --- 1. GET OWNER PETS ---
   Future<List<dynamic>> getOwnerPets(int ownerId) async {
@@ -107,6 +107,25 @@ class PetService {
     } catch (e) {
       debugPrint("Delete Error: $e");
       return false;
+    }
+  }
+
+  // Inside your PetService class
+  Future<Map<String, dynamic>> getMetricAnalysis(int petId, String metric) async {
+    try {
+    // This URL must match your FastAPI route exactly
+      final response = await http.get(
+       Uri.parse('$baseUrl/reports/analysis/$petId/$metric'),
+      );
+
+      if (response.statusCode == 200) {
+       return json.decode(response.body);
+     } else {
+        throw Exception('Failed to load analysis');
+      }
+   } catch (e) {
+     print("Error fetching analysis: $e");
+     return {"is_risk": false, "points": [], "message": "Connection error"};
     }
   }
 } // End of PetService class
