@@ -2,8 +2,9 @@ from sqlalchemy.orm import Session
 from petsync_backend.database import SessionLocal, engine, Base
 from petsync_backend.models import (
     Species_config, MetricDefinition, MetricName, 
-    MetricUnit, SpeciesType, Owner, Pet 
+    MetricUnit, SpeciesType, Owner, Pet, HealthMetric
 )
+from datetime import datetime, timedelta
 
 def seed_data():
     Base.metadata.create_all(bind=engine)
@@ -129,7 +130,62 @@ def seed_data():
                 pet_address1="123 Pet Lane", pet_postcode="PO1 2AB", pet_city="London"
             ))
     
-    db.commit()
+    db.commit() # Commit Pets and Definitions first so they have IDs
+    
+    print("Generating Extended Health History...")
+    
+    # 1. BENTLEY
+    bentley = db.query(Pet).filter(Pet.pet_first_name == "Bentley").first()
+    if bentley:
+        # We find the definition ID specifically for Bentley's species
+        b_weight_def = db.query(MetricDefinition).filter(
+            MetricDefinition.species_id == bentley.species_id,
+            MetricDefinition.metric_name == MetricName.weight
+        ).first()
+
+        if b_weight_def:
+            print(f"DEBUG: Linking Bentley (ID: {bentley.pet_id}) to Weight Def (ID: {b_weight_def.metric_def_id})")
+            history = [
+                (30, 15.0), (28, 15.2), (25, 15.1), 
+                (14, 11.0), (12, 10.5), (10, 10.0), 
+                (5, 11.5), (2, 12.0), (0, 12.8)
+            ]
+            for days_back, val in history:
+                log = HealthMetric(
+                    pet_id=bentley.pet_id,
+                    metric_def_id=b_weight_def.metric_def_id,
+                    metric_value=val,
+                    metric_time=datetime.utcnow() - timedelta(days=days_back)
+                )
+                db.add(log)
+        else:
+            print("DEBUG: Could not find Weight Definition for Bentley")
+
+    # 2. MAISIE
+    maisie = db.query(Pet).filter(Pet.pet_first_name == "Maisie").first()
+    if maisie:
+        m_water_def = db.query(MetricDefinition).filter(
+            MetricDefinition.species_id == maisie.species_id,
+            MetricDefinition.metric_name == MetricName.water_intake
+        ).first()
+
+        if m_water_def:
+            print(f"DEBUG: Linking Maisie (ID: {maisie.pet_id}) to Water Def (ID: {m_water_def.metric_def_id})")
+            for i in range(30, -1, -5):
+                log = HealthMetric(
+                    pet_id=maisie.pet_id,
+                    metric_def_id=m_water_def.metric_def_id,
+                    metric_value=250.0 + (i % 10),
+                    metric_time=datetime.utcnow() - timedelta(days=i)
+                )
+                db.add(log)
+
+    db.commit() # Final commit for all health logs
+    
+    # Final Verification Print
+    total_logs = db.query(HealthMetric).count()
+    print(f"📈 Total Health Logs Seeded: {total_logs}")
+    
     db.close()
     print("✅ Database Seeded with 12 species configurations!")
 

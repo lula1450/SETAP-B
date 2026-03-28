@@ -23,6 +23,7 @@ class _ReportsPageState extends State<ReportsPage> {
   bool _isLoading = true;
   String _selectedMetric = "weight"; // Default to weight
   final GlobalKey _chartKey = GlobalKey();
+  DateTimeRange? _selectedDateRange;
 
   @override
   void initState() {
@@ -38,10 +39,37 @@ class _ReportsPageState extends State<ReportsPage> {
     return byteData!.buffer.asUint8List();
   }
 
+  // Show native date range picker and refresh data when chosen
+  Future<void> _selectDateRange() async {
+    final DateTimeRange? picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+      initialDateRange: _selectedDateRange,
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: Color(0xFF8BAEAE), // Matches app theme
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null) {
+      setState(() => _selectedDateRange = picked);
+      _loadData(); // reload with new range
+    }
+  }
+
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     // Standardizing the metric name for the backend
-    final data = await _service.getMetricAnalysis(widget.petId, _selectedMetric);
+    final String? start = _selectedDateRange?.start.toIso8601String();
+    final String? end = _selectedDateRange?.end.toIso8601String();
+    final data = await _service.getMetricAnalysis(widget.petId, _selectedMetric, startDate: start, endDate: end);
     if (!mounted) return;
     setState(() {
       _analysisData = data;
@@ -71,6 +99,17 @@ class _ReportsPageState extends State<ReportsPage> {
                   const SizedBox(height: 20),
                   _buildStatusCard(isRisk),
                   const SizedBox(height: 30),
+                  if (_selectedDateRange != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: InputChip(
+                        label: Text("${_selectedDateRange!.start.day}/${_selectedDateRange!.start.month} - ${_selectedDateRange!.end.day}/${_selectedDateRange!.end.month}"),
+                        onDeleted: () {
+                          setState(() => _selectedDateRange = null);
+                          _loadData();
+                        },
+                      ),
+                    ),
                   const Text("Trend Analysis", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 10),
                   RepaintBoundary(
@@ -122,19 +161,28 @@ class _ReportsPageState extends State<ReportsPage> {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         const Text("Metric:", style: TextStyle(fontWeight: FontWeight.bold)),
-        DropdownButton<String>(
-          value: _selectedMetric,
-          items: const [
-            DropdownMenuItem(value: "weight", child: Text("Weight")),
-            DropdownMenuItem(value: "water_intake", child: Text("Water")),
-            DropdownMenuItem(value: "appetite", child: Text("Appetite")),
+        Row(
+          children: [
+            DropdownButton<String>(
+              value: _selectedMetric,
+              items: const [
+                DropdownMenuItem(value: "weight", child: Text("Weight")),
+                DropdownMenuItem(value: "water_intake", child: Text("Water")),
+                DropdownMenuItem(value: "appetite", child: Text("Appetite")),
+              ],
+              onChanged: (val) {
+                if (val != null) {
+                  _selectedMetric = val;
+                  _loadData();
+                }
+              },
+            ),
+            IconButton(
+              icon: const Icon(Icons.date_range),
+              tooltip: 'Filter date range',
+              onPressed: () async => _selectDateRange(),
+            ),
           ],
-          onChanged: (val) {
-            if (val != null) {
-              _selectedMetric = val;
-              _loadData();
-            }
-          },
         ),
       ],
     );
@@ -183,23 +231,38 @@ class _ReportsPageState extends State<ReportsPage> {
       child: LineChart(
         LineChartData(
           gridData: const FlGridData(show: false),
-          titlesData: const FlTitlesData(
-            topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          ),
-          borderData: FlBorderData(show: false),
-          lineBarsData: [
-            LineChartBarData(
-              spots: spots,
-              isCurved: true,
-              color: isRisk ? Colors.red : Colors.teal,
-              barWidth: 5,
-              belowBarData: BarAreaData(show: true, color: (isRisk ? Colors.red : Colors.teal).withOpacity(0.1)),
+          titlesData: FlTitlesData(
+            bottomTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                reservedSize: 30,
+                getTitlesWidget: (value, meta) {
+                  final points = _analysisData['points'] as List<dynamic>? ?? [];
+                  final int idx = value.toInt();
+                  if (points.isNotEmpty && idx % 5 == 0 && idx < points.length) {
+                    final dateStr = points[idx]['date']?.toString() ?? '';
+                    return Text(dateStr.split(',')[0], style: const TextStyle(fontSize: 10));
+                  }
+                  return const SizedBox();
+                },
+              ),
             ),
-          ],
-        ),
-      ),
-    );
+            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          ),
+           borderData: FlBorderData(show: false),
+           lineBarsData: [
+             LineChartBarData(
+               spots: spots,
+               isCurved: true,
+               color: isRisk ? Colors.red : Colors.teal,
+               barWidth: 5,
+               belowBarData: BarAreaData(show: true, color: (isRisk ? Colors.red : Colors.teal).withOpacity(0.1)),
+             ),
+           ],
+         ),
+       ),
+     );
   }
 
   Widget _buildBaselineInfo() {

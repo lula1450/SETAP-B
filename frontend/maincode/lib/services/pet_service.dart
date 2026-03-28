@@ -111,21 +111,25 @@ class PetService {
   }
 
   // Inside your PetService class
-  Future<Map<String, dynamic>> getMetricAnalysis(int petId, String metric) async {
+  Future<Map<String, dynamic>> getMetricAnalysis(int petId, String metric, {String? startDate, String? endDate}) async {
     try {
-    // This URL must match your FastAPI route exactly
-      final response = await http.get(
-       Uri.parse('$baseUrl/reports/analysis/$petId/$metric'),
-      );
+      // Build URI with optional query parameters for date filtering
+      Uri uri = Uri.parse('$baseUrl/reports/analysis/$petId/$metric');
+      final Map<String, String> queryParams = {};
+      if (startDate != null) queryParams['start_date'] = startDate;
+      if (endDate != null) queryParams['end_date'] = endDate;
+      if (queryParams.isNotEmpty) uri = uri.replace(queryParameters: queryParams);
+
+      final response = await http.get(uri);
 
       if (response.statusCode == 200) {
-       return json.decode(response.body);
-     } else {
+        return json.decode(response.body);
+      } else {
         throw Exception('Failed to load analysis');
       }
-   } catch (e) {
-     print("Error fetching analysis: $e");
-     return {"is_risk": false, "points": [], "message": "Connection error"};
+    } catch (e) {
+      print("Error fetching analysis: $e");
+      return {"is_risk": false, "points": [], "message": "Connection error"};
     }
   }
 } // End of PetService class
