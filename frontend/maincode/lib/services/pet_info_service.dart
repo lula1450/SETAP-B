@@ -9,7 +9,9 @@ class PetInfoService {
         "breedInfo": ["• Large", "• 10–12 years", "• High energy", "• Easy to train"],
         "careTips": ["• Daily exercise", "• Loves water", "• Regular brushing"],
         "personality": ["• Friendly", "• Loyal", "• Good with families", "• Playful"],
-        "diet": ["• High-Quality protein", "Omega-3 for healthy Coat","• Balanced diet", "• Avoid overfeeding"],
+        "diet": ["• High-Quality protein", "• Omega-3 for healthy Coat","• Balanced diet", "• Avoid overfeeding"],
+        "health": ["• Prone to hip dysplasia", "• Obesity risk", "• Ear Infections", "• Regular Vet Chekups"],
+        "environment": ["• Needs large spaces", "• Loves outdoor activity", "• Great for families", "• Not ideal for small apartments"],
       },
 
       2: {
@@ -21,6 +23,8 @@ class PetInfoService {
         "careTips": ["• Daily exercise", "• Brush 2–3x weekly", "• Needs attention", "• Regular Vet Checkups"],
         "personality": ["• Gentle", "• Social", "• Playful", "• Intelligent"],
         "diet": ["• High protein", "• Joint support nutrients", "• Healthy fats for Coat", "• Portion Cotrol"],
+        "health":["• Hip & Elbow dypsplasia", "• Heart Issues", "• Sensitive Skin", "• Needs regular vet care"],
+        "environment":["• Needs space to roam", "• Family-friendly home", "• Not suited for isloation", "• Enjoys outdoor environments"],
       },
 
       3: {
@@ -32,6 +36,8 @@ class PetInfoService {
         "careTips": ["• Regular grooming", "• Needs space", "• Interactive play", "• Regular Vet Checkups"], 
         "personality": ["• Friendly", "• Intelligent", "• Playful", "• Gentle"],
         "diet": ["• Protein-rich food", "• Wet & Dry Mixed Meals", "• Fresh Water", "• Portion Control"],
+        "health":["• Risk of Heart Disease(HCM)", "• Hip dysplasia", "• Risk of Obesity if inactive", "• Regular grooming needed"],
+        "environment":["• Needs space to move", "• Indoor preffered", "• Good for families", "• Tolerates cold climates well"],
       }, 
 
       4: {
@@ -43,6 +49,8 @@ class PetInfoService {
         "careTips": ["• Needs attention", "• Indoor living", "• Interactive Toys", "• Warm environment"],
         "personality": ["• Talkative", "• Affectionate", "• Social", "• Intelligent"],
         "diet": ["• High-quality cat food", "• Protein Rich Meals", "• Fresh Water", "• Portion Control"],
+        "health":["• Dental Issues", "• Respiratory problems", "• Sensitive to stress", "• Needs regular vet care"],
+        "environment":["• Indoor living preffered", "• Needs attention & interaction", "• Not good when left alone", "• Warm environment ideal"],
       },
 
       5: {
@@ -54,6 +62,8 @@ class PetInfoService {
         "careTips": ["• Hay-based diet", "• Clean enclosure", "• Daily excercise", "• Social interactions"],
         "personality": ["• Calm", "• Friendly", "• Gentle", "• Social"],
         "diet": ["• Hay", "• Fresh Veggies", "• Pellets", "• Fresh Water"],
+        "health":["• Denatl problems", "• Ear infections", "• Digestive sensitivity", "• Needs regular Checkups"],
+        "environment":["• Indoor environment preffered", "• Needs safe enclosure", "• Quiet household", "• Space for hopping/exercise"],
       },
 
       6: {
@@ -65,6 +75,8 @@ class PetInfoService {
         "careTips": ["• Gentle handling", "• Warm shelter", "• Clean Enclosure", "• Daily exercise"],
         "personality": ["• Calm", "• Quiet", "• Friendly", "• Gentle"],
         "diet": ["• Hay", "• Pellets", "• Fresh Vegetables", "• Fresh Water"],
+        "health":["• Sensitive skin", "• Digestive issues", "• Dental care required", "• Needs regular monitoring"],
+        "environment": ["• Indoor living recommended", "• Soft bedding required", "• Dental care required", "• Needs regular monitoring"],
       },
 
       7: {
@@ -76,6 +88,8 @@ class PetInfoService {
         "careTips": ["• Exercise wheel", "• Clean cage", "• Fresh Bedding", "• Hideouts for rest"],
         "personality": ["• Solitary", "• Active at night", "• Curious", "• Territorial"],
         "diet": ["• Seeds", "• Fresh Vegetables", "• Protein rich snacks", "• Fresh Water"],
+        "health":["• Prone to obesity", "• Dental overgrowth", "• Short lifespan health decline", "• Needs clean habitat"],
+        "environment":["• Solitary living only", "• Quiet environment", "• Nocturnal-friendly space", "• Secure enclosure needed"],
       },
 
       8: {
@@ -87,6 +101,8 @@ class PetInfoService {
         "careTips": ["• Large enclosure", "• Minimal handling", "• Excercise wheel", "• Clean habitat"],
         "personality": ["• Fast", "• Shy", "• Energetic", "• Curious"],
         "diet": ["• Seeds", "• Insects", "• Fresh Vegetables", "• Fresh Water"],
+        "health":["• Fragile body", "• Stress-sensitive", "• Prone to dehydration", "• Needs a clean habitat"],
+        "environment":["• Large enclosure needed", "• Minimal handling", "• Quiet space", "• War, dry environment"],
       },
 
       9: {
@@ -98,6 +114,8 @@ class PetInfoService {
         "careTips": ["• Mental stimulation", "• Social interaction", "• Large Cage", "• Regular Cleaning"],
         "personality": ["• Smart", "• Emotional", "• Social", "• Sensitive"],
         "diet": ["• Fruits", "• Seeds", "• Pellets", "• Fresh Water"],
+        "health":["• Feather plucking", "• Calcium deficiency", "• Respiratory issues", "• Needs mental stimulation"],
+        "environment":["• Large cage required", "• Social interaction needed", "• Quiet but engaging home", "• Needs daily out-of-cage time"],
       },
 
       10: {
@@ -109,6 +127,8 @@ class PetInfoService {
         "careTips": ["• Social time", "• Clean cage", "• Toys for stimulation", "• Regular feeding"],
         "personality": ["• Friendly", "• Curious", "• Social", "• Playful"],
         "diet": ["• Seeds", "• Pellets", "• Fresh Vegetables", "• Fresh Water"],
+        "health":["• Respiratory infections", "• Vitamin deficiencies", "• Feather issue", "• Regular vet care needed"],
+        "environment":["• Social environment", "• Medium cage space", "• Needs interaction", "• Avoid cold drafts"],
       },
 
       11: {
@@ -120,6 +140,8 @@ class PetInfoService {
         "careTips": ["• Heat lamp", "• Secure enclosure", "• Regular cleaning", "• Proper humidity"],
         "personality": ["• Calm", "• Easy to handle", "• Docile", "• Low maintenance"],
         "diet": ["• Frozen mice", "• Regulated Portions", "• Clean Water", "• Feeding schedule"],
+        "health":["• Shedding issues", "• Respiratory infections", "• Parasites", "• Needs proper humidity"],
+        "environment":["• Secure enclosure", "• Warm temperature gradient", "• Low noise environment", "• Proper humidity levels"],
       },
 
       12: {
@@ -131,6 +153,8 @@ class PetInfoService {
         "careTips": ["• Warm enclosure", "• Humidity control", "• Hide Spots", "• Regualar cleaning"],
         "personality": ["• Shy", "• Docile", "• Calm", "• Slow-moving"],
         "diet": ["• Rodents", "• Feeding schedule", "• Regulated Portions", "• Clean Water"],
+        "health":["• Respirarory infections", "• Shedding problems", "• Refusual eat", "• Needs humidty control"],
+        "environment":["• Warm, humid enclosure", "• Hiding spots required", "• Low-stress environment", "• Stable temperature needed"],
       },
     };
 
@@ -144,6 +168,8 @@ class PetInfoService {
           "careTips": [],
           "personality": [],
           "diet": [],
+          "health":[],
+          "environment":[]
         };
   }
 }

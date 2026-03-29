@@ -21,18 +21,16 @@ class PetInfoPage extends StatelessWidget {
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
       ),
-
       body: Container(
         width: double.infinity,
         height: double.infinity,
         color: const Color(0xFFDFF9F7),
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
-
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-//image
+              // image
               ClipRRect(
                 borderRadius: BorderRadius.circular(16),
                 child: Image.network(
@@ -44,7 +42,8 @@ class PetInfoPage extends StatelessWidget {
               ),
 
               const SizedBox(height: 12),
-//name
+
+              // name
               Center(
                 child: Column(
                   children: [
@@ -66,7 +65,7 @@ class PetInfoPage extends StatelessWidget {
 
               const SizedBox(height: 16),
 
-//general help url
+              // general help url
               GestureDetector(
                 onTap: () async {
                   final Uri url = Uri.parse(petInfo["helpUrl"]);
@@ -85,20 +84,18 @@ class PetInfoPage extends StatelessWidget {
               ),
 
               const SizedBox(height: 16),
-//breed info
+
+              // breed info + care tips
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-
                   Expanded(
                     child: _buildCard(
                       "Breed Info",
                       petInfo["breedInfo"],
                     ),
                   ),
-
                   const SizedBox(width: 16),
-//care tips
                   Expanded(
                     child: _buildCard(
                       "Care Tips",
@@ -110,11 +107,11 @@ class PetInfoPage extends StatelessWidget {
               ),
 
               const SizedBox(height: 16),
-//personaliity card
+
+              // personality + diet
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-
                   Expanded(
                     child: _buildCard(
                       "Personality",
@@ -122,13 +119,36 @@ class PetInfoPage extends StatelessWidget {
                       color: Colors.blue[50],
                     ),
                   ),
-
                   const SizedBox(width: 16),
-//diet card
                   Expanded(
                     child: _buildCard(
                       "Diet",
                       petInfo["diet"],
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 16),
+
+              // health
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: _buildCard(
+                      "Potential Health Issues",
+                      petInfo["health"] ?? [],
+                      color: Colors.red[50],
+                    ),
+                  ),
+                  //environment
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: _buildCard(
+                      "Preffered Environment",
+                      petInfo["environment"] ?? [],
+                      color: Colors.green[50],
                     ),
                   ),
                 ],
@@ -140,7 +160,7 @@ class PetInfoPage extends StatelessWidget {
     );
   }
 
-  //card layout
+  // card layout
   Widget _buildCard(String title, List items, {Color? color}) {
     return Container(
       padding: const EdgeInsets.all(12),
@@ -160,7 +180,6 @@ class PetInfoPage extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-
           ...items.map<Widget>((item) => Text(item)).toList(),
         ],
       ),
