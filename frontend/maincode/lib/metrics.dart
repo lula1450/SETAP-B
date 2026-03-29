@@ -240,10 +240,10 @@ class _MetricsPageState extends State<MetricsPage> {
                 controller: _searchController,
                 onChanged: (val) => setState(() => _searchQuery = val.toLowerCase()),
                 decoration: InputDecoration(
-                  hintText: 'Search Metrics...', 
-                  fillColor: Colors.white.withOpacity(0.9), 
-                  filled: true, 
-                  prefixIcon: const Icon(Icons.search), 
+                  hintText: 'Search Metrics...',
+                  fillColor: Colors.white.withOpacity(0.9),
+                  filled: true,
+                  prefixIcon: const Icon(Icons.search),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none)
                 ),
               ),
@@ -290,9 +290,9 @@ class _MetricsPageState extends State<MetricsPage> {
           IconButton(icon: Icon(isFavorite ? Icons.star : Icons.star_border, color: isFavorite ? Colors.amber : Colors.white70), onPressed: () => _toggleFavorite(title)),
           Expanded(flex: 3, child: _metricButton(title, Colors.white.withOpacity(0.8), () => _showEditDialog(context, title))),
           const SizedBox(width: 8),
-          Expanded(flex: 1, child: _metricButton(displayCurrent, const Color(0xFFD6F8F8), () {})),
+          Expanded(flex: 1, child: _metricButton(displayCurrent, const Color.fromARGB(123, 249, 249, 249), () {})),
           const SizedBox(width: 8),
-          Expanded(flex: 1, child: _metricButton(displayGoal, const Color(0xFFEDFEE7), () {})),
+          Expanded(flex: 1, child: _metricButton(displayGoal, const Color.fromARGB(82, 255, 255, 255), () {})),
         ],
       ),
     );

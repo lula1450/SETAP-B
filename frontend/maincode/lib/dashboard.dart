@@ -432,21 +432,6 @@ class _DashboardPageState extends State<DashboardPage> {
     return Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => Text(day, style: const TextStyle(fontSize: 10, color: Colors.grey))).toList());
   }
 
-  Widget _actionButtonsSection(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 20.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          _actionButton(context, "Log daily\nmetrics"),
-          _actionButton(context, "Recently\nlogged data"),
-          _actionButton(context, "Find out\nmore about pet"),
-          const Column(children: [Icon(Icons.sentiment_very_satisfied, size: 40, color: Colors.orange), Text("Current mood", style: TextStyle(fontSize: 8))]),
-        ],
-      ),
-    );
-  }
-
   Widget _dailyInfoSection() {
     String petName = _pets.isNotEmpty ? _pets[_selectedPetIndex]['pet_first_name'] : "your pet";
     return Padding(
@@ -489,35 +474,6 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  Widget _actionButton(BuildContext context, String text) {
-    String petName = _pets.isNotEmpty ? _pets[_selectedPetIndex]['pet_first_name'] : "";
-    return InkWell(
-      onTap: () {
-        if (text.contains("Log") && _pets.isNotEmpty) {
-          Navigator.push(context, MaterialPageRoute(builder: (context) => MetricsPage(petId: _pets[_selectedPetIndex]['pet_id'], petName: _pets[_selectedPetIndex]['pet_first_name'])));
-        } else if (text.contains("Recently")) {
-          // Navigate to recently logged data for the selected pet
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => RecentlyLoggedDataPage(
-                petId: _pets.isNotEmpty ? _pets[_selectedPetIndex]['pet_id'] : 0,
-                petName: _pets.isNotEmpty ? _pets[_selectedPetIndex]['pet_first_name'] : '',
-              ),
-            ),
-          );
-        } else if (text.contains("Find out")) {
-          Navigator.push(context, MaterialPageRoute(builder: (context) => PetInfoPage(speciesId: _pets[_selectedPetIndex]['species_id'])));
-        }
-      },
-      child: Container(
-        width: 85, height: 85, alignment: Alignment.center,
-        decoration: BoxDecoration(color: Colors.white.withOpacity(0.5), borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.black12)),
-        child: Text(text.replaceAll("pet", petName), textAlign: TextAlign.center, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold)),
-      ),
-    );
-  }
-
   Widget _infoBox(String title, String content) {
     return Container(
       width: double.infinity, padding: const EdgeInsets.all(12),
@@ -550,6 +506,77 @@ class _DashboardPageState extends State<DashboardPage> {
           TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
           ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.red), onPressed: () => Navigator.pop(context), child: const Text("Delete", style: TextStyle(color: Colors.white))),
         ],
+      ),
+    );
+  }
+
+  Widget _actionButtonsSection(BuildContext context) {
+    // Get the name of the currently selected pet, default to "Pet" if list is empty
+    String currentPetName = _pets.isNotEmpty
+        ? _pets[_selectedPetIndex]['pet_first_name']
+        : "Pet";
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 20.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          // Pass the name to the helper
+          _actionButton(context, "Log $currentPetName's daily\nmetrics"),
+          _actionButton(context, "$currentPetName's recently\nlogged data"),
+          _actionButton(context, "Find out\nmore about $currentPetName"),
+          const Column(
+            children: [
+              Icon(Icons.sentiment_very_satisfied, size: 40, color: Colors.orange),
+              Text("Current mood", style: TextStyle(fontSize: 8))
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _actionButton(BuildContext context, String text) {
+    return InkWell(
+      onTap: () {
+        if (_pets.isEmpty) return; // Guard clause if data isn't loaded
+
+        final currentPet = _pets[_selectedPetIndex];
+
+        if (text.contains("Log")) {
+          Navigator.push(context, MaterialPageRoute(
+            builder: (context) => MetricsPage(
+              petId: currentPet['pet_id'],
+              petName: currentPet['pet_first_name']
+            )
+          ));
+        } else if (text.contains("Recently")) {
+          Navigator.push(context, MaterialPageRoute(
+            builder: (context) => RecentlyLoggedDataPage(
+              petId: currentPet['pet_id'],
+              petName: currentPet['pet_first_name'],
+            )
+          ));
+        } else if (text.contains("Find out")) {
+          Navigator.push(context, MaterialPageRoute(
+            builder: (context) => PetInfoPage(
+              speciesId: currentPet['species_id']
+            )
+          ));
+        }
+      },
+      child: Container(
+        width: 90, height: 90, alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.5),
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(color: Colors.black12)
+        ),
+        child: Text(
+          text,
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold)
+        ),
       ),
     );
   }
