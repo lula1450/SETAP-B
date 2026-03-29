@@ -181,3 +181,27 @@ def set_metric_goal(pet_id: int, metric_name: str, goal: str, db: Session = Depe
 
     db.commit()
     return {"status": "success", "message": f"Goal updated for {metric_name}."}
+
+@router.get("/history/{pet_id}")
+async def get_pet_history(pet_id: int, db: Session = Depends(get_db)):
+    # Join HealthMetric with MetricDefinition to get the name and unit
+    history = db.query(
+        HealthMetric.metric_value,
+        HealthMetric.metric_time,
+        MetricDefinition.metric_name,
+        MetricDefinition.metric_unit
+    ).join(MetricDefinition, HealthMetric.metric_def_id == MetricDefinition.metric_def_id) \
+     .filter(HealthMetric.pet_id == pet_id) \
+     .order_by(HealthMetric.metric_time.desc()) \
+     .all()
+
+    # Format it for the Flutter list
+    return [
+        {
+            "metric": h.metric_name.value if hasattr(h.metric_name, 'value') else str(h.metric_name),
+            "value": h.metric_value,
+            "unit": h.metric_unit.value if hasattr(h.metric_unit, 'value') else str(h.metric_unit),
+            "time": h.metric_time.strftime("%d %b %Y, %H:%M")
+        } for h in history
+    ]
+

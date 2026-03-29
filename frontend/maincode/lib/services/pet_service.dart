@@ -146,4 +146,13 @@ class PetService {
     // Fallback
     return ['weight'];
   }
+
+  Future<List<dynamic>> getPetHistory(int petId) async {
+    final response = await http.get(Uri.parse('$baseUrl/health/history/$petId'));
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        throw Exception('Failed to load history');
+      }
+    }
 } // End of PetService class

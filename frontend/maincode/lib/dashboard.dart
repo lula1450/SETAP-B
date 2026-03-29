@@ -322,10 +322,21 @@ class _DashboardPageState extends State<DashboardPage> {
             leading: Icon(Icons.pets, color: _getPetColor(_pets[index]['pet_first_name'])),
             title: Text(_pets[index]['pet_first_name']),
             onTap: () {
+              final pet = _pets[index];
               setState(() => _selectedPetIndex = index);
               Navigator.pop(context);
-              // We fetch unified schedule, so no need to refetch on switch, but good practice
+              // Refresh appointments for the newly selected pet
               _fetchAppointments(); 
+              // Navigate directly to the Recently Logged Data page for this pet
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => RecentlyLoggedDataPage(
+                    petId: pet['pet_id'],
+                    petName: pet['pet_first_name'],
+                  ),
+                ),
+              );
             },
           );
         },
@@ -485,7 +496,16 @@ class _DashboardPageState extends State<DashboardPage> {
         if (text.contains("Log") && _pets.isNotEmpty) {
           Navigator.push(context, MaterialPageRoute(builder: (context) => MetricsPage(petId: _pets[_selectedPetIndex]['pet_id'], petName: _pets[_selectedPetIndex]['pet_first_name'])));
         } else if (text.contains("Recently")) {
-          Navigator.push(context, MaterialPageRoute(builder: (context) => const RecentlyLoggedDataPage()));
+          // Navigate to recently logged data for the selected pet
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => RecentlyLoggedDataPage(
+                petId: _pets.isNotEmpty ? _pets[_selectedPetIndex]['pet_id'] : 0,
+                petName: _pets.isNotEmpty ? _pets[_selectedPetIndex]['pet_first_name'] : '',
+              ),
+            ),
+          );
         } else if (text.contains("Find out")) {
           Navigator.push(context, MaterialPageRoute(builder: (context) => PetInfoPage(speciesId: _pets[_selectedPetIndex]['species_id'])));
         }
