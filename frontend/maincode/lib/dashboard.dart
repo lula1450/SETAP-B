@@ -467,7 +467,7 @@ class _DashboardPageState extends State<DashboardPage> {
             }),
             _gridButton("Health\nrecords", onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const HealthRecordsPage()))),
             _gridButton("Feeding\nschedule"),
-            _gridButton("Surprise!"),
+            _gridButton("Vet\ncontacts"),
           ],
         ),
       ),

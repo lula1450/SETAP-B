@@ -21,8 +21,9 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      endDrawer: _buildDrawer(),
       appBar: AppBar(
-        title: Text('${widget.petName}\'s Logged Data'),
+        title: Text("${widget.petName}'s Logged Data"),
         backgroundColor: const Color(0xFF8BAEAE),
       ),
       body: FutureBuilder<List<dynamic>>(
@@ -86,5 +87,53 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
       case 'appetite': return const Icon(Icons.restaurant, color: Colors.orange);
       default: return const Icon(Icons.analytics, color: Colors.grey);
     }
+  }
+
+  // --- Settings Drawer (copied from Dashboard) ---
+  Widget _buildDrawer() {
+    return Drawer(
+      child: ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          const DrawerHeader(
+            decoration: BoxDecoration(color: Color.fromARGB(255, 139, 174, 174)),
+            child: Text('Settings', style: TextStyle(color: Colors.white, fontSize: 24)),
+          ),
+          _drawerTile(Icons.person, 'Edit Profile'),
+          _drawerTile(Icons.notifications, 'Notifications'),
+          _drawerTile(Icons.palette, 'Report History'),
+          _drawerTile(Icons.logout, 'Logout'),
+          _drawerTile(Icons.delete_forever, 'Delete Account', color: Colors.red),
+        ],
+      ),
+    );
+  }
+
+  Widget _drawerTile(IconData icon, String title, {Color? color}) {
+    return ListTile(
+      leading: Icon(icon, color: color),
+      title: Text(title, style: TextStyle(color: color)),
+      onTap: () {
+        if (title == 'Delete Account') {
+          _showDeleteConfirmation();
+        } else {
+          Navigator.pop(context);
+        }
+      },
+    );
+  }
+
+  void _showDeleteConfirmation() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Delete Account?"),
+        content: const Text("Permanently delete profile and pet data?"),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+          ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.red), onPressed: () => Navigator.pop(context), child: const Text("Delete", style: TextStyle(color: Colors.white))),
+        ],
+      ),
+    );
   }
 }
