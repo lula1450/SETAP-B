@@ -8,6 +8,7 @@ import 'package:maincode/report.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:maincode/add_pet.dart';
 import 'package:maincode/edit_profile.dart';
+import 'package:maincode/services/fun_fact_service.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -25,10 +26,14 @@ class _DashboardPageState extends State<DashboardPage> {
   DateTime _focusedDay = DateTime.now();
   int? _selectedDay; 
 
+  final FunFactService _funFactService = FunFactService(); 
+  String _dailyFact = ""; 
+
   @override
   void initState() {
     super.initState();
     _selectedDay = DateTime.now().day; 
+    _dailyFact = _funFactService.getDailyFact();
     _fetchPets();
   }
 
@@ -493,7 +498,7 @@ class _DashboardPageState extends State<DashboardPage> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
       child: Column(children: [
-        _infoBox("Daily fun fact:", "Pets can decrease stress!"),
+        _infoBox("Daily fun fact:", _dailyFact),
         const SizedBox(height: 10),
         _infoBox("Advice:", "Ensure $petName gets 30 mins of play today.")
       ]),

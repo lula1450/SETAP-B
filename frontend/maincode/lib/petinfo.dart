@@ -139,7 +139,7 @@ class PetInfoPage extends StatelessWidget {
                     child: _buildCard(
                       "Potential Health Issues",
                       petInfo["health"] ?? [],
-                      color: Colors.red[50],
+                      color: Colors.white,
                     ),
                   ),
                   //environment
@@ -148,7 +148,7 @@ class PetInfoPage extends StatelessWidget {
                     child: _buildCard(
                       "Preffered Environment",
                       petInfo["environment"] ?? [],
-                      color: Colors.green[50],
+                      color: Colors.blue[50],
                     ),
                   ),
                 ],
