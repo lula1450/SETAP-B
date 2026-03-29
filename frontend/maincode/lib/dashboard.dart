@@ -409,24 +409,76 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Widget _calendarSection() {
-    return SizedBox(
-      height: 420,
-      child: Stack(
-        children: [
-          Align(alignment: Alignment.topLeft, child: _backgroundCircle(190, Colors.white.withOpacity(0.3))),
-          Align(alignment: Alignment.bottomRight, child: _backgroundCircle(180, Colors.white.withOpacity(0.4))),
-          Align(
-            alignment: Alignment.center,
-            child: Container(
-              height: 380, width: double.infinity, margin: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: Colors.white.withOpacity(0.8), borderRadius: BorderRadius.circular(12)),
-              child: _buildCalendar(),
+  return SizedBox(
+    height: 420, // Total height of the calendar stack
+    child: Stack(
+      children: [
+        // --- TOP LEFT CLUSTER (Behind Calendar) ---
+        // Top Left 1 (Largest, Most Transparent)
+        Positioned(
+          top: -10,
+          left: -40,
+          child: _backgroundCircle(200, Colors.white.withOpacity(0.1)),
+        ),
+        // Top Left 2 (Medium)
+        Positioned(
+          top: 10,
+          left: -25,
+          child: _backgroundCircle(190, Colors.white.withOpacity(0.2)),
+        ),
+        // Top Left 3 (Smallest, Most Visible)
+        Positioned(
+          top: 30,
+          left: 10,
+          child: _backgroundCircle(170, Colors.white.withOpacity(0.3)),
+        ),
+
+        // --- BOTTOM RIGHT CLUSTER (Behind Calendar) ---
+        // Bottom Right 1 (Largest, Most Transparent)
+        Positioned(
+          bottom: -10,
+          right: -40,
+          child: _backgroundCircle(200, Colors.white.withOpacity(0.1)),
+        ),
+        // Bottom Right 2 (Medium)
+        Positioned(
+          bottom: 10,
+          right: -25,
+          child: _backgroundCircle(190, Colors.white.withOpacity(0.2)),
+        ),
+        // Bottom Right 3 (Smallest, Most Visible)
+        Positioned(
+          bottom: 30,
+          right: 10,
+          child: _backgroundCircle(170, Colors.white.withOpacity(0.3)),
+        ),
+
+        // --- THE MAIN CALENDAR CARD (Foreground) ---
+        Align(
+          alignment: Alignment.center,
+          child: Container(
+            height: 380, 
+            width: double.infinity, 
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              // The slight opacity on the white container is key to seeing the rings
+              color: Colors.white.withOpacity(0.65), 
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
+            child: _buildCalendar(),
           ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
+}
 
   Widget _calendarHeaderRow() {
     return Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => Text(day, style: const TextStyle(fontSize: 10, color: Colors.grey))).toList());
