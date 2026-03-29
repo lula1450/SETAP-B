@@ -550,7 +550,7 @@ class _DashboardPageState extends State<DashboardPage> {
               petName: currentPet['pet_first_name']
             )
           ));
-        } else if (text.contains("Recently")) {
+        } else if (text.contains("recently")) {
           Navigator.push(context, MaterialPageRoute(
             builder: (context) => RecentlyLoggedDataPage(
               petId: currentPet['pet_id'],
