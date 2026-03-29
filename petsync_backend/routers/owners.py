@@ -41,3 +41,18 @@ def delete_owner(owner_id: int, db: Session = Depends(database.get_db)):
     db.commit()
     
     return {"message": f"Owner {owner_id} and all associated data deleted successfully"}
+
+@router.put("/owners/{owner_id}")
+async def update_owner(owner_id: int, owner_data: dict, db: Session = Depends(get_db)):
+    db_owner = db.query(Owner).filter(Owner.owner_id == owner_id).first()
+    if not db_owner:
+        return {"error": "Owner not found"}
+
+    # Update only the fields provided in the request
+    for key, value in owner_data.items():
+        if hasattr(db_owner, key):
+            setattr(db_owner, key, value)
+    
+    db.commit()
+    db.refresh(db_owner)
+    return db_owner

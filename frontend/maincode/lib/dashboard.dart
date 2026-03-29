@@ -7,6 +7,7 @@ import 'package:maincode/health_records.dart';
 import 'package:maincode/report.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:maincode/add_pet.dart';
+import 'package:maincode/edit_profile.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -353,7 +354,10 @@ class _DashboardPageState extends State<DashboardPage> {
             decoration: BoxDecoration(color: Color.fromARGB(255, 139, 174, 174)),
             child: Text('Settings', style: TextStyle(color: Colors.white, fontSize: 24)),
           ),
-          _drawerTile(Icons.person, 'Edit Profile'),
+          _drawerTile(Icons.person, 'Edit Profile', onTap: () {
+            Navigator.pop(context); // Close drawer
+            Navigator.push(context, MaterialPageRoute(builder: (context) => const EditProfilePage()));
+          }),
           _drawerTile(Icons.notifications, 'Notifications'),
           _drawerTile(Icons.palette, 'Report History'),
           _drawerTile(Icons.logout, 'Logout'),
@@ -363,11 +367,11 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  Widget _drawerTile(IconData icon, String title, {Color? color}) {
+  Widget _drawerTile(IconData icon, String title, {Color? color, VoidCallback? onTap}) {
     return ListTile(
       leading: Icon(icon, color: color),
       title: Text(title, style: TextStyle(color: color)),
-      onTap: () {
+      onTap: onTap ?? () {
         if (title == 'Delete Account') {
           _showDeleteConfirmation();
         } else {

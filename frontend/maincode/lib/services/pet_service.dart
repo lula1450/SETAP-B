@@ -155,4 +155,13 @@ class PetService {
         throw Exception('Failed to load history');
       }
     }
+
+  Future<bool> updateOwnerProfile(int ownerId, Map<String, dynamic> data) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/owners/$ownerId'),
+      headers: {"Content-Type": "application/json"},
+      body: json.encode(data),
+    );
+    return response.statusCode == 200;
+  }
 } // End of PetService class
