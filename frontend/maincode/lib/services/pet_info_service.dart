@@ -68,7 +68,7 @@ class PetInfoService {
 
       6: {
         "name": "Rex Rabbit",
-        "image": "https://images.unsplash.com/photo-1592194996308-7b43878e84a6",
+        "image": "https://upload.wikimedia.org/wikipedia/commons/1/12/Rex_Rabbit_1.jpg",
         "traits": "Soft coat • Gentle • Quiet",
         "helpUrl": "https://www.rspca.org.uk/adviceandwelfare/pets/rabbits",
         "breedInfo": ["• Medium", "• 6–8 years", "• Soft Fur", "• Indoor Pet"],
