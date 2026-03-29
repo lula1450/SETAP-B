@@ -9,6 +9,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:maincode/add_pet.dart';
 import 'package:maincode/edit_profile.dart';
 import 'package:maincode/services/fun_fact_service.dart';
+import 'package:maincode/feeding_schedule.dart';
+import 'package:maincode/vet_contacts.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -527,8 +529,8 @@ class _DashboardPageState extends State<DashboardPage> {
               }
             }),
             _gridButton("Health\nrecords", onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const HealthRecordsPage()))),
-            _gridButton("Feeding\nschedule"),
-            _gridButton("Vet\ncontacts"),
+            _gridButton("Feeding\nschedule", onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const FeedingSchedulePage()))),
+            _gridButton("Vet\ncontacts", onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const VetContactsPage()))),
           ],
         ),
       ),
