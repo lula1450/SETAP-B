@@ -7,7 +7,7 @@ class PetInfoService {
         "traits": "Friendly • Active • Outgoing",
         "helpUrl": "https://www.rspca.org.uk/adviceandwelfare/pets/dogs",
         "breedInfo": ["• Large", "• 10–12 years", "• High energy", "• Easy to train"],
-        "careTips": ["• Daily exercise", "• Loves water", "• Regular brushing"],
+        "careTips": ["• Daily exercise", "• Loves water", "• Regular brushing", "• Needs attention"],
         "personality": ["• Friendly", "• Loyal", "• Good with families", "• Playful"],
         "diet": ["• High-Quality protein", "• Omega-3 for healthy Coat","• Balanced diet", "• Avoid overfeeding"],
         "health": ["• Prone to hip dysplasia", "• Obesity risk", "• Ear Infections", "• Regular Vet Chekups"],
