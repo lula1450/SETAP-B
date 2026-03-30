@@ -330,21 +330,11 @@ class _DashboardPageState extends State<DashboardPage> {
             leading: Icon(Icons.pets, color: _getPetColor(_pets[index]['pet_first_name'])),
             title: Text(_pets[index]['pet_first_name']),
             onTap: () {
-              final pet = _pets[index];
+              // Select pet and update UI, then close the picker.
               setState(() => _selectedPetIndex = index);
               Navigator.pop(context);
               // Refresh appointments for the newly selected pet
               _fetchAppointments(); 
-              // Navigate directly to the Recently Logged Data page for this pet
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => RecentlyLoggedDataPage(
-                    petId: pet['pet_id'],
-                    petName: pet['pet_first_name'],
-                  ),
-                ),
-              );
             },
           );
         },
