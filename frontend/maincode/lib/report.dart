@@ -171,6 +171,21 @@ class _ReportsPageState extends State<ReportsPage> {
                     ),
                   const Text("Trend Analysis", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 10),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0),
+                    child: Row(
+                      children: const [
+                        Icon(Icons.info_outline, size: 16, color: Colors.black54),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Note: The analysis flags significant changes when the current value deviates by 15% or more from the baseline.',
+                            style: TextStyle(fontSize: 12, color: Colors.black54),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                   RepaintBoundary(
                     key: _chartKey,
                     child: _buildChart(isRisk),

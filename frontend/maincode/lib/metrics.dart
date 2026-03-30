@@ -203,6 +203,33 @@ class _MetricsPageState extends State<MetricsPage> {
     );
   }
 
+  Color _getStatusColor(String current, String target) {
+    if (current == "---" || target.isEmpty) return Colors.transparent;
+    try {
+      double c = double.parse(current.replaceAll(RegExp(r'[^0-9\.]'), ''));
+      double t = double.parse(target.replaceAll(RegExp(r'[^0-9\.]'), ''));
+      if (t == 0) return Colors.transparent;
+      double diff = (c - t).abs() / t;
+
+      // If the value is more than 15% off target, show Amber/Orange
+      if (diff > 0.15) return Colors.orangeAccent;
+      // Otherwise, use the PetSync Teal
+      return const Color(0xFF8BAEAE);
+    } catch (_) {
+      return Colors.transparent;
+    }
+  }
+
+  Widget _buildSparkline(Color color) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8.0),
+      child: CustomPaint(
+        size: const Size(35, 20),
+        painter: _SparklinePainter(color),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final Color petThemeColor = _getPetColor(widget.petName);
@@ -280,7 +307,9 @@ class _MetricsPageState extends State<MetricsPage> {
   Widget _metricRow(BuildContext context, String title, String current, String target, bool isFavorite) {
     final String unit = _getUnitForMetric(title);
     
-    // Formatting display text
+    // 2. Calculate Status Color
+    Color statusColor = _getStatusColor(current, target);
+
     String displayCurrent = (current == "..." || current == "---") ? current : "$current $unit";
     String displayGoal = target.isNotEmpty ? "$target $unit" : _getGoalText(title);
 
@@ -288,25 +317,63 @@ class _MetricsPageState extends State<MetricsPage> {
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
       child: Row(
         children: [
-          IconButton(icon: Icon(isFavorite ? Icons.star : Icons.star_border, color: isFavorite ? Colors.amber : Colors.white70), onPressed: () => _toggleFavorite(title)),
-          Expanded(flex: 3, child: _metricButton(title, Colors.white.withOpacity(0.8), () => _showEditDialog(context, title))),
+          IconButton(
+            icon: Icon(isFavorite ? Icons.star : Icons.star_border, 
+              color: isFavorite ? Colors.amber : Colors.white.withOpacity(0.7)), 
+            onPressed: () => _toggleFavorite(title)
+          ),
+          // Main Metric Name Button
+          Expanded(
+            flex: 3, 
+            child: _metricButton(
+              title, 
+              Colors.white.withOpacity(0.8), 
+              () => _showEditDialog(context, title),
+              borderColor: statusColor, // Pass the status color here
+              showSpark: true,          // Enable the sparkline here
+            )
+          ),
           const SizedBox(width: 8),
-          Expanded(flex: 1, child: _metricButton(displayCurrent, const Color.fromARGB(123, 249, 249, 249), () {})),
+          Expanded(flex: 1, child: _metricButton(displayCurrent, const Color.fromARGB(123, 249, 249, 249), () => _showEditDialog(context, title))),
           const SizedBox(width: 8),
-          Expanded(flex: 1, child: _metricButton(displayGoal, const Color.fromARGB(82, 255, 255, 255), () {})),
+          // 3. QUICK LOG SHORTCUT (The Target column now also opens the log)
+          Expanded(flex: 1, child: _metricButton(displayGoal, const Color.fromARGB(82, 255, 255, 255), () => _showEditDialog(context, title))),
         ],
       ),
     );
   }
 
-  Widget _metricButton(String text, Color color, VoidCallback onTap) {
+  Widget _metricButton(String text, Color color, VoidCallback onTap, {Color borderColor = Colors.transparent, bool showSpark = false}) {
     return InkWell(
       onTap: onTap,
       child: Container(
         height: 60,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.black12)),
-        child: Text(text, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(12),
+          // Applying the Status Border
+          border: Border.all(
+            color: borderColor != Colors.transparent ? borderColor : Colors.black12,
+            width: borderColor != Colors.transparent ? 2.5 : 1.0,
+          ),
+        ),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            // Positioning the Mini Sparkline on the right
+            if (showSpark && borderColor != Colors.transparent)
+              Positioned(right: 5, child: _buildSparkline(borderColor)),
+
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4.0),
+              child: Text(
+                text,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -358,6 +425,34 @@ class _MetricsPageState extends State<MetricsPage> {
       ),
     );
   }
+}
+
+class _SparklinePainter extends CustomPainter {
+  final Color color;
+  _SparklinePainter(this.color);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (color == Colors.transparent) return;
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 2.0
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    final path = Path();
+    // This creates a fake "trending up" little squiggle
+    path.moveTo(0, size.height * 0.7);
+    path.lineTo(size.width * 0.2, size.height * 0.8);
+    path.lineTo(size.width * 0.5, size.height * 0.3);
+    path.lineTo(size.width * 0.7, size.height * 0.5);
+    path.lineTo(size.width, size.height * 0.1);
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class HealthService {
