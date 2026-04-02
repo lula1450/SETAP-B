@@ -3,8 +3,9 @@ from sqlalchemy.orm import Session
 from petsync_backend.database import SessionLocal, engine, Base
 from petsync_backend.models import (
     Species_config, MetricDefinition, MetricName, 
-    MetricUnit, SpeciesType, Owner, Pet, HealthMetric
+    MetricUnit, SpeciesType, Owner, Pet, HealthMetric, ReportFrequency
 )
+from petsync_backend.utils.report_generator import generate_report_for_pet
 from datetime import datetime, timedelta
 
 def seed_data():
@@ -146,6 +147,22 @@ def seed_data():
 
     db.commit()
     print(f"📈 Total Health Logs Seeded: {db.query(HealthMetric).count()}")
+    
+    # --- GENERATE AUTOMATED REPORTS ---
+    print("Generating Automated Reports...")
+    # Generate weekly and monthly reports for both pets
+    for pet in [bentley, maisie]:
+        try:
+            # Generate weekly report
+            generate_report_for_pet(db, pet.pet_id, ReportFrequency.weekly)
+            print(f"✅ Weekly report generated for {pet.pet_first_name}")
+            
+            # Generate monthly report
+            generate_report_for_pet(db, pet.pet_id, ReportFrequency.monthly)
+            print(f"✅ Monthly report generated for {pet.pet_first_name}")
+        except Exception as e:
+            print(f"⚠️ Error generating reports for {pet.pet_first_name}: {str(e)}")
+    
     db.close()
     print("✅ Database Seeded Successfully!")
 

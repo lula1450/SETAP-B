@@ -5,6 +5,7 @@ import 'package:maincode/metrics.dart';
 import 'package:maincode/services/pet_service.dart';
 import 'package:maincode/health_records.dart';
 import 'package:maincode/report.dart';
+import 'package:maincode/report_history.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:maincode/add_pet.dart';
 import 'package:maincode/edit_profile.dart';
@@ -356,7 +357,10 @@ class _DashboardPageState extends State<DashboardPage> {
             Navigator.push(context, MaterialPageRoute(builder: (context) => const EditProfilePage()));
           }),
           _drawerTile(Icons.notifications, 'Notifications'),
-          _drawerTile(Icons.palette, 'Report History'),
+          _drawerTile(Icons.palette, 'Report History', onTap: () {
+            Navigator.pop(context); // Close drawer
+            Navigator.push(context, MaterialPageRoute(builder: (context) => const ReportHistoryPage()));
+          }),
           _drawerTile(Icons.logout, 'Logout'),
           _drawerTile(Icons.delete_forever, 'Delete Account', color: Colors.red),
         ],

@@ -196,3 +196,21 @@ class PetGoal(Base):
 
     pet = relationship("Pet", backref="goals")
     metric_definition = relationship("MetricDefinition")
+
+# --- 8. AUTOMATED REPORTS ---
+class ReportFrequency(enum.Enum):
+    weekly = "weekly"
+    monthly = "monthly"
+
+class PetReport(Base):
+    __tablename__ = "pet_report"
+
+    pet_report_id = Column(Integer, primary_key=True, index=True)
+    pet_id = Column(Integer, ForeignKey("pet.pet_id"), nullable=False, index=True)
+    report_frequency = Column(Enum(ReportFrequency, name="report_frequency"), nullable=False, index=True)
+    report_date = Column(DateTime, nullable=False, index=True)
+    start_date = Column(DateTime, nullable=False)
+    end_date = Column(DateTime, nullable=False)
+    report_summary = Column(Text, nullable=False)  # JSON serialized summary of metrics
+    has_risk_flags = Column(Boolean, nullable=False, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
