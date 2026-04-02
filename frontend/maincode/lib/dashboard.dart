@@ -32,6 +32,17 @@ class _DashboardPageState extends State<DashboardPage> {
   final FunFactService _funFactService = FunFactService(); 
   String _dailyFact = ""; 
 
+  void _updateDailyFact() {
+  if (_pets.isNotEmpty) {
+    final currentPet = _pets[_selectedPetIndex];
+    setState(() {
+      _dailyFact = _funFactService.getDailyFact(
+        currentPet['species_id'],
+      );
+    });
+  }
+}
+
   @override
   void initState() {
     super.initState();
@@ -59,9 +70,7 @@ class _DashboardPageState extends State<DashboardPage> {
             _isLoading = false;
 
             if (_pets.isNotEmpty) {
-              _dailyFact = _funFactService.getDailyFact(
-                _pets[_selectedPetIndex]['species_id'],
-              );
+              _updateDailyFact();
             }
           });
           _fetchAppointments(); // Fetch unified household schedule
@@ -338,6 +347,7 @@ class _DashboardPageState extends State<DashboardPage> {
             onTap: () {
               // Select pet and update UI, then close the picker.
               setState(() => _selectedPetIndex = index);
+               _updateDailyFact();
               Navigator.pop(context);
               // Refresh appointments for the newly selected pet
               _fetchAppointments(); 
