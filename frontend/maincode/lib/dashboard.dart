@@ -159,6 +159,41 @@ void _editAppointment(dynamic appt) async {
   }
 }
 
+void _deletePet(int petId, String petName) async {
+  bool? confirm = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+      title: Text("Remove $petName?"),
+      content: Text("Are you sure you want to delete $petName? This will also remove all their health records and appointments."),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("Cancel")),
+        TextButton(
+          onPressed: () => Navigator.pop(context, true),
+          child: const Text("Remove", style: TextStyle(color: Colors.red)),
+        ),
+      ],
+    ),
+  );
+
+  if (confirm == true) {
+    try {
+      // You'll need to add this method to your PetService
+      await _petService.deletePet(petId);
+      
+      if (mounted) {
+        Navigator.pop(context); // Close the bottom sheet picker
+        _fetchPets(); // Refresh the pet list
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("$petName removed successfully")),
+        );
+      }
+    } catch (e) {
+      debugPrint("Pet Delete Error: $e");
+    }
+  }
+}
+
   @override
   void initState() {
     super.initState();
@@ -459,41 +494,50 @@ trailing: Row(
   }
 
   void _showPetPicker() {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (context) => ListView.builder(
-        shrinkWrap: true,
-        itemCount: _pets.length + 1, 
-        itemBuilder: (context, index) {
-          if (index == _pets.length) {
-            return ListTile(
-              leading: const Icon(Icons.add_circle_outline),
-              title: const Text("Add New Pet"),
-              onTap: () async {
-                Navigator.pop(context);
-                await Navigator.push(context, MaterialPageRoute(builder: (context) => const AddPetPage()));
-                _fetchPets();
-              },
-            );
-          }
+  showModalBottomSheet(
+    context: context,
+    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+    builder: (context) => ListView.builder(
+      shrinkWrap: true,
+      itemCount: _pets.length + 1, 
+      itemBuilder: (context, index) {
+        if (index == _pets.length) {
           return ListTile(
-            leading: Icon(Icons.pets, color: _getPetColor(_pets[index]['pet_first_name'])),
-            title: Text(_pets[index]['pet_first_name']),
-            onTap: () {
-              // Select pet and update UI, then close the picker.
-              setState(() => _selectedPetIndex = index);
-               _updateDailyFact();
-               _updateDailyAdvice();
+            leading: const Icon(Icons.add_circle_outline),
+            title: const Text("Add New Pet"),
+            onTap: () async {
               Navigator.pop(context);
-              // Refresh appointments for the newly selected pet
-              _fetchAppointments(); 
+              await Navigator.push(context, MaterialPageRoute(builder: (context) => const AddPetPage()));
+              _fetchPets();
             },
           );
-        },
-      ),
-    );
-  }
+        }
+
+        final pet = _pets[index]; // Reference current pet
+
+        return ListTile(
+          leading: Icon(Icons.pets, color: _getPetColor(pet['pet_first_name'])),
+          title: Text(pet['pet_first_name']),
+          onTap: () {
+            setState(() => _selectedPetIndex = index);
+            _updateDailyFact();
+            _updateDailyAdvice();
+            Navigator.pop(context);
+            _fetchAppointments(); 
+          },
+          // ADD THE DELETE ICON HERE
+          trailing: IconButton(
+            icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+            onPressed: () {
+              // We'll define this function next
+              _deletePet(pet['pet_id'], pet['pet_first_name']);
+            },
+          ),
+        );
+      },
+    ),
+  );
+}
 
   Widget _buildDrawer() {
     return Drawer(

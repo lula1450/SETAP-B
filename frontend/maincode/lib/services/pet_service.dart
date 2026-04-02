@@ -223,4 +223,11 @@ class PetService {
      throw Exception('Failed to update appointment: ${response.body}');
    }
  }
+
+ Future<void> deletePet(int petId) async {
+  final response = await http.delete(
+    Uri.parse('$baseUrl/pets/$petId'),
+  );
+  if (response.statusCode != 200) throw Exception("Failed to delete pet");
+  }
 }
