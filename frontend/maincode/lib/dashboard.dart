@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:maincode/login_page.dart';
 import 'package:maincode/petinfo.dart';
 import 'package:maincode/recentlylogged.dart';
 import 'package:maincode/metrics.dart';
@@ -393,7 +394,12 @@ class _DashboardPageState extends State<DashboardPage> {
             Navigator.pop(context); // Close drawer
             Navigator.push(context, MaterialPageRoute(builder: (context) => const ReportHistoryPage()));
           }),
-          _drawerTile(Icons.logout, 'Logout'),
+          _drawerTile(Icons.logout, 'Logout', onTap:() async {
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.clear();
+            Navigator.pop(context);
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => LoginPage()));
+          }),
           _drawerTile(Icons.delete_forever, 'Delete Account', color: Colors.red),
         ],
       ),
