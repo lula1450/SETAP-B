@@ -1,28 +1,88 @@
 import 'dart:math';
 
 class FunFactService {
-  final List<String>_facts = [
-    "Dogs only sweat from the bottom of their feet!",
-    "Cats have over one hundred vocal sounds, while dogs have around 10!",
-    "Hamsters cheeck pouches extend all the way don to their hips!",
-    "A birds feathers weigh more than its skeleton!",
-    "As a fish gets bigger, so do its scales!",
-    "Some lizards can actually detach their tails from their bodies when they feel threatned!",
-    "26% of pet parents throw their pets birthday parties!",
-    "Did you know, horses can sleep both standing up and lying down!",
-    "Did you know Cows have best friends and can get stressed when they're separated from them",
-    "Goats are natural climbers and can be found on top of hills, rocks and even TREES!",
-    "Despite the common stereotype, pigs are incredibly clean animals!",
-    "Parrots can live for over 50 years!",
-    "Hamsters can run up to 5 miles a night on a wheel",
-    "Rabbits can jump up to 3 feet high!",
-  ];
 
-  String getDailyFact() {
-    final today =  DateTime.now();
+  final Map<int, String> _breedMap = {
+    1: "Dog - Labrador",
+    2: "Dog - Golden Retriever",
+    3: "Cat - Maine Coon",
+    4: "Cat - Siamese",
+    5: "Rabbit - Holland Lop",
+    6: "Rabbit - Rex",
+    7: "Hamster - Syrian",
+    8: "Hamster - Roborovski",
+    9: "Bird - African Grey",
+    10: "Bird - Cockatiel",
+    11: "Snake - Corn Snake",
+    12: "Snake - Ball Python",
+  };
 
-    final seed = today.year + today.month + today.day;
+  //Facts grouped by breed
+  final Map<String, List<String>> _factsByBreed = {
+    "Dog - Labrador": [
+      "Labradors love water and are excellent swimmers!",
+      "Labradors have a friendly, outgoing personality!"
+    ],
+    "Dog - Golden Retriever": [
+      "Golden Retrievers are known for their loyalty and gentle temperament!",
+      "Golden Retrievers excel in obedience training!"
+    ],
+    "Cat - Maine Coon": [
+      "Maine Coons are one of the largest domesticated cats!",
+      "They have a distinctive tufted ear appearance!"
+    ],
+    "Cat - Siamese": [
+      "Siamese cats are highly vocal and social!",
+      "They have striking blue almond-shaped eyes!"
+    ],
+    "Rabbit - Holland Lop": [
+      "Holland Lops are small but very energetic!",
+      "They enjoy chewing and digging!"
+    ],
+    "Rabbit - Rex": [
+      "Rex rabbits have plush, velvety fur!",
+      "They are very gentle and friendly!"
+    ],
+    "Hamster - Syrian": [
+      "Syrian hamsters are solitary and need their own cage!",
+      "They can run several miles on their wheel each night!"
+    ],
+    "Hamster - Roborovski": [
+      "Roborovski hamsters are tiny and very fast!",
+      "They are extremely active and curious!"
+    ],
+    "Bird - African Grey": [
+      "African Grey parrots are excellent mimics of human speech!",
+      "They are highly intelligent and social!"
+    ],
+    "Bird - Cockatiel": [
+      "Cockatiels love to whistle and mimic sounds!",
+      "They are affectionate and playful companions!"
+    ],
+    "Snake - Corn Snake": [
+      "Corn snakes are excellent climbers and explorers!",
+      "They are one of the most popular beginner snakes!"
+    ],
+    "Snake - Ball Python": [
+      "Ball Pythons curl into a ball when scared!",
+      "They are gentle and easy to handle!"
+    ],
+  };
+
+
+  String getDailyFact(int breedId) {
+    final breedName = _breedMap[breedId] ?? "Unknown Animal";
+    final facts = _factsByBreed[breedName];
+
+    if (facts == null || facts.isEmpty) {
+      return "Animals are amazing companions!";
+    }
+
+  // Seed ensures SAME fact for the whole day
+    final today = DateTime.now();
+    final seed = today.year + today.month + today.day + breedId;
     final random = Random(seed);
-    return _facts[random.nextInt(_facts.length)];
+
+    return facts[random.nextInt(facts.length)];
   }
 }

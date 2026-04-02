@@ -35,7 +35,6 @@ class _DashboardPageState extends State<DashboardPage> {
   void initState() {
     super.initState();
     _selectedDay = DateTime.now().day; 
-    _dailyFact = _funFactService.getDailyFact();
     _fetchPets();
   }
 
@@ -57,6 +56,12 @@ class _DashboardPageState extends State<DashboardPage> {
           setState(() {
             _pets = data;
             _isLoading = false;
+
+            if (_pets.isNotEmpty) {
+              _dailyFact = _funFactService.getDailyFact(
+                _pets[_selectedPetIndex]['species_id'],
+              );
+            }
           });
           _fetchAppointments(); // Fetch unified household schedule
         }
