@@ -2,12 +2,14 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from petsync_backend.database import get_db
-from petsync_backend.models import HealthMetric, MetricDefinition, Pet, MetricName
+from petsync_backend.models import HealthMetric, MetricDefinition, Pet, MetricName, PetReport
 from petsync_backend.calculations import check_15_percent_deviation
 from fastapi.responses import StreamingResponse
 from petsync_backend.utils.pdf_generator import generate_health_pdf
+from petsync_backend.utils.report_generator import get_report_history
+from petsync_backend.schemas import PetReportResponse
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 
 router = APIRouter(tags=["Reporting Engine"])
 
@@ -118,3 +120,22 @@ async def get_logged_metrics(pet_id: int, db: Session = Depends(get_db)):
     
     # Convert list of tuples to a simple list of strings: ["weight", "water_intake"]
     return [m[0] for m in logged_metrics]
+
+@router.get("/history/{pet_id}", response_model=List[PetReportResponse])
+async def get_pet_report_history(pet_id: int, db: Session = Depends(get_db)):
+    """Retrieve all generated reports for a pet."""
+    pet = db.query(Pet).filter(Pet.pet_id == pet_id).first()
+    if not pet:
+        raise HTTPException(status_code=404, detail=f"Pet ID {pet_id} not found")
+    
+    reports = get_report_history(db, pet_id)
+    return reports
+
+@router.get("/detail/{report_id}", response_model=PetReportResponse)
+async def get_report_detail(report_id: int, db: Session = Depends(get_db)):
+    """Retrieve details of a specific report."""
+    report = db.query(PetReport).filter(PetReport.pet_report_id == report_id).first()
+    if not report:
+        raise HTTPException(status_code=404, detail=f"Report ID {report_id} not found")
+    
+    return report

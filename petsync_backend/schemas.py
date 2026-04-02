@@ -75,3 +75,16 @@ class HealthReport(BaseModel):
     notes: str
 
     model_config = ConfigDict(from_attributes=True)
+
+class PetReportResponse(BaseModel):
+    pet_report_id: int
+    pet_id: int
+    report_frequency: str
+    report_date: datetime
+    start_date: datetime
+    end_date: datetime
+    report_summary: str  # JSON string
+    has_risk_flags: bool
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)

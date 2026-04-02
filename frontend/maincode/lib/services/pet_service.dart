@@ -164,4 +164,21 @@ class PetService {
     );
     return response.statusCode == 200;
   }
+
+  // --- 6. GET REPORT HISTORY ---
+  Future<List<dynamic>> getPetReportHistory(int petId) async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/reports/history/$petId'));
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else if (response.statusCode == 404) {
+        return [];
+      } else {
+        throw Exception('Failed to load report history');
+      }
+    } catch (e) {
+      debugPrint('Error fetching report history: $e');
+      return [];
+    }
+  }
 } // End of PetService class
