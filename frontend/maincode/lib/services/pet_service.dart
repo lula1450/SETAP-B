@@ -204,4 +204,23 @@ class PetService {
       throw Exception("Failed to delete appointment"); 
     }
   }
+
+  Future<void> updateAppointment({
+   required int appointmentId,
+   required String time,
+   required String notes,
+ }) async {
+   final response = await http.put(
+     Uri.parse('http://localhost:8000/pets/appointments/$appointmentId'),
+     headers: {"Content-Type": "application/json"},
+     body: jsonEncode({
+       "pet_appointment_time": time,
+       "appointment_notes": notes,
+     }),
+   );
+
+   if (response.statusCode != 200) {
+     throw Exception('Failed to update appointment: ${response.body}');
+   }
+ }
 }

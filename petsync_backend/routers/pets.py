@@ -2,10 +2,41 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from petsync_backend import models, schemas
 from petsync_backend.database import get_db
+from datetime import datetime  # Add this import at the top
 
 
 
 router = APIRouter()
+
+
+
+@router.put("/appointments/{appointment_id}")
+async def update_appointment(
+    appointment_id: int, 
+    data: dict, 
+    db: Session = Depends(get_db)
+):
+    appt = db.query(models.PetAppointment).filter(
+        models.PetAppointment.pet_appointment_id == appointment_id
+    ).first()
+
+    if not appt:
+        raise HTTPException(status_code=404, detail="Appointment not found")
+
+    # Handle the time conversion
+    time_str = data.get("pet_appointment_time")
+    if time_str:
+        try:
+            # Convert "18:30:00" string into a Python time object
+            appt.pet_appointment_time = datetime.strptime(time_str, "%H:%M:%S").time()
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid time format. Use HH:MM:SS")
+
+    # Update notes (this is a string, so no conversion needed)
+    appt.appointment_notes = data.get("appointment_notes", appt.appointment_notes)
+
+    db.commit()
+    return {"message": "Update successful"}
 
 @router.delete("/appointments/{appointment_id}")
 def delete_appointment(appointment_id: int, db: Session = Depends(get_db)):

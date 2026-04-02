@@ -103,6 +103,62 @@ void _deleteAppointment(int appointmentId) async {
   }
 }
 
+void _editAppointment(dynamic appt) async {
+  final notesController = TextEditingController(text: appt['appointment_notes']);
+  
+  // Parse existing time (assuming format "HH:mm:ss")
+  final parts = appt['pet_appointment_time'].split(':');
+  TimeOfDay initialTime = TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+
+  final TimeOfDay? pickedTime = await showTimePicker(
+    context: context,
+    initialTime: initialTime,
+  );
+
+  if (pickedTime != null && mounted) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        title: const Text("Edit Appointment"),
+        content: TextField(
+          controller: notesController,
+          decoration: const InputDecoration(hintText: "Notes"),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF8BAEAE)),
+            onPressed: () async {
+              String timeStr = "${pickedTime.hour.toString().padLeft(2, '0')}:${pickedTime.minute.toString().padLeft(2, '0')}:00";
+
+              try {
+                // You will need to implement updateAppointment in your PetService
+                await _petService.updateAppointment(
+                  appointmentId: appt['pet_appointment_id'],
+                  time: timeStr,
+                  notes: notesController.text,
+                );
+                
+                if (mounted) {
+                  Navigator.pop(context);
+                  _fetchAppointments();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Appointment updated!")),
+                  );
+                }
+              } catch (e) {
+                debugPrint("Update Error: $e");
+              }
+            },
+            child: const Text("Save Changes", style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
   @override
   void initState() {
     super.initState();
@@ -308,17 +364,24 @@ void _deleteAppointment(int appointmentId) async {
         title: Text("$petName: ${appt['appointment_notes'] ?? 'Vet Visit'}", 
           style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
         subtitle: Text(appt['pet_appointment_time'], style: const TextStyle(fontSize: 10)),
-        trailing: IconButton(
-          icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 18),
-          onPressed: () => {
-            print("Attempting to delete appointment with ID: ${appt['pet_appointment_id']}"), // Debug log
-            _deleteAppointment(appt['pet_appointment_id']),
-          },
+        // Look for this section in your _buildDailySchedule method:
+trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.edit_outlined, color: Colors.blueAccent, size: 18),
+              onPressed: () => _editAppointment(appt),
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 18),
+              onPressed: () => _deleteAppointment(appt['pet_appointment_id']),
+            ),
+          ],
         ),
-      ),
-    );
-  }).toList(), // Added .toList() and closed correctly
-          const Divider(),
+      ), // This closes the ListTile
+    ); // This closes the Card
+  }).toList(), // This closes the map and converts it to a list
+  const Divider(),
         ],
       ),
     );
