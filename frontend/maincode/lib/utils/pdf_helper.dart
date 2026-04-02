@@ -8,37 +8,88 @@ class PdfHelper {
     final pdf = pw.Document();
     final image = pw.MemoryImage(chartImage);
 
+    // Extract the points for the table
+    final List<dynamic> points = data['points'] ?? [];
+
     pdf.addPage(
-      pw.Page(
+      pw.MultiPage( // Changed to MultiPage in case the table is long
         pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(32),
         build: (pw.Context context) {
-          final bool isRisk = data['is_risk'] ?? false;
+          return [
+            // HEADER
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Text("Clinical Health Report: $petName", 
+                  style: pw.TextStyle(fontSize: 22, fontWeight: pw.FontWeight.bold, color: PdfColors.teal900)),
+                pw.Text(DateTime.now().toString().substring(0, 10), style: const pw.TextStyle(color: PdfColors.grey700)),
+              ],
+            ),
+            pw.Divider(thickness: 2, color: PdfColors.teal),
+            pw.SizedBox(height: 20),
 
-          return pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              pw.Text("Clinical Report: $petName", style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold)),
-              pw.SizedBox(height: 20),
+            // CHART SECTION
+            pw.Text("Visual Trend Analysis", style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
+            pw.SizedBox(height: 10),
+            pw.Center(child: pw.Container(
+              height: 250,
+              child: pw.Image(image),
+            )),
+            pw.SizedBox(height: 20),
 
-              // THE GRAPH IMAGE
-              pw.Center(child: pw.Image(image, width: 400)),
-
-              pw.SizedBox(height: 20),
-              pw.Text("Clinical Insight:", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-              pw.Text(data['message'] ?? ''),
-              pw.SizedBox(height: 10),
-              pw.Text("Baseline (Average): ${data['baseline']}"),
-              pw.Text("Current Reading: ${data['current']}"),
-              pw.SizedBox(height: 20),
-              pw.TableHelper.fromTextArray(
-                headers: ['Date & Time', 'Recorded Value'],
-                data: (data['points'] as List).map((p) => [
-                  p['date'].toString(), // Use the new date string from backend
-                  "${p['y']} kg"
-                ]).toList(),
+            // INSIGHT SECTION
+            pw.Container(
+              padding: const pw.EdgeInsets.all(10),
+              decoration: pw.BoxDecoration(
+                color: PdfColors.grey100,
+                borderRadius: pw.BorderRadius.circular(8),
               ),
-            ],
-          );
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text("Clinical Insight:", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                  pw.Text(data['message'] ?? 'No anomalies detected in the current period.'),
+                  pw.SizedBox(height: 10),
+                  pw.Row(
+                    children: [
+                      pw.Text("Baseline Average: ${data['baseline']} "),
+                      pw.SizedBox(width: 20),
+                      pw.Text("Latest Reading: ${data['current']}", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            pw.SizedBox(height: 30),
+
+            // --- THE DATA TABLE ---
+            pw.Text("Raw Inputted Values", style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
+            pw.SizedBox(height: 10),
+            pw.TableHelper.fromTextArray(
+              context: context,
+              border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
+              headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, color: PdfColors.white),
+              headerDecoration: const pw.BoxDecoration(color: PdfColors.teal),
+              cellAlignment: pw.Alignment.centerLeft,
+              headerAlignment: pw.Alignment.center,
+              // Define the columns
+              headers: <String>['Date & Time', 'Value Inputted', 'Status'],
+              // Map your data points to rows
+              data: points.map((p) {
+                // Calculate if point is above/below baseline for the 'Status' column
+                double val = double.tryParse(p['y'].toString()) ?? 0.0;
+                double base = double.tryParse(data['baseline'].toString()) ?? 0.0;
+                String status = val >= base ? "Normal/Optimal" : "Below Baseline";
+
+                return [
+                  p['date'].toString(), 
+                  "${p['y']} ${data['unit'] ?? ''}",
+                  status
+                ];
+              }).toList(),
+            ),
+          ];
         },
       ),
     );
