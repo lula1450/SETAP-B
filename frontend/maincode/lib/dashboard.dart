@@ -364,6 +364,7 @@ class _DashboardPageState extends State<DashboardPage> {
               // Select pet and update UI, then close the picker.
               setState(() => _selectedPetIndex = index);
                _updateDailyFact();
+               _updateDailyAdvice();
               Navigator.pop(context);
               // Refresh appointments for the newly selected pet
               _fetchAppointments(); 
