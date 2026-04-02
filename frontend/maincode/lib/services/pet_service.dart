@@ -181,4 +181,27 @@ class PetService {
       return [];
     }
   }
-} // End of PetService class
+  // lib/services/pet_service.dart
+  // lib/services/pet_service.dart
+
+  // lib/services/pet_service.dart
+
+  // lib/services/pet_service.dart
+
+  Future<void> deleteAppointment(int appointmentId) async { 
+  // Added /pets here to match the prefix in main.py
+    final url = Uri.parse('$baseUrl/pets/appointments/$appointmentId');
+  
+    debugPrint("DEBUG: Sending DELETE request to $url");
+  
+    final response = await http.delete(
+      url,
+      headers: {"Content-Type": "application/json"},
+    );
+
+    if (response.statusCode != 200) {
+      debugPrint("Backend responded with: ${response.statusCode}");
+      throw Exception("Failed to delete appointment"); 
+    }
+  }
+}

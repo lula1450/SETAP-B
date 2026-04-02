@@ -7,6 +7,18 @@ from petsync_backend.database import get_db
 
 router = APIRouter()
 
+@router.delete("/appointments/{appointment_id}")
+def delete_appointment(appointment_id: int, db: Session = Depends(get_db)):
+    appt = db.query(models.PetAppointment).filter(models.PetAppointment.pet_appointment_id == appointment_id).first()
+    
+    if not appt:
+        raise HTTPException(status_code=404, detail="Appointment not found")
+        
+    db.delete(appt)
+    db.commit()
+    return {"message": "Successfully deleted"}
+
+
 
 # Create a pet profile
 # Create a pet profile
@@ -129,4 +141,9 @@ def delete_pet(pet_id: int, db: Session = Depends(get_db)):
     db.delete(db_pet)
     db.commit()
     return {"message": f"Pet {pet_id} and all associated data deleted successfully"}
+
+# In your FastAPI backend (e.g., main.py or routers/pets.py)
+# petsync_backend/routers/pets.py (or main.py)
+
+# petsync_backend/routers/pets.py (or main.py)
 

@@ -59,6 +59,50 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 }
 
+void _deleteAppointment(int appointmentId) async {
+  bool? confirm = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+      title: const Text("Delete Appointment"),
+      content: const Text("Are you sure you want to remove this visit?"),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false), 
+          child: const Text("Cancel")
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context, true), // Just return true
+          child: const Text("Delete", style: TextStyle(color: Colors.red)),
+        ),
+      ],
+    ),
+  );
+
+  if (confirm == true) {
+    try {
+      // 1. Call the service with the ID passed into the function
+      await _petService.deleteAppointment(appointmentId);
+      
+      // 2. Refresh the UI by fetching the list again
+      _fetchAppointments(); 
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Appointment removed successfully")),
+        );
+      }
+    } catch (e) {
+      debugPrint("Delete Error: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Error: Could not delete from server")),
+        );
+      }
+    }
+  }
+}
+
   @override
   void initState() {
     super.initState();
@@ -248,20 +292,32 @@ class _DashboardPageState extends State<DashboardPage> {
           if (dailyAppts.isEmpty)
             const Text("No appointments today.", style: TextStyle(fontSize: 11, color: Colors.grey))
           else
-            ...dailyAppts.map((appt) {
-               var pet = _pets.firstWhere((p) => p['pet_id'] == appt['pet_id'], orElse: () => null);
-               String petName = pet != null ? pet['pet_first_name'] : "Pet";
-               Color petColor = _getPetColor(petName);
+  ...dailyAppts.map((appt) {
+    var pet = _pets.firstWhere((p) => p['pet_id'] == appt['pet_id'], orElse: () => null);
+    String petName = pet != null ? pet['pet_first_name'] : "Pet";
+    Color petColor = _getPetColor(petName);
 
-               return Card(
-                 child: ListTile(
-                   dense: true,
-                   leading: CircleAvatar(radius: 12, backgroundColor: petColor, child: const Icon(Icons.pets, size: 12, color: Colors.white)),
-                   title: Text("$petName: ${appt['appointment_notes'] ?? 'Vet Visit'}", style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                   subtitle: Text(appt['pet_appointment_time'], style: const TextStyle(fontSize: 10)),
-                 ),
-               );
-            }),
+    return Card(
+      child: ListTile(
+        dense: true,
+        leading: CircleAvatar(
+          radius: 12, 
+          backgroundColor: petColor, 
+          child: const Icon(Icons.pets, size: 12, color: Colors.white)
+        ),
+        title: Text("$petName: ${appt['appointment_notes'] ?? 'Vet Visit'}", 
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+        subtitle: Text(appt['pet_appointment_time'], style: const TextStyle(fontSize: 10)),
+        trailing: IconButton(
+          icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 18),
+          onPressed: () => {
+            print("Attempting to delete appointment with ID: ${appt['pet_appointment_id']}"), // Debug log
+            _deleteAppointment(appt['pet_appointment_id']),
+          },
+        ),
+      ),
+    );
+  }).toList(), // Added .toList() and closed correctly
           const Divider(),
         ],
       ),
