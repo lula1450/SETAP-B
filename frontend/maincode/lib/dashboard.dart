@@ -12,6 +12,7 @@ import 'package:maincode/edit_profile.dart';
 import 'package:maincode/services/fun_fact_service.dart';
 import 'package:maincode/feeding_schedule.dart';
 import 'package:maincode/vet_contacts.dart';
+import 'package:maincode/services/advice_service.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -32,11 +33,25 @@ class _DashboardPageState extends State<DashboardPage> {
   final FunFactService _funFactService = FunFactService(); 
   String _dailyFact = ""; 
 
+  final AdviceService _adviceService = AdviceService(); 
+  String _dailyAdvice = ""; 
+
   void _updateDailyFact() {
   if (_pets.isNotEmpty) {
     final currentPet = _pets[_selectedPetIndex];
     setState(() {
       _dailyFact = _funFactService.getDailyFact(
+        currentPet['species_id'],
+      );
+    });
+  }
+}
+
+  void _updateDailyAdvice() {
+  if (_pets.isNotEmpty) {
+    final currentPet = _pets[_selectedPetIndex];
+    setState(() {
+      _dailyAdvice = _adviceService.getDailyAdvice(
         currentPet['species_id'],
       );
     });
@@ -71,6 +86,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
             if (_pets.isNotEmpty) {
               _updateDailyFact();
+              _updateDailyAdvice();
             }
           });
           _fetchAppointments(); // Fetch unified household schedule
@@ -505,16 +521,23 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Widget _dailyInfoSection() {
-    String petName = _pets.isNotEmpty ? _pets[_selectedPetIndex]['pet_first_name'] : "your pet";
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
-      child: Column(children: [
-        _infoBox("Daily fun fact:", _dailyFact),
-        const SizedBox(height: 10),
-        _infoBox("Advice:", "Ensure $petName gets 30 mins of play today.")
-      ]),
-    );
+  String petName = "your pet"; 
+  if (_pets.isNotEmpty && _selectedPetIndex < _pets.length) {
+    final selectedPet = _pets[_selectedPetIndex];
+    petName = selectedPet['pet_first_name'] ?? "your pet";
   }
+
+  return Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
+    child: Column(
+      children: [
+        _infoBox("Daily fun fact for $petName:", _dailyFact),
+        const SizedBox(height: 10),
+        _infoBox("Advice for $petName:", _dailyAdvice),
+      ],
+    ),
+  );
+}
 
   Widget _navigationGridSection() {
     return Padding(
