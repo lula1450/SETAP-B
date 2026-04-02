@@ -14,6 +14,7 @@ import 'package:maincode/services/fun_fact_service.dart';
 import 'package:maincode/feeding_schedule.dart';
 import 'package:maincode/vet_contacts.dart';
 import 'package:maincode/services/advice_service.dart';
+import 'package:image_picker/image_picker.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -36,6 +37,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
   final AdviceService _adviceService = AdviceService(); 
   String _dailyAdvice = ""; 
+
 
   void _updateDailyFact() {
   if (_pets.isNotEmpty) {
@@ -233,6 +235,30 @@ void _deletePet(int petId, String petName) async {
       setState(() => _isLoading = false);
     }
   }
+
+  Future<void> _pickPetImage(int petId) async {
+  final ImagePicker picker = ImagePicker();
+  final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+
+  if (image != null) {
+    // 1. Convert to bytes (This is most reliable for Web)
+    final bytes = await image.readAsBytes();
+    
+    // 2. For now, let's keep using your service to save the path string
+    // But we will also update the local state immediately so it shows up!
+    bool success = await _petService.updatePetImage(petId, image.path);
+    
+    if (success) {
+      setState(() {
+        // We manually update the local list so the UI reacts instantly
+        _pets[_selectedPetIndex]['pet_image_path'] = image.path;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Image updated!")),
+      );
+    }
+  }
+}
 
   Future<void> _fetchAppointments() async {
     final prefs = await SharedPreferences.getInstance();
@@ -584,17 +610,37 @@ trailing: Row(
   }
 
   Widget _appBarTitle() {
-    String petName = _pets.isNotEmpty ? _pets[_selectedPetIndex]['pet_first_name'] : "Pet";
-    Color petColor = _pets.isNotEmpty ? _getPetColor(petName) : const Color.fromARGB(255, 139, 174, 174);
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        CircleAvatar(radius: 30, backgroundColor: Colors.white, child: Icon(Icons.pets, size: 20, color: petColor)),
-        const SizedBox(height: 8),
-        Text(_isLoading ? 'Loading...' : "$petName's Dashboard", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
-      ],
-    );
-  }
+   final currentPet = _pets.isNotEmpty ? _pets[_selectedPetIndex] : null;
+   String petName = currentPet != null ? currentPet['pet_first_name'] : "Pet";
+  
+  // Get the image path from the pet data
+  String? imagePath = currentPet?['pet_image_path'];
+
+  return Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      GestureDetector(
+        onTap: () => _pickPetImage(currentPet['pet_id']), // Function to pick image
+        child: CircleAvatar(
+          radius: 30,
+          backgroundColor: Colors.white,
+          // We use DecorationImage inside a Container if CircleAvatar fails
+          backgroundImage: (imagePath != null && imagePath.isNotEmpty)
+              ? NetworkImage(imagePath)
+      : null,
+  child: (imagePath == null || imagePath.isEmpty)
+      ? Icon(Icons.pets, size: 20, color: _getPetColor(petName))
+      : null,
+),
+      ),
+      const SizedBox(height: 8),
+      Text(
+        _isLoading ? 'Loading...' : "$petName's Dashboard",
+        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+      ),
+    ],
+  );
+}
 
   Widget _changePetButton() {
     String petName = _pets.isNotEmpty ? _pets[_selectedPetIndex]['pet_first_name'] : "";

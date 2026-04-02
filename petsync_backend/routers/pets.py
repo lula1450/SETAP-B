@@ -178,3 +178,10 @@ def delete_pet(pet_id: int, db: Session = Depends(get_db)):
 
 # petsync_backend/routers/pets.py (or main.py)
 
+@router.put("/{pet_id}/image")
+async def update_pet_image(pet_id: int, image_url: str, db: Session = Depends(get_db)):
+    pet = db.query(models.Pet).filter(models.Pet.pet_id == pet_id).first()
+    pet.pet_image_path = image_url
+    db.commit()
+    return {"message": "Image updated"}
+

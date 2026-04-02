@@ -56,6 +56,7 @@ class Pet(Base):
     pet_address2 = Column(String(100))
     pet_postcode = Column(String(10), nullable=False)
     pet_city = Column(String(30), nullable=False)
+    pet_image_path = Column(String, nullable=True)
 
 # --- 4. MEDICAL & METADATA ---
 class SpayNeuteredStatus(enum.Enum):

@@ -230,4 +230,11 @@ class PetService {
   );
   if (response.statusCode != 200) throw Exception("Failed to delete pet");
   }
+
+  Future<bool> updatePetImage(int petId, String imagePath) async {
+   final response = await http.put(
+     Uri.parse('$baseUrl/pets/$petId/image?image_url=$imagePath'),
+   );
+   return response.statusCode == 200;
+ }
 }
