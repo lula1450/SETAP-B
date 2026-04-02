@@ -629,7 +629,7 @@ trailing: Row(
               ? NetworkImage(imagePath)
       : null,
   child: (imagePath == null || imagePath.isEmpty)
-      ? Icon(Icons.pets, size: 20, color: _getPetColor(petName))
+      ? Icon(Icons.add_a_photo, size: 25, color: _getPetColor(petName))
       : null,
 ),
       ),
