@@ -28,6 +28,7 @@ def get_owner(owner_id: int, db: Session = Depends(database.get_db)):
         raise HTTPException(status_code=404, detail="Owner not found")
     return owner
 
+#deletes app/metrics/pet with the owner
 @router.delete("/{owner_id}")
 def delete_owner(owner_id: int, db: Session = Depends(database.get_db)):
     # 1. Find the owner
@@ -35,8 +36,22 @@ def delete_owner(owner_id: int, db: Session = Depends(database.get_db)):
     
     if not owner:
         raise HTTPException(status_code=404, detail="Owner not found")
+    
+    pets = db.query(models.Pet).filter(models.Pet.owner_id == owner_id).all()
 
-    # 2. Delete the owner (SQLAlchemy handles the rest if cascade is set)
+    for pet in pets:
+        #Deletes Pet Appointment
+        db.query(models.PetAppointment).filter(
+            models.PetAppointment.pet_id == pet.pet_id
+        ).delete()
+        #Delete Health Metrics
+        db.query(models.HealthMetric).filter(
+            models.HealthMetric.pet_id == pet.pet_id
+        ).delete()
+        #Deletes pet
+        db.delete(pet)
+
+    # 2. Delete the owner 
     db.delete(owner)
     db.commit()
     
