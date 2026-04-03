@@ -57,9 +57,9 @@ def delete_owner(owner_id: int, db: Session = Depends(database.get_db)):
     
     return {"message": f"Owner {owner_id} and all associated data deleted successfully"}
 
-@router.put("/owners/{owner_id}")
+@router.put("/{owner_id}")
 async def update_owner(owner_id: int, owner_data: dict, db: Session = Depends(database.get_db)):
-    db_owner = db.query(models.Owner).filter(Owner.owner_id == owner_id).first()
+    db_owner = db.query(models.Owner).filter(models.owner_id == owner_id).first()
     if not db_owner:
         return {"error": "Owner not found"}
 

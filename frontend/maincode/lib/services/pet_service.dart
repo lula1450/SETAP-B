@@ -100,15 +100,14 @@ class PetService {
 
   // --- 5. DELETE OWNER ---
   Future<bool> deleteOwner(int ownerId) async {
-    final url = Uri.parse("$baseUrl/owners/$ownerId"); 
-    try {
-      final response = await http.delete(url);
-      return response.statusCode == 200;
-    } catch (e) {
-      debugPrint("Delete Error: $e");
-      return false;
-    }
+  try {
+    final response = await http.delete(Uri.parse("$baseUrl/owners/$ownerId"));
+    return response.statusCode == 200;
+  } catch (e) {
+    debugPrint("Delete Error: $e");
+    return false;
   }
+}
 
   // Inside your PetService class
   Future<Map<String, dynamic>> getMetricAnalysis(int petId, String metric, {String? startDate, String? endDate}) async {
@@ -190,7 +189,7 @@ class PetService {
 
   Future<void> deleteAppointment(int appointmentId) async { 
   // Added /pets here to match the prefix in main.py
-    final url = Uri.parse('$baseUrl/pets/appointments/$appointmentId');
+    final url = Uri.parse('$baseUrl/schedule/appointments/$appointmentId');
   
     debugPrint("DEBUG: Sending DELETE request to $url");
   
@@ -211,7 +210,7 @@ class PetService {
    required String notes,
  }) async {
    final response = await http.put(
-     Uri.parse('http://localhost:8000/pets/appointments/$appointmentId'),
+     Uri.parse('$baseUrl/schedule/appointments/$appointmentId'),
      headers: {"Content-Type": "application/json"},
      body: jsonEncode({
        "pet_appointment_time": time,
@@ -224,12 +223,15 @@ class PetService {
    }
  }
 
- Future<void> deletePet(int petId) async {
-  final response = await http.delete(
-    Uri.parse('$baseUrl/pets/$petId'),
-  );
-  if (response.statusCode != 200) throw Exception("Failed to delete pet");
+  Future<bool> deletePet(int petId) async {
+  try {
+    final response = await http.delete(Uri.parse("$baseUrl/pets/$petId"));
+    return response.statusCode == 200;
+  } catch (e) {
+    debugPrint("Delete pet error: $e");
+    return false;
   }
+}
 
   Future<bool> updatePetImage(int petId, String imagePath) async {
    final response = await http.put(

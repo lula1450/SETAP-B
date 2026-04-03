@@ -807,19 +807,40 @@ trailing: Row(
     return Container(width: size, height: size, decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: color, width: 20)));
   }
 
-  void _showDeleteConfirmation() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Delete Account?"),
-        content: const Text("Permanently delete profile and pet data?"),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
-          ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.red), onPressed: () => Navigator.pop(context), child: const Text("Delete", style: TextStyle(color: Colors.white))),
-        ],
-      ),
-    );
+  void _showDeleteConfirmation() async {
+  final prefs = await SharedPreferences.getInstance();
+  final int ownerId = prefs.getInt('owner_id') ?? 0;
+
+  bool? confirm = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text("Delete Account"),
+      content: const Text("Are you sure you want to delete your account? This will remove all your pets and appointments."),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("Cancel")),
+        TextButton(
+          onPressed: () => Navigator.pop(context, true),
+          child: const Text("Delete", style: TextStyle(color: Colors.red)),
+        ),
+      ],
+    ),
+  );
+
+  if (confirm == true && ownerId != 0) {
+    bool success = await _petService.deleteOwner(ownerId);
+    if (success && mounted) {
+      await prefs.clear();
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => LoginPage()));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Account deleted successfully")),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Error: Could not delete account")),
+      );
+    }
   }
+}
 
   Widget _actionButtonsSection(BuildContext context) {
     // Get the name of the currently selected pet, default to "Pet" if list is empty
