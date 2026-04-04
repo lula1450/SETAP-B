@@ -6,11 +6,13 @@ import 'package:http/http.dart' as http;
 class MetricsPage extends StatefulWidget {
   final int petId;
   final String petName;
+  final int petIndex;
 
   const MetricsPage({
     super.key,
     required this.petId,
     required this.petName,
+    required this.petIndex,
   });
 
   @override
@@ -103,21 +105,20 @@ class _MetricsPageState extends State<MetricsPage> {
     _saveFavorites();
   }
 
-  Color _getPetColor(String name) {
+  Color _getPetColor(int index) {
     final List<Color> nameColors = [
-      const Color.fromARGB(255, 146, 179, 236),
-      const Color.fromRGBO(212, 162, 221, 1),
-      const Color.fromARGB(255, 182, 139, 83),
-      const Color.fromRGBO(223, 128, 158, 1),
-      const Color.fromARGB(255, 219, 247, 240),
-      const Color.fromARGB(255, 126, 140, 224),
-      const Color.fromARGB(255, 255, 171, 145),
-      const Color.fromARGB(255, 167, 235, 244),
+      const Color.fromARGB(255, 146, 179, 236), // Blue
+      const Color.fromRGBO(212, 162, 221, 1),   // Purple
+      const Color.fromARGB(255, 182, 139, 83),   // Brown/Gold
+      const Color.fromRGBO(223, 128, 158, 1),   // Pink
+      const Color.fromARGB(255, 126, 140, 224), // Indigo
+      const Color.fromARGB(255, 255, 171, 145), // Coral
+      const Color.fromARGB(255, 167, 235, 244), // Cyan
+      const Color.fromARGB(255, 219, 247, 240), // Mint
     ];
-    final String cleanName = name.trim().toLowerCase();
-    int hash = 0;
-    for (int i = 0; i < cleanName.length; i++) { hash += cleanName.codeUnitAt(i); }
-    return nameColors[hash % nameColors.length];
+    
+    if (index < 0) return Colors.grey;
+    return nameColors[index % nameColors.length];
   }
 
   void _showEditDialog(BuildContext context, String title) {
@@ -191,7 +192,8 @@ class _MetricsPageState extends State<MetricsPage> {
                         }
                       } catch (e) {
                         setDialogState(() => isLogging = false);
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Error saving data")));
+                        debugPrint("Save error: $e");
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error saving data: $e")));
                       }
                     }, 
                     child: const Text("Save")
@@ -232,7 +234,7 @@ class _MetricsPageState extends State<MetricsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final Color petThemeColor = _getPetColor(widget.petName);
+    final Color petThemeColor = _getPetColor(widget.petIndex);
     List<String> filteredMetrics = _metrics.where((m) => m.toLowerCase().contains(_searchQuery)).toList();
     
     filteredMetrics.sort((a, b) {
@@ -466,6 +468,9 @@ class HealthService {
       headers: {"Content-Type": "application/json"},
       body: jsonEncode({"pet_id": petId, "metric_name": metricName, "value": formattedValue}),
     );
+    if (response.statusCode != 200) {
+      throw Exception("Failed to log metric: ${response.statusCode} - ${response.body}");
+    }
     return jsonDecode(response.body);
   }
 

@@ -241,10 +241,7 @@ void _deletePet(int petId, String petName) async {
   final XFile? image = await picker.pickImage(source: ImageSource.gallery);
 
   if (image != null) {
-    // 1. Convert to bytes (This is most reliable for Web)
-    final bytes = await image.readAsBytes();
-    
-    // 2. For now, let's keep using your service to save the path string
+    // 1. For now, let's keep using your service to save the path string
     // But we will also update the local state immediately so it shows up!
     bool success = await _petService.updatePetImage(petId, image.path);
     
@@ -277,8 +274,8 @@ void _deletePet(int petId, String petName) async {
     var dayAppts = _appointments.where((a) => a['pet_appointment_date'] == dateString);
   
     return dayAppts.map((appt) {
-      var pet = _pets.firstWhere((p) => p['pet_id'] == appt['pet_id'], orElse: () => null);
-      return pet != null ? _getPetColor(pet['pet_first_name']) : Colors.grey;
+      int petIndex = _pets.indexWhere((p) => p['pet_id'] == appt['pet_id']);
+      return _getPetColor(petIndex);
     }).toList();
   }
 
@@ -330,22 +327,20 @@ void _deletePet(int petId, String petName) async {
     }
   }
 
-  Color _getPetColor(String name) {
+  Color _getPetColor(int index) {
     final List<Color> nameColors = [
-      const Color.fromARGB(255, 146, 179, 236),
-      const Color.fromRGBO(212, 162, 221, 1),
-      const Color.fromARGB(255, 182, 139, 83),
-      const Color.fromRGBO(223, 128, 158, 1),
-      const Color.fromARGB(255, 219, 247, 240),
-      const Color.fromARGB(255, 126, 140, 224),
-      const Color.fromARGB(255, 255, 171, 145),
-      const Color.fromARGB(255, 167, 235, 244),
+      const Color.fromARGB(255, 146, 179, 236), // Blue
+      const Color.fromRGBO(212, 162, 221, 1),   // Purple
+      const Color.fromARGB(255, 182, 139, 83),   // Brown/Gold
+      const Color.fromRGBO(223, 128, 158, 1),   // Pink
+      const Color.fromARGB(255, 126, 140, 224), // Indigo
+      const Color.fromARGB(255, 255, 171, 145), // Coral
+      const Color.fromARGB(255, 167, 235, 244), // Cyan
+      const Color.fromARGB(255, 219, 247, 240), // Mint
     ];
-    int hash = 0;
-    for (int i = 0; i < name.length; i++) {
-      hash += name.codeUnitAt(i);
-    }
-    return nameColors[hash % nameColors.length];
+    
+    if (index < 0) return Colors.grey;
+    return nameColors[index % nameColors.length];
   }
 
   @override
@@ -410,9 +405,10 @@ void _deletePet(int petId, String petName) async {
             const Text("No appointments today.", style: TextStyle(fontSize: 11, color: Colors.grey))
           else
   ...dailyAppts.map((appt) {
-    var pet = _pets.firstWhere((p) => p['pet_id'] == appt['pet_id'], orElse: () => null);
+    int petIndex = _pets.indexWhere((p) => p['pet_id'] == appt['pet_id']);
+    Color petColor = _getPetColor(petIndex);
+    var pet = petIndex >= 0 ? _pets[petIndex] : null;
     String petName = pet != null ? pet['pet_first_name'] : "Pet";
-    Color petColor = _getPetColor(petName);
 
     return Card(
       child: ListTile(
@@ -425,8 +421,7 @@ void _deletePet(int petId, String petName) async {
         title: Text("$petName: ${appt['appointment_notes'] ?? 'Vet Visit'}", 
           style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
         subtitle: Text(appt['pet_appointment_time'], style: const TextStyle(fontSize: 10)),
-        // Look for this section in your _buildDailySchedule method:
-trailing: Row(
+        trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             IconButton(
@@ -439,9 +434,9 @@ trailing: Row(
             ),
           ],
         ),
-      ), // This closes the ListTile
-    ); // This closes the Card
-  }).toList(), // This closes the map and converts it to a list
+      ),
+    );
+  }).toList(),
   const Divider(),
         ],
       ),
@@ -542,7 +537,7 @@ trailing: Row(
         final pet = _pets[index]; // Reference current pet
 
         return ListTile(
-          leading: Icon(Icons.pets, color: _getPetColor(pet['pet_first_name'])),
+          leading: Icon(Icons.pets, color: _getPetColor(index)),
           title: Text(pet['pet_first_name']),
           onTap: () {
             setState(() => _selectedPetIndex = index);
@@ -610,41 +605,39 @@ trailing: Row(
   }
 
   Widget _appBarTitle() {
-   final currentPet = _pets.isNotEmpty ? _pets[_selectedPetIndex] : null;
-   String petName = currentPet != null ? currentPet['pet_first_name'] : "Pet";
-  
-  // Get the image path from the pet data
-  String? imagePath = currentPet?['pet_image_path'];
+    final currentPet = _pets.isNotEmpty ? _pets[_selectedPetIndex] : null;
+    String petName = currentPet != null ? currentPet['pet_first_name'] : "Pet";
 
-  return Column(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      GestureDetector(
-        onTap: () => _pickPetImage(currentPet['pet_id']), // Function to pick image
-        child: CircleAvatar(
-          radius: 30,
-          backgroundColor: Colors.white,
-          // We use DecorationImage inside a Container if CircleAvatar fails
-          backgroundImage: (imagePath != null && imagePath.isNotEmpty)
-              ? NetworkImage(imagePath)
-      : null,
-  child: (imagePath == null || imagePath.isEmpty)
-      ? Icon(Icons.add_a_photo, size: 25, color: _getPetColor(petName))
-      : null,
-),
-      ),
-      const SizedBox(height: 8),
-      Text(
-        _isLoading ? 'Loading...' : "$petName's Dashboard",
-        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
-      ),
-    ],
-  );
-}
+    // Get the image path from the pet data
+    String? imagePath = currentPet?['pet_image_path'];
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        GestureDetector(
+          onTap: () => _pickPetImage(currentPet['pet_id']), // Function to pick image
+          child: CircleAvatar(
+            radius: 30,
+            backgroundColor: Colors.white,
+            backgroundImage: (imagePath != null && imagePath.isNotEmpty)
+                ? NetworkImage(imagePath)
+                : null,
+            child: (imagePath == null || imagePath.isEmpty)
+                ? Icon(Icons.add_a_photo, size: 25, color: _getPetColor(_selectedPetIndex))
+                : null,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          _isLoading ? 'Loading...' : "$petName's Dashboard",
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+        ),
+      ],
+    );
+  }
 
   Widget _changePetButton() {
-    String petName = _pets.isNotEmpty ? _pets[_selectedPetIndex]['pet_first_name'] : "";
-    Color activePetColor = _pets.isNotEmpty ? _getPetColor(petName) : const Color.fromARGB(255, 139, 174, 174);
+    Color activePetColor = _pets.isNotEmpty ? _getPetColor(_selectedPetIndex) : const Color.fromARGB(255, 139, 174, 174);
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -879,7 +872,8 @@ trailing: Row(
           Navigator.push(context, MaterialPageRoute(
             builder: (context) => MetricsPage(
               petId: currentPet['pet_id'],
-              petName: currentPet['pet_first_name']
+              petName: currentPet['pet_first_name'],
+              petIndex: _selectedPetIndex,
             )
           ));
         } else if (text.contains("recently")) {
