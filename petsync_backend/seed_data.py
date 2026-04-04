@@ -1,11 +1,11 @@
 import random
 from sqlalchemy.orm import Session
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 
 from petsync_backend.database import SessionLocal, engine, Base
 from petsync_backend.models import (
-    Species_config, MetricDefinition, MetricName, 
-    MetricUnit, SpeciesType, Owner, Pet, HealthMetric, ReportFrequency
+    PetAppointment, Species_config, MetricDefinition, MetricName, 
+    MetricUnit, SpeciesType, Owner, Pet, HealthMetric, ReportFrequency, PetGoal
 )
 from petsync_backend.species_data import SPECIES_DATA 
 from petsync_backend.utils.report_generator import generate_report_for_pet
@@ -85,6 +85,44 @@ def seed_data():
         db.add(maisie)
     db.commit()
 
+
+    print("Setting Health Targets for Bentley and Maisie...")
+    
+    # Define what "Healthy" looks like for these specific pets
+    targets = [
+        # Bentley Targets
+        (bentley, MetricName.weight, 15.0),       # Goal: Maintain 15kg
+        (bentley, MetricName.energy_level, 4.0),  # Goal: Active (4/5)
+        (bentley, MetricName.appetite, 4.5),      # Goal: Hungry (4.5/5)
+        
+        # Maisie Targets
+        (maisie, MetricName.weight, 6.4),         # Goal: Maintain 6.4kg
+        (maisie, MetricName.water_intake, 300.0), # Goal: 300ml per day
+        (maisie, MetricName.stool_quality, 4.0),  # Goal: Firm (4/5)
+    ]
+
+    for pet, m_name, target_val in targets:
+        # Find the definition ID for this species/metric combo
+        m_def = db.query(MetricDefinition).filter(
+            MetricDefinition.species_id == pet.species_id, 
+            MetricDefinition.metric_name == m_name
+        ).first()
+
+        if m_def:
+            # Check if target already exists
+            exists = db.query(PetGoal).filter(
+                PetGoal.pet_id == pet.pet_id,
+                PetGoal.metric_def_id == m_def.metric_def_id
+            ).first()
+
+            if not exists:
+                db.add(PetGoal(
+                    pet_id=pet.pet_id,
+                    metric_def_id=m_def.metric_def_id,
+                    target_value=str(target_val)
+                ))
+    db.commit()
+
     # 5. Massive Health History Generation (60 Days / 30 Points per metric)
     print("Generating Multi-Metric Health History (60 days)...")
     scenarios = [
@@ -118,6 +156,42 @@ def seed_data():
                     metric_time=datetime.utcnow() - timedelta(days=days_back)
                 ))
     db.commit()
+
+
+    # --- 5. Seed Appointments ---
+    print("Seeding Vet Appointments...")
+    today = datetime.now()
+
+    appointments = [
+        PetAppointment(
+            pet_id=bentley.pet_id,
+        # Convert to a date object
+            pet_appointment_date=(today + timedelta(days=2)).date(), 
+        # Convert to a time object
+            pet_appointment_time=time(10, 30), 
+            appointment_notes="Annual Booster Vaccinations - Dr. Smith"
+        ),
+        PetAppointment(
+            pet_id=maisie.pet_id,
+        # Convert to a date object
+            pet_appointment_date=(today + timedelta(days=5)).date(),
+        # Convert to a time object
+             pet_appointment_time=time(14, 15),
+             appointment_notes="Weight management follow-up and joint check"
+        )
+    ]
+
+    for appt in appointments:
+    # Check for existing to prevent duplicates
+        exists = db.query(PetAppointment).filter(
+            PetAppointment.pet_id == appt.pet_id,
+            PetAppointment.pet_appointment_date == appt.pet_appointment_date
+        ).first()
+        if not exists:
+            db.add(appt)
+    db.commit()
+
+    
 
     # 6. Trigger Automated Report Generation
     print("Creating Automated Report History...")
