@@ -12,12 +12,14 @@ class _MedicationRecord {
   String subtitle;
   String status;
   Color statusColor;
+  DateTime? startDate;
 
   _MedicationRecord({
     required this.title,
     required this.subtitle,
     required this.status,
     required this.statusColor,
+    this.startDate,
   });
 
   static const _statusColorMap = {
@@ -30,6 +32,7 @@ class _MedicationRecord {
     'title': title,
     'subtitle': subtitle,
     'status': status,
+    'startDate': startDate?.toIso8601String(),
   };
 
   factory _MedicationRecord.fromJson(Map<String, dynamic> j) =>
@@ -38,6 +41,9 @@ class _MedicationRecord {
         subtitle: j['subtitle'] as String,
         status: j['status'] as String,
         statusColor: Color(_statusColorMap[j['status']] ?? 0xFF8E8E93),
+        startDate: j['startDate'] != null
+            ? DateTime.tryParse(j['startDate'] as String)
+            : null,
       );
 }
 
@@ -207,6 +213,7 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
     final nameController = TextEditingController();
     final subtitleController = TextEditingController();
     String selectedStatus = 'Active';
+    DateTime? selectedStartDate;
     final statusOptions = ['Active', 'Completed', 'On Hold'];
     final Map<String, Color> statusColors = {
       'Active': const Color(0xFF34C759),
@@ -244,6 +251,72 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
                 ),
               ),
               const SizedBox(height: 12),
+              // Start date picker
+              GestureDetector(
+                onTap: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: selectedStartDate ?? DateTime.now(),
+                    firstDate: DateTime(2000),
+                    lastDate: DateTime.now(),
+                    helpText: 'Select start date',
+                    builder: (context, child) => Theme(
+                      data: Theme.of(context).copyWith(
+                        colorScheme: const ColorScheme.light(
+                          primary: Color(0xFF4A90D9),
+                        ),
+                      ),
+                      child: child!,
+                    ),
+                  );
+                  if (picked != null) {
+                    setDialogState(() => selectedStartDate = picked);
+                  }
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: const Color(0xFFBDBDBD)),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.calendar_today_rounded,
+                        size: 18,
+                        color: Color(0xFF757575),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        selectedStartDate != null
+                            ? _formatDate(selectedStartDate!)
+                            : 'Start date (optional)',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: selectedStartDate != null
+                              ? Colors.black87
+                              : const Color(0xFF9E9E9E),
+                        ),
+                      ),
+                      const Spacer(),
+                      if (selectedStartDate != null)
+                        GestureDetector(
+                          onTap: () =>
+                              setDialogState(() => selectedStartDate = null),
+                          child: const Icon(
+                            Icons.close,
+                            size: 16,
+                            color: Color(0xFF9E9E9E),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 value: selectedStatus,
                 decoration: _inputDecoration('Status', Icons.circle_outlined),
@@ -274,6 +347,7 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
                           : subtitleController.text.trim(),
                       status: selectedStatus,
                       statusColor: statusColors[selectedStatus]!,
+                      startDate: selectedStartDate,
                     ),
                   );
                 });
@@ -499,6 +573,15 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
   // Helpers
   // ---------------------------------------------------------------------------
 
+  /// Formats a DateTime as "12 Jan 2024"
+  String _formatDate(DateTime date) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    return '${date.day} ${months[date.month - 1]} ${date.year}';
+  }
+
   InputDecoration _inputDecoration(String hint, IconData icon) {
     return InputDecoration(
       hintText: hint,
@@ -642,6 +725,7 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
                       subtitle: med.subtitle,
                       trailing: med.status,
                       trailingColor: med.statusColor,
+                      startDate: med.startDate,
                       onRemove: () => _confirmRemove(med.title, () {
                         setState(() => _medications.removeAt(index));
                         _saveMedications();
@@ -840,6 +924,7 @@ class _RecordItemWidget extends StatelessWidget {
   final String trailing;
   final Color trailingColor;
   final VoidCallback onRemove;
+  final DateTime? startDate;
 
   const _RecordItemWidget({
     required this.title,
@@ -847,7 +932,16 @@ class _RecordItemWidget extends StatelessWidget {
     required this.trailing,
     required this.trailingColor,
     required this.onRemove,
+    this.startDate,
   });
+
+  String _formatDate(DateTime date) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    return '${date.day} ${months[date.month - 1]} ${date.year}';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -873,6 +967,27 @@ class _RecordItemWidget extends StatelessWidget {
                   subtitle,
                   style: TextStyle(fontSize: 13, color: Colors.grey[600]),
                 ),
+                if (startDate != null) ...[
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.calendar_today_rounded,
+                        size: 11,
+                        color: Colors.grey[400],
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Started ${_formatDate(startDate!)}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey[400],
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
