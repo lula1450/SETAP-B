@@ -1,7 +1,12 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:maincode/edit_profile.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:open_filex/open_filex.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 
 // ---------------------------------------------------------------------------
 // Data models
@@ -114,12 +119,55 @@ class _ConditionRecord {
 }
 
 // ---------------------------------------------------------------------------
+// Medical Document model
+// ---------------------------------------------------------------------------
+
+class _MedicalDocument {
+  /// Display label the user gives the file
+  final String label;
+
+  /// Category tag (e.g. "Vet Report", "Prescription", "X-Ray / Scan", …)
+  final String category;
+
+  /// Absolute path on device where we copied the file for persistence
+  final String filePath;
+
+  /// Original filename — used for extension / icon resolution
+  final String fileName;
+
+  /// Upload timestamp
+  final DateTime uploadedAt;
+
+  _MedicalDocument({
+    required this.label,
+    required this.category,
+    required this.filePath,
+    required this.fileName,
+    required this.uploadedAt,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'label': label,
+    'category': category,
+    'filePath': filePath,
+    'fileName': fileName,
+    'uploadedAt': uploadedAt.toIso8601String(),
+  };
+
+  factory _MedicalDocument.fromJson(Map<String, dynamic> j) => _MedicalDocument(
+    label: j['label'] as String,
+    category: j['category'] as String,
+    filePath: j['filePath'] as String,
+    fileName: j['fileName'] as String,
+    uploadedAt: DateTime.parse(j['uploadedAt'] as String),
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
 
 class HealthRecordsPage extends StatefulWidget {
-  /// Pass a unique identifier for the current pet so records are stored
-  /// separately per pet profile. Defaults to 'default' if not provided.
   final String petId;
 
   const HealthRecordsPage({super.key, this.petId = 'default'});
@@ -129,48 +177,54 @@ class HealthRecordsPage extends StatefulWidget {
 }
 
 class _HealthRecordsPageState extends State<HealthRecordsPage> {
-  // Start empty — all data comes from SharedPreferences
   List<_MedicationRecord> _medications = [];
   List<_AllergyRecord> _allergies = [];
   List<_ConditionRecord> _conditions = [];
+  List<_MedicalDocument> _documents = [];
 
   bool _isLoading = true;
 
-  // SharedPreferences keys scoped to this pet
   String get _medKey => 'health_medications_${widget.petId}';
   String get _allergyKey => 'health_allergies_${widget.petId}';
   String get _conditionKey => 'health_conditions_${widget.petId}';
+  String get _docKey => 'health_documents_${widget.petId}';
 
   // ---------------------------------------------------------------------------
-  // Persistence helpers
+  // Persistence
   // ---------------------------------------------------------------------------
 
   Future<void> _loadData() async {
     final prefs = await SharedPreferences.getInstance();
 
-    final medJson = prefs.getString(_medKey);
-    final allergyJson = prefs.getString(_allergyKey);
-    final conditionJson = prefs.getString(_conditionKey);
-
     setState(() {
+      final medJson = prefs.getString(_medKey);
       if (medJson != null) {
-        final list = jsonDecode(medJson) as List<dynamic>;
-        _medications = list
+        _medications = (jsonDecode(medJson) as List<dynamic>)
             .map((e) => _MedicationRecord.fromJson(e as Map<String, dynamic>))
             .toList();
       }
+
+      final allergyJson = prefs.getString(_allergyKey);
       if (allergyJson != null) {
-        final list = jsonDecode(allergyJson) as List<dynamic>;
-        _allergies = list
+        _allergies = (jsonDecode(allergyJson) as List<dynamic>)
             .map((e) => _AllergyRecord.fromJson(e as Map<String, dynamic>))
             .toList();
       }
+
+      final conditionJson = prefs.getString(_conditionKey);
       if (conditionJson != null) {
-        final list = jsonDecode(conditionJson) as List<dynamic>;
-        _conditions = list
+        _conditions = (jsonDecode(conditionJson) as List<dynamic>)
             .map((e) => _ConditionRecord.fromJson(e as Map<String, dynamic>))
             .toList();
       }
+
+      final docJson = prefs.getString(_docKey);
+      if (docJson != null) {
+        _documents = (jsonDecode(docJson) as List<dynamic>)
+            .map((e) => _MedicalDocument.fromJson(e as Map<String, dynamic>))
+            .toList();
+      }
+
       _isLoading = false;
     });
   }
@@ -199,6 +253,14 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
     );
   }
 
+  Future<void> _saveDocuments() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      _docKey,
+      jsonEncode(_documents.map((e) => e.toJson()).toList()),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -206,7 +268,176 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
   }
 
   // ---------------------------------------------------------------------------
-  // Add dialogs
+  // Document upload flow
+  // ---------------------------------------------------------------------------
+
+  Future<void> _pickAndSaveDocument() async {
+    final result = await FilePicker.platform.pickFiles(
+      allowMultiple: false,
+      type: FileType.custom,
+      allowedExtensions: [
+        'pdf',
+        'doc',
+        'docx',
+        'txt',
+        'jpg',
+        'jpeg',
+        'png',
+        'heic',
+        'xls',
+        'xlsx',
+        'csv',
+      ],
+    );
+    if (result == null || result.files.isEmpty) return;
+
+    final picked = result.files.single;
+    if (picked.path == null) return;
+
+    // Copy the file into app-local storage for persistence
+    final appDir = await getApplicationDocumentsDirectory();
+    final destDir = Directory('${appDir.path}/health_docs/${widget.petId}');
+    await destDir.create(recursive: true);
+    final destPath =
+        '${destDir.path}/${DateTime.now().millisecondsSinceEpoch}_${picked.name}';
+    await File(picked.path!).copy(destPath);
+
+    if (!mounted) return;
+    await _showDocumentMetaDialog(destPath, picked.name);
+  }
+
+  Future<void> _showDocumentMetaDialog(
+    String savedPath,
+    String originalName,
+  ) async {
+    final labelController = TextEditingController(
+      text: p.basenameWithoutExtension(originalName),
+    );
+    String selectedCategory = 'Vet Report';
+    const categories = [
+      'Vet Report',
+      'Prescription',
+      'X-Ray / Scan',
+      'Blood Test',
+      'Vaccination',
+      'Other',
+    ];
+
+    await showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Text(
+            'Save Document',
+            style: TextStyle(fontWeight: FontWeight.w600),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: labelController,
+                decoration: _inputDecoration(
+                  'Document label',
+                  Icons.label_outline,
+                ),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: selectedCategory,
+                decoration: _inputDecoration('Category', Icons.folder_outlined),
+                items: categories
+                    .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                    .toList(),
+                onChanged: (val) =>
+                    setDialogState(() => selectedCategory = val!),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF2E7D9B),
+              ),
+              onPressed: () {
+                final label = labelController.text.trim().isEmpty
+                    ? p.basenameWithoutExtension(originalName)
+                    : labelController.text.trim();
+                setState(() {
+                  _documents.add(
+                    _MedicalDocument(
+                      label: label,
+                      category: selectedCategory,
+                      filePath: savedPath,
+                      fileName: originalName,
+                      uploadedAt: DateTime.now(),
+                    ),
+                  );
+                });
+                _saveDocuments();
+                Navigator.pop(context);
+              },
+              child: const Text('Save', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _openDocument(_MedicalDocument doc) async {
+    final file = File(doc.filePath);
+    if (!await file.exists()) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'File not found — it may have been moved or deleted.',
+            ),
+          ),
+        );
+      }
+      return;
+    }
+    await OpenFilex.open(doc.filePath);
+  }
+
+  void _confirmRemoveDocument(_MedicalDocument doc, int index) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Remove Document'),
+        content: Text('Remove "${doc.label}" from medical documents?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () async {
+              Navigator.pop(context);
+              final file = File(doc.filePath);
+              if (await file.exists()) await file.delete();
+              setState(() => _documents.removeAt(index));
+              _saveDocuments();
+            },
+            child: const Text('Remove', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Add dialogs — medications
   // ---------------------------------------------------------------------------
 
   void _showAddMedicationDialog() {
@@ -362,6 +593,10 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // Add dialogs — allergies
+  // ---------------------------------------------------------------------------
+
   void _showAddAllergyDialog() {
     final nameController = TextEditingController();
     final reactionController = TextEditingController();
@@ -454,6 +689,10 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
       ),
     );
   }
+
+  // ---------------------------------------------------------------------------
+  // Add dialogs — conditions
+  // ---------------------------------------------------------------------------
 
   void _showAddConditionDialog() {
     final nameController = TextEditingController();
@@ -573,11 +812,20 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
   // Helpers
   // ---------------------------------------------------------------------------
 
-  /// Formats a DateTime as "12 Jan 2024"
   String _formatDate(DateTime date) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${date.day} ${months[date.month - 1]} ${date.year}';
   }
@@ -592,6 +840,24 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
     );
+  }
+
+  /// Returns an (icon, colour) pair based on file extension.
+  (IconData, Color) _docIconFor(String fileName) {
+    final ext = p.extension(fileName).toLowerCase();
+    return switch (ext) {
+      '.pdf' => (Icons.picture_as_pdf_rounded, const Color(0xFFE53935)),
+      '.doc' || '.docx' => (Icons.description_rounded, const Color(0xFF1565C0)),
+      '.xls' ||
+      '.xlsx' ||
+      '.csv' => (Icons.table_chart_rounded, const Color(0xFF2E7D32)),
+      '.jpg' ||
+      '.jpeg' ||
+      '.png' ||
+      '.heic' => (Icons.image_rounded, const Color(0xFF6A1B9A)),
+      '.txt' => (Icons.text_snippet_rounded, const Color(0xFF37474F)),
+      _ => (Icons.insert_drive_file_rounded, const Color(0xFF546E7A)),
+    };
   }
 
   Widget _buildDrawer() {
@@ -615,9 +881,7 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
               Navigator.pop(context);
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (context) => const EditProfilePage(),
-                ),
+                MaterialPageRoute(builder: (_) => const EditProfilePage()),
               );
             },
           ),
@@ -715,7 +979,6 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
                   accentColor: const Color(0xFF4A90D9),
                   backgroundColor: const Color(0xFFEBF4FF),
                   emptyLabel: 'No medications recorded',
-                  emptyIcon: Icons.medication_rounded,
                   itemCount: _medications.length,
                   onAdd: _showAddMedicationDialog,
                   itemBuilder: (index) {
@@ -742,7 +1005,6 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
                   accentColor: const Color(0xFFE8472A),
                   backgroundColor: const Color(0xFFFFF0EE),
                   emptyLabel: 'No allergies recorded',
-                  emptyIcon: Icons.warning_amber_rounded,
                   itemCount: _allergies.length,
                   onAdd: _showAddAllergyDialog,
                   itemBuilder: (index) {
@@ -768,7 +1030,6 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
                   accentColor: const Color(0xFF9B59B6),
                   backgroundColor: const Color(0xFFF5EEFF),
                   emptyLabel: 'No injuries or conditions recorded',
-                  emptyIcon: Icons.healing_rounded,
                   itemCount: _conditions.length,
                   onAdd: _showAddConditionDialog,
                   itemBuilder: (index) {
@@ -785,11 +1046,275 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
                     );
                   },
                 ),
+                const SizedBox(height: 16),
+
+                // Medical Documents
+                _buildDocumentsCard(),
+
                 const SizedBox(height: 24),
               ],
             ),
     );
   }
+
+  // ---------------------------------------------------------------------------
+  // Documents card
+  // ---------------------------------------------------------------------------
+
+  Widget _buildDocumentsCard() {
+    const accentColor = Color(0xFF2E7D9B);
+    const backgroundColor = Color(0xFFE8F4F8);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 12, 12),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: backgroundColor,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.folder_copy_rounded,
+                    color: accentColor,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Text(
+                  'Medical Documents',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  '${_documents.length} ${_documents.length == 1 ? 'file' : 'files'}',
+                  style: TextStyle(fontSize: 13, color: Colors.grey[500]),
+                ),
+                const SizedBox(width: 8),
+                // Upload button
+                GestureDetector(
+                  onTap: _pickAndSaveDocument,
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: accentColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.upload_file_rounded,
+                      color: accentColor,
+                      size: 18,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(height: 1, color: const Color(0xFFF0F0F0)),
+
+          // Empty state — tappable
+          if (_documents.isEmpty)
+            GestureDetector(
+              onTap: _pickAndSaveDocument,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  vertical: 24,
+                  horizontal: 16,
+                ),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.upload_file_rounded,
+                      size: 36,
+                      color: accentColor.withOpacity(0.5),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Tap to upload a document',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: accentColor.withOpacity(0.8),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Vet reports, prescriptions, X-rays, blood tests & more',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'PDF · DOC · JPG · PNG · XLS · TXT',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.grey[400],
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            ...List.generate(_documents.length, (index) {
+              final doc = _documents[index];
+              final isLast = index == _documents.length - 1;
+              final (icon, iconColor) = _docIconFor(doc.fileName);
+
+              return Column(
+                children: [
+                  InkWell(
+                    onTap: () => _openDocument(doc),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
+                      child: Row(
+                        children: [
+                          // File-type icon box
+                          Container(
+                            width: 42,
+                            height: 42,
+                            decoration: BoxDecoration(
+                              color: iconColor.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Icon(icon, color: iconColor, size: 22),
+                          ),
+                          const SizedBox(width: 12),
+                          // Label + filename + category + date
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  doc.label,
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w500,
+                                    color: Colors.black87,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  doc.fileName,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.grey[500],
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    // Category pill
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 7,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: accentColor.withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: Text(
+                                        doc.category,
+                                        style: const TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w600,
+                                          color: accentColor,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Icon(
+                                      Icons.calendar_today_rounded,
+                                      size: 10,
+                                      color: Colors.grey[400],
+                                    ),
+                                    const SizedBox(width: 3),
+                                    Text(
+                                      _formatDate(doc.uploadedAt),
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: Colors.grey[400],
+                                        fontStyle: FontStyle.italic,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          // Open hint + remove
+                          Column(
+                            children: [
+                              Icon(
+                                Icons.open_in_new_rounded,
+                                size: 14,
+                                color: Colors.grey[400],
+                              ),
+                              const SizedBox(height: 8),
+                              GestureDetector(
+                                onTap: () => _confirmRemoveDocument(doc, index),
+                                child: Icon(
+                                  Icons.remove_circle_outline,
+                                  size: 18,
+                                  color: Colors.grey[400],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (!isLast)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 16),
+                      child: Container(
+                        height: 1,
+                        color: const Color(0xFFF5F5F5),
+                      ),
+                    ),
+                ],
+              );
+            }),
+
+          const SizedBox(height: 4),
+        ],
+      ),
+    );
+  }
+
+  // Generic section card
 
   Widget _buildSectionCard({
     required String title,
@@ -797,7 +1322,6 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
     required Color accentColor,
     required Color backgroundColor,
     required String emptyLabel,
-    required IconData emptyIcon,
     required int itemCount,
     required VoidCallback onAdd,
     required Widget Function(int index) itemBuilder,
@@ -817,7 +1341,6 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header row
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 12, 12),
             child: Row(
@@ -861,7 +1384,6 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
           ),
           Container(height: 1, color: const Color(0xFFF0F0F0)),
 
-          // Empty state — tappable prompt
           if (itemCount == 0)
             GestureDetector(
               onTap: onAdd,
@@ -937,8 +1459,18 @@ class _RecordItemWidget extends StatelessWidget {
 
   String _formatDate(DateTime date) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${date.day} ${months[date.month - 1]} ${date.year}';
   }
