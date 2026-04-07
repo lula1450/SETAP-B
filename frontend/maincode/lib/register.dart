@@ -22,6 +22,7 @@ class _RegisterPageState extends State<RegisterPage> {
 
   final AuthService _authService = AuthService();
   bool _isLoading = false;
+  bool _obscurePassword = true;
 
   void _handleRegister() async {
     // 1. Basic Validation
@@ -78,7 +79,19 @@ class _RegisterPageState extends State<RegisterPage> {
             TextField(controller: _firstNameController, decoration: const InputDecoration(labelText: "First Name")),
             TextField(controller: _lastNameController, decoration: const InputDecoration(labelText: "Last Name")),
             TextField(controller: _emailController, decoration: const InputDecoration(labelText: "Email")),
-            TextField(controller: _passwordController, decoration: const InputDecoration(labelText: "Password"), obscureText: true),
+            TextField(
+              controller: _passwordController,
+              obscureText: _obscurePassword,
+              decoration: InputDecoration(
+                labelText: "Password",
+                suffixIcon: IconButton(
+                  icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility),
+                  onPressed: () {
+                    setState(() => _obscurePassword = !_obscurePassword);
+                  },
+                ),
+              ),
+            ),
             TextField(controller: _phoneController, decoration: const InputDecoration(labelText: "Phone Number")),
             const Divider(height: 40),
             const Text("Home Address", style: TextStyle(fontWeight: FontWeight.bold)),
