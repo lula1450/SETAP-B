@@ -142,7 +142,7 @@ class _ReportsPageState extends State<ReportsPage> {
       endDrawer: _buildDrawer(),
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: Text('Health: ${widget.petName}'),
+        title: Text('Report: ${widget.petName}'),
         backgroundColor: const Color(0xFF8BAEAE),
         elevation: 0,
       ),

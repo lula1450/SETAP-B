@@ -31,11 +31,21 @@ async def get_metric_analysis(
     # Standardize the incoming string (e.g. 'Weight' -> 'weight')
     formatted_name = metric_name.lower().replace(" ", "_")
     
+    # Check if it's a custom metric (not in MetricName enum)
+    is_custom = formatted_name not in [m.value for m in MetricName]
+    
     # FIX: Use the string value of the enum for the filter
-    metric_def = db.query(MetricDefinition).filter(
-        MetricDefinition.species_id == pet.species_id,
-        MetricDefinition.metric_name == formatted_name  # SQLAlchemy handles the Enum cast automatically here
-    ).first()
+    if is_custom:
+        # For custom metrics, look for the generic custom metric definition
+        metric_def = db.query(MetricDefinition).filter(
+            MetricDefinition.species_id == pet.species_id,
+            MetricDefinition.metric_name == MetricName.custom
+        ).first()
+    else:
+        metric_def = db.query(MetricDefinition).filter(
+            MetricDefinition.species_id == pet.species_id,
+            MetricDefinition.metric_name == formatted_name
+        ).first()
 
     if not metric_def:
         # Change this to a 404 so the test knows why it failed
@@ -46,6 +56,10 @@ async def get_metric_analysis(
         HealthMetric.pet_id == pet_id,
         HealthMetric.metric_def_id == metric_def.metric_def_id
     )
+    
+    # For custom metrics, filter by the metric name in the notes field
+    if is_custom:
+        query = query.filter(HealthMetric.notes.like(f"{formatted_name}|%"))
     
     # Apply optional date filters (expecting ISO format strings)
     if start_date:
@@ -68,9 +82,26 @@ async def get_metric_analysis(
         return {"message": "No logs recorded yet", "points": [], "is_risk": False}
 
     # 3. Process data for the Pandas Engine
-    values = [float(log.metric_value) for log in logs]
+    # For custom metrics, extract value from notes; for standard metrics use metric_value
+    if is_custom:
+        values = []
+        for log in logs:
+            if log.notes:
+                # Extract value from "metric_name|unit|value" format
+                parts = log.notes.split("|", 2)
+                if len(parts) >= 3:
+                    try:
+                        values.append(float(parts[2]))
+                    except ValueError:
+                        pass
+    else:
+        values = [float(log.metric_value) for log in logs]
+    
+    if not values:
+        return {"message": "No valid data recorded yet", "points": [], "is_risk": False}
+    
     current_value = values[-1]
-    historical_values = values[:-1] # All entries except the latest one
+    historical_values = values[:-1]  # All entries except the latest one
 
     # 4. Perform the 15% deviation check
     is_risk, baseline = check_15_percent_deviation(historical_values, current_value)
@@ -79,9 +110,16 @@ async def get_metric_analysis(
     graph_points = []
     for i, log in enumerate(logs):
         # Ensure each point has a 'date' key in the requested format e.g. "28 Mar, 19:40"
+        if is_custom and log.notes:
+            # Extract value from "metric_name|unit|value" format
+            parts = log.notes.split("|", 2)
+            y_value = float(parts[2]) if len(parts) >= 3 else 0.0
+        else:
+            y_value = float(log.metric_value)
+        
         graph_points.append({
             "x": i,
-            "y": float(log.metric_value),
+            "y": y_value,
             "date": log.metric_time.strftime("%d %b, %H:%M")
         })
 
@@ -113,13 +151,28 @@ async def export_pet_report(pet_id: int, metric_name: str, db: Session = Depends
 @router.get("/logged-metrics/{pet_id}")
 async def get_logged_metrics(pet_id: int, db: Session = Depends(get_db)):
     # This query finds all unique metric names that have at least one log for this pet
-    logged_metrics = db.query(MetricDefinition.metric_name)\
+    logged_metrics = db.query(MetricDefinition.metric_name, HealthMetric.notes)\
         .join(HealthMetric, HealthMetric.metric_def_id == MetricDefinition.metric_def_id)\
         .filter(HealthMetric.pet_id == pet_id)\
         .distinct().all()
     
-    # Convert list of tuples to a simple list of strings: ["weight", "water_intake"]
-    return [m[0] for m in logged_metrics]
+    # Convert list of tuples to a simple list of strings
+    metrics_set = set()
+    
+    for metric_name, notes in logged_metrics:
+        # Get the enum value
+        metric_str = metric_name.value if hasattr(metric_name, 'value') else str(metric_name)
+        
+        # For custom metrics, extract the actual metric name from notes
+        if metric_str == 'custom' and notes:
+            # Extract metric name from "metric_name|unit|value" format
+            parts = notes.split("|", 1)
+            if len(parts) > 0:
+                metric_str = parts[0].strip()
+        
+        metrics_set.add(metric_str)
+    
+    return sorted(list(metrics_set))
 
 @router.get("/history/{pet_id}", response_model=List[PetReportResponse])
 async def get_pet_report_history(pet_id: int, db: Session = Depends(get_db)):
