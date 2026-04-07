@@ -16,6 +16,8 @@ import 'package:maincode/vet_contacts.dart';
 import 'package:maincode/services/advice_service.dart';
 import 'package:image_picker/image_picker.dart';
 
+/// Main dashboard page for displaying pet information and management
+/// Shows calendar with appointments, daily metrics, facts, and advice
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
 
@@ -24,22 +26,44 @@ class DashboardPage extends StatefulWidget {
 }
 
 class _DashboardPageState extends State<DashboardPage> {
+  // --- STATE VARIABLES ---
+  
+  /// Index of the currently selected pet in the _pets list
   int _selectedPetIndex = 0;
+  
+  /// Service for managing pet data and operations
   final PetService _petService = PetService();
+  
+  /// List of all pets belonging to the current owner
   List<dynamic> _pets = [];
-  List<dynamic> _appointments = []; 
+  
+  /// List of all appointments for the household
+  List<dynamic> _appointments = [];
+  
+  /// Loading state for async operations
   bool _isLoading = true;
+  
+  /// Currently focused month in the calendar view
   DateTime _focusedDay = DateTime.now();
-  int? _selectedDay; 
+  
+  /// Currently selected day (null = no selection)
+  int? _selectedDay;
 
-  final FunFactService _funFactService = FunFactService(); 
-  String _dailyFact = ""; 
+  /// Service for generating pet fun facts
+  final FunFactService _funFactService = FunFactService();
+  
+  /// Daily fun fact for the current pet
+  String _dailyFact = "";
 
-  final AdviceService _adviceService = AdviceService(); 
+  /// Service for generating pet care advice
+  final AdviceService _adviceService = AdviceService();
+  
+  /// Daily advice for the current pet
   String _dailyAdvice = ""; 
 
 
   void _updateDailyFact() {
+  /// Fetches and updates the daily fun fact for the currently selected pet
   if (_pets.isNotEmpty) {
     final currentPet = _pets[_selectedPetIndex];
     setState(() {
@@ -51,6 +75,7 @@ class _DashboardPageState extends State<DashboardPage> {
 }
 
   void _updateDailyAdvice() {
+  /// Fetches and updates the daily care advice for the currently selected pet
   if (_pets.isNotEmpty) {
     final currentPet = _pets[_selectedPetIndex];
     setState(() {
@@ -62,6 +87,7 @@ class _DashboardPageState extends State<DashboardPage> {
 }
 
 void _deleteAppointment(int appointmentId) async {
+  /// Shows confirmation dialog and deletes the appointment from the server
   bool? confirm = await showDialog<bool>(
     context: context,
     builder: (context) => AlertDialog(
@@ -74,7 +100,7 @@ void _deleteAppointment(int appointmentId) async {
           child: const Text("Cancel")
         ),
         TextButton(
-          onPressed: () => Navigator.pop(context, true), // Just return true
+          onPressed: () => Navigator.pop(context, true),
           child: const Text("Delete", style: TextStyle(color: Colors.red)),
         ),
       ],
@@ -83,11 +109,9 @@ void _deleteAppointment(int appointmentId) async {
 
   if (confirm == true) {
     try {
-      // 1. Call the service with the ID passed into the function
+      /// Delete from server and refresh the appointments list
       await _petService.deleteAppointment(appointmentId);
-      
-      // 2. Refresh the UI by fetching the list again
-      _fetchAppointments(); 
+      _fetchAppointments();
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -106,9 +130,10 @@ void _deleteAppointment(int appointmentId) async {
 }
 
 void _editAppointment(dynamic appt) async {
+  /// Shows dialog to edit appointment time and notes
   final notesController = TextEditingController(text: appt['appointment_notes']);
   
-  // Parse existing time (assuming format "HH:mm:ss")
+  /// Parse existing time from "HH:mm:ss" format
   final parts = appt['pet_appointment_time'].split(':');
   TimeOfDay initialTime = TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
 
@@ -132,10 +157,11 @@ void _editAppointment(dynamic appt) async {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF8BAEAE)),
             onPressed: () async {
+              /// Format time as "HH:mm:ss"
               String timeStr = "${pickedTime.hour.toString().padLeft(2, '0')}:${pickedTime.minute.toString().padLeft(2, '0')}:00";
 
               try {
-                // You will need to implement updateAppointment in your PetService
+                /// Update appointment on server
                 await _petService.updateAppointment(
                   appointmentId: appt['pet_appointment_id'],
                   time: timeStr,
@@ -162,6 +188,7 @@ void _editAppointment(dynamic appt) async {
 }
 
 void _deletePet(int petId, String petName) async {
+  /// Shows confirmation dialog and deletes the pet from the database
   bool? confirm = await showDialog<bool>(
     context: context,
     builder: (context) => AlertDialog(
@@ -180,12 +207,12 @@ void _deletePet(int petId, String petName) async {
 
   if (confirm == true) {
     try {
-      // You'll need to add this method to your PetService
+      /// Delete pet from server and refresh the pet list
       await _petService.deletePet(petId);
       
       if (mounted) {
-        Navigator.pop(context); // Close the bottom sheet picker
-        _fetchPets(); // Refresh the pet list
+        Navigator.pop(context);
+        _fetchPets();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("$petName removed successfully")),
         );
@@ -199,13 +226,15 @@ void _deletePet(int petId, String petName) async {
   @override
   void initState() {
     super.initState();
+    /// Initialize calendar to today and fetch pet data on first load
     _selectedDay = DateTime.now().day; 
     _fetchPets();
   }
 
-  // --- LOGIC FUNCTIONS ---
+  // --- DATA FETCHING & MANAGEMENT ---
 
   Future<void> _fetchPets() async {
+    /// Fetches all pets for the current owner from SharedPreferences and server
     try {
       final prefs = await SharedPreferences.getInstance();
       final int ownerId = prefs.getInt('owner_id') ?? 0;
@@ -213,6 +242,7 @@ void _deletePet(int petId, String petName) async {
       
       if (mounted) {
         if (data.isEmpty) {
+          /// No pets found - navigate to add pet page
           Future.delayed(Duration.zero, () {
             Navigator.push(context, MaterialPageRoute(builder: (context) => const AddPetPage()))
             .then((_) => _fetchPets());
@@ -227,7 +257,8 @@ void _deletePet(int petId, String petName) async {
               _updateDailyAdvice();
             }
           });
-          _fetchAppointments(); // Fetch unified household schedule
+          /// Fetch household appointments after pets are loaded
+          _fetchAppointments();
         }
       }
     } catch (e) {
@@ -237,17 +268,16 @@ void _deletePet(int petId, String petName) async {
   }
 
   Future<void> _pickPetImage(int petId) async {
+  /// Opens image picker and updates pet image in database
   final ImagePicker picker = ImagePicker();
   final XFile? image = await picker.pickImage(source: ImageSource.gallery);
 
   if (image != null) {
-    // 1. For now, let's keep using your service to save the path string
-    // But we will also update the local state immediately so it shows up!
+    /// Upload image and update local state immediately for instant UI feedback
     bool success = await _petService.updatePetImage(petId, image.path);
     
     if (success) {
       setState(() {
-        // We manually update the local list so the UI reacts instantly
         _pets[_selectedPetIndex]['pet_image_path'] = image.path;
       });
       ScaffoldMessenger.of(context).showSnackBar(
@@ -258,9 +288,10 @@ void _deletePet(int petId, String petName) async {
 }
 
   Future<void> _fetchAppointments() async {
+    /// Fetches all appointments for the current owner's household
     final prefs = await SharedPreferences.getInstance();
     final int ownerId = prefs.getInt('owner_id') ?? 0;
-    // Note: Ensure PetService has getAllAppointments(ownerId) implemented
+    /// Get all appointments for the household (all pets)
     final appts = await _petService.getAllAppointments(ownerId);
     if (mounted) {
       setState(() {
@@ -269,6 +300,7 @@ void _deletePet(int petId, String petName) async {
     }
   }
 
+  /// Maps appointments for a given day to their corresponding pet colors
   List<Color> _getAppointmentColorsForDay(int day) {
     String dateString = "${_focusedDay.year}-${_focusedDay.month.toString().padLeft(2, '0')}-${day.toString().padLeft(2, '0')}";
     var dayAppts = _appointments.where((a) => a['pet_appointment_date'] == dateString);
@@ -279,12 +311,14 @@ void _deletePet(int petId, String petName) async {
     }).toList();
   }
 
+  /// Checks if a given day is today
   bool _isToday(int day) {
     DateTime now = DateTime.now();
     return day == now.day && _focusedDay.month == now.month && _focusedDay.year == now.year;
   }
 
   void _showBookingDialog(int day) async {
+    /// Shows dialog to create a new appointment for the selected day
     final notesController = TextEditingController();
     final TimeOfDay? pickedTime = await showTimePicker(
       context: context,
@@ -306,6 +340,7 @@ void _deletePet(int petId, String petName) async {
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF8BAEAE)),
               onPressed: () async {
+                /// Format date and time strings for the API
                 String dateStr = "${_focusedDay.year}-${_focusedDay.month.toString().padLeft(2, '0')}-${day.toString().padLeft(2, '0')}";
                 String timeStr = "${pickedTime.hour.toString().padLeft(2, '0')}:${pickedTime.minute.toString().padLeft(2, '0')}:00";
 
@@ -317,7 +352,7 @@ void _deletePet(int petId, String petName) async {
                 );
                 
                 Navigator.pop(context);
-                _fetchAppointments(); 
+                _fetchAppointments();
               },
               child: const Text("Confirm", style: TextStyle(color: Colors.white)),
             ),
@@ -328,6 +363,8 @@ void _deletePet(int petId, String petName) async {
   }
 
   Color _getPetColor(int index) {
+    /// Returns a color from an 8-color palette based on pet index
+    /// Using modulo ensures consistent colors regardless of number of pets
     final List<Color> nameColors = [
       const Color.fromARGB(255, 146, 179, 236), // Blue
       const Color.fromRGBO(212, 162, 221, 1),   // Purple
@@ -345,6 +382,7 @@ void _deletePet(int petId, String petName) async {
 
   @override
   Widget build(BuildContext context) {
+    /// Main scaffold with drawer, app bar, and body containing calendar and action sections
     return Scaffold(
       endDrawer: _buildDrawer(),
       appBar: AppBar(
@@ -383,7 +421,10 @@ void _deletePet(int petId, String petName) async {
     );
   }
 
+  // --- UI COMPONENTS & BUILDERS ---
+
   Widget _buildDailySchedule() {
+    /// Displays appointments for the selected day with edit/delete options
     if (_selectedDay == null) return const SizedBox.shrink();
 
     String selectedDateStr = "${_focusedDay.year}-${_focusedDay.month.toString().padLeft(2, '0')}-${_selectedDay.toString().padLeft(2, '0')}";
@@ -398,6 +439,7 @@ void _deletePet(int petId, String petName) async {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text("Household Schedule: $_selectedDay/${_focusedDay.month}", style: const TextStyle(fontWeight: FontWeight.bold)),
+              /// Button to add new appointment for selected day
               IconButton(icon: const Icon(Icons.add_circle, color: Color(0xFF8BAEAE)), onPressed: () => _showBookingDialog(_selectedDay!)),
             ],
           ),
@@ -424,10 +466,12 @@ void _deletePet(int petId, String petName) async {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            /// Edit appointment button
             IconButton(
               icon: const Icon(Icons.edit_outlined, color: Colors.blueAccent, size: 18),
               onPressed: () => _editAppointment(appt),
             ),
+            /// Delete appointment button
             IconButton(
               icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 18),
               onPressed: () => _deleteAppointment(appt['pet_appointment_id']),
@@ -444,6 +488,7 @@ void _deletePet(int petId, String petName) async {
   }
 
   Widget _buildCalendar() {
+    /// Renders an interactive month calendar with appointment indicators and navigation
     int daysInMonth = DateUtils.getDaysInMonth(_focusedDay.year, _focusedDay.month);
     DateTime firstDayOfMonth = DateTime(_focusedDay.year, _focusedDay.month, 1);
     int firstWeekdayIndex = firstDayOfMonth.weekday % 7;
@@ -451,6 +496,7 @@ void _deletePet(int petId, String petName) async {
 
     return Column(
       children: [
+        /// Month and year header with navigation arrows
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
           child: Row(
@@ -464,6 +510,7 @@ void _deletePet(int petId, String petName) async {
         ),
         _calendarHeaderRow(),
         const Divider(indent: 10, endIndent: 10),
+        /// Grid of calendar days
         Expanded(
           child: GridView.builder(
             padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -482,6 +529,7 @@ void _deletePet(int petId, String petName) async {
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
+                    /// Day number with visual indicators
                     AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
                       width: 32, height: 32,
@@ -492,6 +540,7 @@ void _deletePet(int petId, String petName) async {
                       ),
                       child: Center(child: Text("$day", style: const TextStyle(fontSize: 10))),
                     ),
+                    /// Appointment color dots
                     if (apptColors.isNotEmpty)
                       Positioned(
                         bottom: 2,
@@ -515,6 +564,7 @@ void _deletePet(int petId, String petName) async {
   }
 
   void _showPetPicker() {
+  /// Shows bottom sheet modal to select a different pet or add a new one
   showModalBottomSheet(
     context: context,
     shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
@@ -522,6 +572,7 @@ void _deletePet(int petId, String petName) async {
       shrinkWrap: true,
       itemCount: _pets.length + 1, 
       itemBuilder: (context, index) {
+        /// Last item is "Add New Pet" button
         if (index == _pets.length) {
           return ListTile(
             leading: const Icon(Icons.add_circle_outline),
@@ -534,23 +585,23 @@ void _deletePet(int petId, String petName) async {
           );
         }
 
-        final pet = _pets[index]; // Reference current pet
+        final pet = _pets[index];
 
         return ListTile(
           leading: Icon(Icons.pets, color: _getPetColor(index)),
           title: Text(pet['pet_first_name']),
           onTap: () {
+            /// Select pet and update dashboard
             setState(() => _selectedPetIndex = index);
             _updateDailyFact();
             _updateDailyAdvice();
             Navigator.pop(context);
-            _fetchAppointments(); 
+            _fetchAppointments();
           },
-          // ADD THE DELETE ICON HERE
+          /// Delete pet button
           trailing: IconButton(
             icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
             onPressed: () {
-              // We'll define this function next
               _deletePet(pet['pet_id'], pet['pet_first_name']);
             },
           ),
@@ -561,6 +612,7 @@ void _deletePet(int petId, String petName) async {
 }
 
   Widget _buildDrawer() {
+    /// Settings drawer with profile, notifications, and account management options
     return Drawer(
       child: ListView(
         padding: EdgeInsets.zero,
@@ -570,15 +622,16 @@ void _deletePet(int petId, String petName) async {
             child: Text('Settings', style: TextStyle(color: Colors.white, fontSize: 24)),
           ),
           _drawerTile(Icons.person, 'Edit Profile', onTap: () {
-            Navigator.pop(context); // Close drawer
+            Navigator.pop(context);
             Navigator.push(context, MaterialPageRoute(builder: (context) => const EditProfilePage()));
           }),
           _drawerTile(Icons.notifications, 'Notifications'),
           _drawerTile(Icons.palette, 'Report History', onTap: () {
-            Navigator.pop(context); // Close drawer
+            Navigator.pop(context);
             Navigator.push(context, MaterialPageRoute(builder: (context) => const ReportHistoryPage()));
           }),
           _drawerTile(Icons.logout, 'Logout', onTap:() async {
+            /// Clear local data and return to login
             final prefs = await SharedPreferences.getInstance();
             await prefs.clear();
             Navigator.pop(context);
@@ -590,6 +643,7 @@ void _deletePet(int petId, String petName) async {
     );
   }
 
+  /// Reusable drawer menu item
   Widget _drawerTile(IconData icon, String title, {Color? color, VoidCallback? onTap}) {
     return ListTile(
       leading: Icon(icon, color: color),
