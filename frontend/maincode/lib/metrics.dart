@@ -228,6 +228,7 @@ class _MetricsPageState extends State<MetricsPage> {
                             petId: widget.petId,
                             metricName: backendName,
                             value: valueController.text,
+                            unit: _customMetricUnits[title], // Pass unit for custom metrics
                           );
                           debugPrint("Log result: $logResult");
                         }
@@ -635,13 +636,22 @@ class _SparklinePainter extends CustomPainter {
 class HealthService {
   static const String baseUrl = "http://127.0.0.1:8000"; 
 
-  Future<Map<String, dynamic>> logMetric({required int petId, required String metricName, required dynamic value}) async {
+  Future<Map<String, dynamic>> logMetric({required int petId, required String metricName, required dynamic value, String? unit}) async {
     final url = Uri.parse("$baseUrl/health/log");
     var formattedValue = double.tryParse(value.toString()) ?? value.toString();
+    final body = {
+      "pet_id": petId,
+      "metric_name": metricName,
+      "value": formattedValue,
+    };
+    // Add unit if provided (for custom metrics)
+    if (unit != null) {
+      body["unit"] = unit;
+    }
     final response = await http.post(
       url,
       headers: {"Content-Type": "application/json"},
-      body: jsonEncode({"pet_id": petId, "metric_name": metricName, "value": formattedValue}),
+      body: jsonEncode(body),
     );
     if (response.statusCode != 200) {
       throw Exception("Failed to log metric: ${response.statusCode} - ${response.body}");

@@ -18,6 +18,7 @@ class HealthMetricLogCreate(BaseModel):
     metric_name: str  # Accept as string, we'll validate in the route
     value: Union[float, int, str]
     notes: Optional[str] = Field(None, max_length=1000)
+    unit: Optional[str] = Field(None, max_length=50)  # Optional unit for custom metrics
     
     @field_validator('metric_name', mode='before')
     @classmethod
@@ -136,9 +137,10 @@ async def log_health_metric(log: HealthMetricLogCreate, db: Session = Depends(ge
     metric_val_to_save = 0
     notes_to_save = log.notes
 
-    # For custom metrics, store the metric name in notes along with the value
+    # For custom metrics, store the metric name, unit, and value in notes
     if is_custom:
-        notes_to_save = f"{metric_name_str}: {str(log.value)}"
+        unit_str = log.unit or "custom"
+        notes_to_save = f"{metric_name_str}|{unit_str}|{str(log.value)}"
     elif metric_def.metric_unit == MetricUnit.text or metric_def.metric_unit == MetricUnit.custom:
         notes_to_save = str(log.value)
     else:
@@ -185,19 +187,43 @@ def get_latest_metric(pet_id: int, metric_name: str, db: Session = Depends(get_d
         ).first()
         
         if not metric_def:
-            return {"value": "---", "unit": "custom"}
+            return {"value": "---", "unit": "custom", "target": ""}
         
         # Find the latest log that contains this custom metric name in notes
         latest_log = db.query(HealthMetric).filter(
             HealthMetric.pet_id == pet_id,
             HealthMetric.metric_def_id == metric_def.metric_def_id,
-            HealthMetric.notes.like(f"{metric_name}:%")
+            HealthMetric.notes.like(f"{metric_name}|%")
         ).order_by(HealthMetric.metric_time.desc()).first()
+        
+        goal_record = db.query(PetGoal).filter(
+            PetGoal.pet_id == pet_id,
+            PetGoal.metric_def_id == metric_def.metric_def_id
+        ).first()
+        
+        # Extract value and unit from notes if custom metric
+        value = "---"
+        unit = "custom"
+        if latest_log and latest_log.notes:
+            # Extract value and unit from "metric_name|unit|value" format
+            parts = latest_log.notes.split("|", 2)
+            if len(parts) >= 3:
+                unit = parts[1]
+                value = parts[2]
+            elif len(parts) >= 2:
+                unit = parts[1]
+        
+        return {
+            "value": value,
+            "unit": unit,
+            "target": goal_record.target_value if goal_record else ""
+        }
     else:
+        # Standard metrics
         try:
             metric_enum = MetricName(metric_name)
         except ValueError:
-            return {"value": "---", "unit": ""}
+            return {"value": "---", "unit": "", "target": ""}
         
         metric_def = db.query(MetricDefinition).filter(
             MetricDefinition.species_id == pet.species_id,
@@ -205,33 +231,27 @@ def get_latest_metric(pet_id: int, metric_name: str, db: Session = Depends(get_d
         ).first()
 
         if not metric_def:
-            return {"value": "---", "unit": ""}
+            return {"value": "---", "unit": "", "target": ""}
 
         latest_log = db.query(HealthMetric).filter(
             HealthMetric.pet_id == pet_id,
             HealthMetric.metric_def_id == metric_def.metric_def_id
         ).order_by(HealthMetric.metric_time.desc()).first()
 
-    goal_record = db.query(PetGoal).filter(
-        PetGoal.pet_id == pet_id,
-        PetGoal.metric_def_id == metric_def.metric_def_id
-    ).first()
-    
-    # Extract value from notes if custom metric
-    value = "---"
-    if latest_log:
-        if is_custom and latest_log.notes:
-            # Extract value from "metric_name: value" format
-            parts = latest_log.notes.split(":", 1)
-            value = parts[1].strip() if len(parts) > 1 else latest_log.notes
-        else:
+        goal_record = db.query(PetGoal).filter(
+            PetGoal.pet_id == pet_id,
+            PetGoal.metric_def_id == metric_def.metric_def_id
+        ).first()
+        
+        value = "---"
+        if latest_log:
             value = latest_log.metric_value if latest_log.metric_value else "---"
 
-    return {
-        "value": value,
-        "unit": metric_def.metric_unit.value if metric_def else "custom",
-        "target": goal_record.target_value if goal_record else ""
-    }
+        return {
+            "value": value,
+            "unit": metric_def.metric_unit.value if metric_def else "",
+            "target": goal_record.target_value if goal_record else ""
+        }
 
 @router.post("/goal")
 def set_metric_goal(pet_id: int, metric_name: str, goal: str, db: Session = Depends(get_db)):
@@ -299,6 +319,7 @@ async def get_pet_history(pet_id: int, db: Session = Depends(get_db)):
     history = db.query(
         HealthMetric.metric_value,
         HealthMetric.metric_time,
+        HealthMetric.notes,
         MetricDefinition.metric_name,
         MetricDefinition.metric_unit
     ).join(MetricDefinition, HealthMetric.metric_def_id == MetricDefinition.metric_def_id) \
@@ -307,12 +328,29 @@ async def get_pet_history(pet_id: int, db: Session = Depends(get_db)):
      .all()
 
     # Format it for the Flutter list
-    return [
-        {
-            "metric": h.metric_name.value if hasattr(h.metric_name, 'value') else str(h.metric_name),
-            "value": h.metric_value,
-            "unit": h.metric_unit.value if hasattr(h.metric_unit, 'value') else str(h.metric_unit),
+    result = []
+    for h in history:
+        metric_name = h.metric_name.value if hasattr(h.metric_name, 'value') else str(h.metric_name)
+        unit = h.metric_unit.value if hasattr(h.metric_unit, 'value') else str(h.metric_unit)
+        value = h.metric_value
+        
+        # For custom metrics, extract the actual metric name, unit, and value from notes
+        if metric_name == 'custom' and h.notes:
+            # Extract from "metric_name|unit|value" format
+            parts = h.notes.split("|", 2)
+            if len(parts) >= 3:
+                metric_name = parts[0].strip()
+                unit = parts[1].strip()
+                value = parts[2].strip()
+            elif len(parts) >= 1:
+                metric_name = parts[0].strip()
+        
+        result.append({
+            "metric": metric_name,
+            "value": value,
+            "unit": unit,
             "time": h.metric_time.strftime("%d %b %Y, %H:%M")
-        } for h in history
-    ]
+        })
+    
+    return result
 
