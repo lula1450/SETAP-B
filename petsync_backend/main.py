@@ -1,8 +1,9 @@
 
 from petsync_backend.routers import auth, pets, health, schedule, reports, owners
+from petsync_backend.middleware import PetSyncFirewall
 
 # allows the api gateway to handle concurrent requests
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 
 # ensures that the data entering the user manager or pet manger is typed and validated
 from pydantic import BaseModel
@@ -29,6 +30,10 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# Register the Security Firewall FIRST - before CORS
+app.add_middleware(PetSyncFirewall)
+
+# Existing CORS configuration
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
