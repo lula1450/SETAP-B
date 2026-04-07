@@ -631,9 +631,35 @@ void _deletePet(int petId, String petName) async {
             Navigator.push(context, MaterialPageRoute(builder: (context) => const ReportHistoryPage()));
           }),
           _drawerTile(Icons.logout, 'Logout', onTap:() async {
-            /// Clear local data and return to login
+            /// Clear session data but preserve custom metrics
             final prefs = await SharedPreferences.getInstance();
+            
+            // Get all keys before clearing
+            final allKeys = prefs.getKeys();
+            
+            // Preserve keys that start with 'custom_metrics_' or 'custom_metric_units_'
+            final keysToPreserve = allKeys
+                .where((key) => key.startsWith('custom_metrics_') || key.startsWith('custom_metric_units_'))
+                .toList();
+            
+            // Store these values temporarily
+            Map<String, dynamic> preservedData = {};
+            for (var key in keysToPreserve) {
+              preservedData[key] = prefs.get(key);
+            }
+            
+            // Clear all preferences
             await prefs.clear();
+            
+            // Restore preserved data
+            for (var entry in preservedData.entries) {
+              if (entry.value is String) {
+                await prefs.setString(entry.key, entry.value);
+              } else if (entry.value is List<String>) {
+                await prefs.setStringList(entry.key, entry.value);
+              }
+            }
+            
             Navigator.pop(context);
             Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => LoginPage()));
           }),
