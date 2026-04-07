@@ -34,16 +34,24 @@ class _MetricsPageState extends State<MetricsPage> {
   ];
 
   List<String> _favorites = [];
+  List<String> _customMetrics = []; // Stores user-created custom metrics
+  Map<String, String> _customMetricUnits = {}; // Maps custom metric name to unit
 
   @override
   void initState() {
     super.initState();
     _loadFavorites();
+    _loadCustomMetrics();
     _refreshAllMetrics();
   }
 
   // --- NEW: UNIT MAPPING LOGIC ---
   String _getUnitForMetric(String metricName) {
+    // Check if it's a custom metric first
+    if (_customMetricUnits.containsKey(metricName)) {
+      return _customMetricUnits[metricName] ?? "";
+    }
+    
     final name = metricName.toLowerCase().trim();
     switch (name) {
       case "weight": return "kg";
@@ -73,7 +81,16 @@ class _MetricsPageState extends State<MetricsPage> {
 
   Future<void> _refreshAllMetrics() async {
     setState(() => _latestValues = {});
+    // Fetch predefined metrics
     for (var metric in _metrics) {
+      String backendName = metric.toLowerCase().replaceAll(" ", "_");
+      Map<String, String> data = await _healthService.getLatestMetricData(widget.petId, backendName);
+      if (mounted) {
+        setState(() => _latestValues[metric] = data);
+      }
+    }
+    // Fetch custom metrics
+    for (var metric in _customMetrics) {
       String backendName = metric.toLowerCase().replaceAll(" ", "_");
       Map<String, String> data = await _healthService.getLatestMetricData(widget.petId, backendName);
       if (mounted) {
@@ -92,6 +109,43 @@ class _MetricsPageState extends State<MetricsPage> {
   Future<void> _saveFavorites() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList('favorites_${widget.petId}', _favorites);
+  }
+
+  // --- CUSTOM METRICS MANAGEMENT ---
+  Future<void> _loadCustomMetrics() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _customMetrics = prefs.getStringList('custom_metrics_${widget.petId}') ?? [];
+      final unitsJson = prefs.getString('custom_metric_units_${widget.petId}') ?? '{}';
+      _customMetricUnits = Map<String, String>.from(jsonDecode(unitsJson));
+    });
+  }
+
+  Future<void> _saveCustomMetrics() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('custom_metrics_${widget.petId}', _customMetrics);
+    await prefs.setString('custom_metric_units_${widget.petId}', jsonEncode(_customMetricUnits));
+  }
+
+  void _addCustomMetric(String metricName, String unit) {
+    setState(() {
+      if (!_customMetrics.contains(metricName)) {
+        _customMetrics.add(metricName);
+        _customMetricUnits[metricName] = unit;
+      }
+    });
+    _saveCustomMetrics();
+  }
+
+  void _removeCustomMetric(String metricName) {
+    setState(() {
+      _customMetrics.remove(metricName);
+      _customMetricUnits.remove(metricName);
+      _favorites.remove(metricName);
+      _latestValues.remove(metricName);
+    });
+    _saveFavorites();
+    _saveCustomMetrics();
   }
 
   void _toggleFavorite(String title) {
@@ -170,11 +224,12 @@ class _MetricsPageState extends State<MetricsPage> {
 
                       try {
                         if (valueController.text.isNotEmpty) {
-                          await _healthService.logMetric(
+                          final logResult = await _healthService.logMetric(
                             petId: widget.petId,
                             metricName: backendName,
                             value: valueController.text,
                           );
+                          debugPrint("Log result: $logResult");
                         }
                         if (goalController.text.isNotEmpty) {
                           await _healthService.syncGoalToBackend(
@@ -193,11 +248,87 @@ class _MetricsPageState extends State<MetricsPage> {
                       } catch (e) {
                         setDialogState(() => isLogging = false);
                         debugPrint("Save error: $e");
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error saving data: $e")));
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text("Error saving data: $e"), duration: const Duration(seconds: 3)),
+                          );
+                        }
                       }
                     }, 
                     child: const Text("Save")
                   ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _showCreateCustomMetricDialog(BuildContext context) {
+    final TextEditingController nameController = TextEditingController();
+    String selectedUnit = "count"; // Default unit
+    final List<String> unitOptions = ["count", "kg", "ml", "mins", "%", "/5", "text"];
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+            title: const Text("Create Custom Metric"),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(
+                    labelText: "Metric Name",
+                    hintText: "e.g., Sleep Duration, Toy Interaction",
+                  ),
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: selectedUnit,
+                  decoration: const InputDecoration(labelText: "Unit"),
+                  items: unitOptions.map((unit) {
+                    return DropdownMenuItem(value: unit, child: Text(unit));
+                  }).toList(),
+                  onChanged: (value) {
+                    setDialogState(() => selectedUnit = value ?? "count");
+                  },
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  "Choose a unit that matches your metric type. You can use 'text' for qualitative observations.",
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+              ElevatedButton(
+                onPressed: () {
+                  if (nameController.text.trim().isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Please enter a metric name")),
+                    );
+                    return;
+                  }
+                  final metricName = nameController.text.trim();
+                  if (_metrics.contains(metricName) || _customMetrics.contains(metricName)) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Metric already exists")),
+                    );
+                    return;
+                  }
+                  _addCustomMetric(metricName, selectedUnit);
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text("Added custom metric: $metricName"), backgroundColor: Colors.green.shade700),
+                  );
+                },
+                child: const Text("Create"),
+              ),
             ],
           );
         },
@@ -235,9 +366,18 @@ class _MetricsPageState extends State<MetricsPage> {
   @override
   Widget build(BuildContext context) {
     final Color petThemeColor = _getPetColor(widget.petIndex);
-    List<String> filteredMetrics = _metrics.where((m) => m.toLowerCase().contains(_searchQuery)).toList();
+    // Combine predefined and custom metrics, with custom metrics first
+    List<String> allMetrics = [..._customMetrics, ..._metrics];
+    List<String> filteredMetrics = allMetrics.where((m) => m.toLowerCase().contains(_searchQuery)).toList();
     
     filteredMetrics.sort((a, b) {
+      // First, prioritize custom metrics to appear at top
+      bool aIsCustom = _customMetrics.contains(a);
+      bool bIsCustom = _customMetrics.contains(b);
+      if (aIsCustom && !bIsCustom) return -1;
+      if (!aIsCustom && bIsCustom) return 1;
+      
+      // Then, sort by favorites within each category
       if (_favorites.contains(a) && !_favorites.contains(b)) return -1;
       if (!_favorites.contains(a) && _favorites.contains(b)) return 1;
       return 0;
@@ -245,6 +385,12 @@ class _MetricsPageState extends State<MetricsPage> {
 
     return Scaffold(
       endDrawer: _buildDrawer(),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showCreateCustomMetricDialog(context),
+        tooltip: "Add Custom Metric",
+        backgroundColor: const Color.fromARGB(255, 139, 174, 174),
+        child: const Icon(Icons.add),
+      ),
       appBar: AppBar(
         backgroundColor: const Color.fromARGB(255, 139, 174, 174),
         toolbarHeight: 120,
@@ -308,6 +454,7 @@ class _MetricsPageState extends State<MetricsPage> {
 
   Widget _metricRow(BuildContext context, String title, String current, String target, bool isFavorite) {
     final String unit = _getUnitForMetric(title);
+    final bool isCustom = _customMetrics.contains(title);
     
     // 2. Calculate Status Color
     Color statusColor = _getStatusColor(current, target);
@@ -340,6 +487,34 @@ class _MetricsPageState extends State<MetricsPage> {
           const SizedBox(width: 8),
           // 3. QUICK LOG SHORTCUT (The Target column now also opens the log)
           Expanded(flex: 1, child: _metricButton(displayGoal, const Color.fromARGB(82, 255, 255, 255), () => _showEditDialog(context, title))),
+          // Delete button for custom metrics
+          if (isCustom)
+            IconButton(
+              icon: const Icon(Icons.delete, color: Colors.red),
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text("Delete Custom Metric?"),
+                    content: Text("Are you sure you want to delete '$title'?"),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                        onPressed: () {
+                          _removeCustomMetric(title);
+                          Navigator.pop(context);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text("Deleted '$title'"), backgroundColor: Colors.green.shade700),
+                          );
+                        },
+                        child: const Text("Delete", style: TextStyle(color: Colors.white)),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
         ],
       ),
     );

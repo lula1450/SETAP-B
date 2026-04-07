@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from datetime import datetime
 from petsync_backend.database import get_db
 from petsync_backend.models import HealthMetric, MetricDefinition, MetricName, MetricUnit, Pet, PetGoal
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional, Union
 
 router = APIRouter(
@@ -15,9 +15,20 @@ router = APIRouter(
 
 class HealthMetricLogCreate(BaseModel):
     pet_id: int = Field(..., gt=0)
-    metric_name: MetricName
+    metric_name: str  # Accept as string, we'll validate in the route
     value: Union[float, int, str]
     notes: Optional[str] = Field(None, max_length=1000)
+    
+    @field_validator('metric_name', mode='before')
+    @classmethod
+    def validate_metric_name(cls, v):
+        # If it's already a string, keep it as is
+        if isinstance(v, str):
+            return v
+        # If it's a MetricName enum, get its value
+        if isinstance(v, MetricName):
+            return v.value
+        return str(v)
 
 class HealthMetricLogResponse(BaseModel):
     status: str
@@ -80,18 +91,55 @@ async def log_health_metric(log: HealthMetricLogCreate, db: Session = Depends(ge
     if not pet:
         raise HTTPException(status_code=404, detail="Pet not found.")
 
-    metric_def = db.query(MetricDefinition).filter(
-        MetricDefinition.metric_name == log.metric_name,
-        MetricDefinition.species_id == pet.species_id
-    ).first()
+    # Determine if this is a custom metric (string that's not in MetricName enum)
+    metric_name_str = log.metric_name
+    is_custom = metric_name_str not in [m.value for m in MetricName]
     
+    # Try to find metric definition using the enum value if it's a standard metric
+    metric_name_enum = None
+    if not is_custom:
+        try:
+            metric_name_enum = MetricName(metric_name_str)
+        except ValueError:
+            is_custom = True
+    
+    metric_def = None
+    if not is_custom and metric_name_enum:
+        metric_def = db.query(MetricDefinition).filter(
+            MetricDefinition.metric_name == metric_name_enum,
+            MetricDefinition.species_id == pet.species_id
+        ).first()
+    
+    # For custom metrics, try to find or create a generic custom metric definition
     if not metric_def:
-        raise HTTPException(status_code=404, detail="Metric type not defined for this species.")
+        if is_custom:
+            # Look for a generic custom metric definition for this species
+            metric_def = db.query(MetricDefinition).filter(
+                MetricDefinition.metric_name == MetricName.custom,
+                MetricDefinition.species_id == pet.species_id
+            ).first()
+            
+            # If it doesn't exist, create it
+            if not metric_def:
+                metric_def = MetricDefinition(
+                    species_id=pet.species_id,
+                    metric_name=MetricName.custom,
+                    metric_unit=MetricUnit.custom,
+                    notes=f"Generic custom metric container"
+                )
+                db.add(metric_def)
+                db.commit()
+                db.refresh(metric_def)
+        else:
+            raise HTTPException(status_code=404, detail="Metric type not defined for this species.")
 
     metric_val_to_save = 0
     notes_to_save = log.notes
 
-    if metric_def.metric_unit == MetricUnit.text:
+    # For custom metrics, store the metric name in notes along with the value
+    if is_custom:
+        notes_to_save = f"{metric_name_str}: {str(log.value)}"
+    elif metric_def.metric_unit == MetricUnit.text or metric_def.metric_unit == MetricUnit.custom:
         notes_to_save = str(log.value)
     else:
         try:
@@ -112,7 +160,7 @@ async def log_health_metric(log: HealthMetricLogCreate, db: Session = Depends(ge
 
     analysis = await analyze_health_metric(
         log.pet_id, 
-        log.metric_name, 
+        metric_name_enum or MetricName.custom, 
         metric_val_to_save, 
         metric_def, 
         db
@@ -126,27 +174,62 @@ def get_latest_metric(pet_id: int, metric_name: str, db: Session = Depends(get_d
     if not pet:
         raise HTTPException(status_code=404, detail="Pet not found")
 
-    metric_def = db.query(MetricDefinition).filter(
-        MetricDefinition.species_id == pet.species_id,
-        MetricDefinition.metric_name == MetricName(metric_name)
-    ).first()
+    # Check if it's a standard metric or custom
+    is_custom = metric_name not in [m.value for m in MetricName]
+    
+    if is_custom:
+        # For custom metrics, look for the generic custom metric definition
+        metric_def = db.query(MetricDefinition).filter(
+            MetricDefinition.species_id == pet.species_id,
+            MetricDefinition.metric_name == MetricName.custom
+        ).first()
+        
+        if not metric_def:
+            return {"value": "---", "unit": "custom"}
+        
+        # Find the latest log that contains this custom metric name in notes
+        latest_log = db.query(HealthMetric).filter(
+            HealthMetric.pet_id == pet_id,
+            HealthMetric.metric_def_id == metric_def.metric_def_id,
+            HealthMetric.notes.like(f"{metric_name}:%")
+        ).order_by(HealthMetric.metric_time.desc()).first()
+    else:
+        try:
+            metric_enum = MetricName(metric_name)
+        except ValueError:
+            return {"value": "---", "unit": ""}
+        
+        metric_def = db.query(MetricDefinition).filter(
+            MetricDefinition.species_id == pet.species_id,
+            MetricDefinition.metric_name == metric_enum
+        ).first()
 
-    if not metric_def:
-        return {"value": "N/A", "unit": ""}
+        if not metric_def:
+            return {"value": "---", "unit": ""}
 
-    latest_log = db.query(HealthMetric).filter(
-        HealthMetric.pet_id == pet_id,
-        HealthMetric.metric_def_id == metric_def.metric_def_id
-    ).order_by(HealthMetric.metric_time.desc()).first()
+        latest_log = db.query(HealthMetric).filter(
+            HealthMetric.pet_id == pet_id,
+            HealthMetric.metric_def_id == metric_def.metric_def_id
+        ).order_by(HealthMetric.metric_time.desc()).first()
 
     goal_record = db.query(PetGoal).filter(
         PetGoal.pet_id == pet_id,
         PetGoal.metric_def_id == metric_def.metric_def_id
     ).first()
+    
+    # Extract value from notes if custom metric
+    value = "---"
+    if latest_log:
+        if is_custom and latest_log.notes:
+            # Extract value from "metric_name: value" format
+            parts = latest_log.notes.split(":", 1)
+            value = parts[1].strip() if len(parts) > 1 else latest_log.notes
+        else:
+            value = latest_log.metric_value if latest_log.metric_value else "---"
 
     return {
-        "value": latest_log.metric_value if latest_log else "---",
-        "unit": metric_def.metric_unit.value,
+        "value": value,
+        "unit": metric_def.metric_unit.value if metric_def else "custom",
         "target": goal_record.target_value if goal_record else ""
     }
 
@@ -155,14 +238,42 @@ def set_metric_goal(pet_id: int, metric_name: str, goal: str, db: Session = Depe
     pet = db.query(Pet).filter(Pet.pet_id == pet_id).first()
     if not pet:
         raise HTTPException(status_code=404, detail="Pet not found")
+    
+    # Check if it's a custom metric or standard metric
+    is_custom = metric_name not in [m.value for m in MetricName]
+    
+    # Find or create the appropriate metric definition
+    if is_custom:
+        # For custom metrics, use the generic custom metric definition
+        metric_def = db.query(MetricDefinition).filter(
+            MetricDefinition.species_id == pet.species_id,
+            MetricDefinition.metric_name == MetricName.custom
+        ).first()
         
-    metric_def = db.query(MetricDefinition).filter(
-        MetricDefinition.species_id == pet.species_id,
-        MetricDefinition.metric_name == MetricName(metric_name)
-    ).first()
+        if not metric_def:
+            metric_def = MetricDefinition(
+                species_id=pet.species_id,
+                metric_name=MetricName.custom,
+                metric_unit=MetricUnit.custom,
+                notes="Generic custom metric container"
+            )
+            db.add(metric_def)
+            db.commit()
+            db.refresh(metric_def)
+    else:
+        # For standard metrics, look up the metric definition
+        try:
+            metric_enum = MetricName(metric_name)
+        except ValueError:
+            raise HTTPException(status_code=404, detail="Invalid metric name")
+        
+        metric_def = db.query(MetricDefinition).filter(
+            MetricDefinition.species_id == pet.species_id,
+            MetricDefinition.metric_name == metric_enum
+        ).first()
 
-    if not metric_def:
-        raise HTTPException(status_code=404, detail="Metric definition not found")
+        if not metric_def:
+            raise HTTPException(status_code=404, detail="Metric definition not found")
 
     existing_goal = db.query(PetGoal).filter(
         PetGoal.pet_id == pet_id,
