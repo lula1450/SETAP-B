@@ -488,7 +488,7 @@ void _deletePet(int petId, String petName) async {
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: isToday ? Border.all(color: const Color(0xFF8BAEAE), width: 2) : null,
-                        color: isSelected ? const Color(0xFF8BAEAE).withOpacity(0.3) : Colors.transparent,
+                        color: isSelected ? const Color(0xFF8BAEAE).withValues(alpha: 0.3) : Colors.transparent,
                       ),
                       child: Center(child: Text("$day", style: const TextStyle(fontSize: 10))),
                     ),
@@ -663,19 +663,19 @@ void _deletePet(int petId, String petName) async {
         Positioned(
           top: -10,
           left: -40,
-          child: _backgroundCircle(200, Colors.white.withOpacity(0.1)),
+          child: _backgroundCircle(200, Colors.white.withValues(alpha: 0.1)),
         ),
         // Top Left 2 (Medium)
         Positioned(
           top: 10,
           left: -25,
-          child: _backgroundCircle(190, Colors.white.withOpacity(0.2)),
+          child: _backgroundCircle(190, Colors.white.withValues(alpha: 0.2)),
         ),
         // Top Left 3 (Smallest, Most Visible)
         Positioned(
           top: 30,
           left: 10,
-          child: _backgroundCircle(170, Colors.white.withOpacity(0.3)),
+          child: _backgroundCircle(170, Colors.white.withValues(alpha: 0.3)),
         ),
 
         // --- BOTTOM RIGHT CLUSTER (Behind Calendar) ---
@@ -683,19 +683,19 @@ void _deletePet(int petId, String petName) async {
         Positioned(
           bottom: -10,
           right: -40,
-          child: _backgroundCircle(200, Colors.white.withOpacity(0.1)),
+          child: _backgroundCircle(200, Colors.white.withValues(alpha: 0.1)),
         ),
         // Bottom Right 2 (Medium)
         Positioned(
           bottom: 10,
           right: -25,
-          child: _backgroundCircle(190, Colors.white.withOpacity(0.2)),
+          child: _backgroundCircle(190, Colors.white.withValues(alpha: 0.2)),
         ),
         // Bottom Right 3 (Smallest, Most Visible)
         Positioned(
           bottom: 30,
           right: 10,
-          child: _backgroundCircle(170, Colors.white.withOpacity(0.3)),
+          child: _backgroundCircle(170, Colors.white.withValues(alpha: 0.3)),
         ),
 
         // --- THE MAIN CALENDAR CARD (Foreground) ---
@@ -707,11 +707,11 @@ void _deletePet(int petId, String petName) async {
             margin: const EdgeInsets.symmetric(horizontal: 16),
             decoration: BoxDecoration(
               // The slight opacity on the white container is key to seeing the rings
-              color: Colors.white.withOpacity(0.65), 
+              color: Colors.white.withValues(alpha: 0.65), 
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Colors.black.withValues(alpha: 0.05),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -753,7 +753,7 @@ void _deletePet(int petId, String petName) async {
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
       child: Container(
         padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(color: Colors.white.withOpacity(0.4), borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.white24)),
+        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.4), borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.white24)),
         child: GridView.count(
           shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), crossAxisCount: 4, mainAxisSpacing: 10, crossAxisSpacing: 7,
           children: [
@@ -781,7 +781,7 @@ void _deletePet(int petId, String petName) async {
   Widget _infoBox(String title, String content) {
     return Container(
       width: double.infinity, padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: Colors.white.withOpacity(0.5), borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.black12)),
+      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.5), borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.black12)),
       child: Column(children: [Text(title, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)), const SizedBox(height: 4), Text(content, style: const TextStyle(fontSize: 10))]),
     );
   }
@@ -790,7 +790,7 @@ void _deletePet(int petId, String petName) async {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        decoration: BoxDecoration(color: Colors.white.withOpacity(0.5), borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.black12)),
+        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.5), borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.black12)),
         child: Center(child: Text(label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold))),
       ),
     );
@@ -894,7 +894,7 @@ void _deletePet(int petId, String petName) async {
       child: Container(
         width: 90, height: 90, alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.5),
+          color: Colors.white.withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(15),
           border: Border.all(color: Colors.black12)
         ),

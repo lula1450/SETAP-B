@@ -271,7 +271,7 @@ class _MetricsPageState extends State<MetricsPage> {
                 onChanged: (val) => setState(() => _searchQuery = val.toLowerCase()),
                 decoration: InputDecoration(
                   hintText: 'Search Metrics...',
-                  fillColor: Colors.white.withOpacity(0.9),
+                  fillColor: Colors.white.withValues(alpha: 0.9),
                   filled: true,
                   prefixIcon: const Icon(Icons.search),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none)
@@ -321,7 +321,7 @@ class _MetricsPageState extends State<MetricsPage> {
         children: [
           IconButton(
             icon: Icon(isFavorite ? Icons.star : Icons.star_border, 
-              color: isFavorite ? Colors.amber : Colors.white.withOpacity(0.7)), 
+              color: isFavorite ? Colors.amber : Colors.white.withValues(alpha: 0.7)), 
             onPressed: () => _toggleFavorite(title)
           ),
           // Main Metric Name Button
@@ -329,7 +329,7 @@ class _MetricsPageState extends State<MetricsPage> {
             flex: 3, 
             child: _metricButton(
               title, 
-              Colors.white.withOpacity(0.8), 
+              Colors.white.withValues(alpha: 0.8), 
               () => _showEditDialog(context, title),
               borderColor: statusColor, // Pass the status color here
               showSpark: true,          // Enable the sparkline here

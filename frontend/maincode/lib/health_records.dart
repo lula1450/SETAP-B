@@ -724,7 +724,7 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
+            color: Colors.black.withValues(alpha: 0.06),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -766,7 +766,7 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
                   child: Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      color: accentColor.withOpacity(0.1),
+                      color: accentColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Icon(Icons.add, color: accentColor, size: 18),
@@ -792,14 +792,14 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
                     Icon(
                       Icons.add_circle_outline,
                       size: 18,
-                      color: accentColor.withOpacity(0.7),
+                      color: accentColor.withValues(alpha: 0.7),
                     ),
                     const SizedBox(width: 8),
                     Text(
                       'Tap to add — $emptyLabel yet',
                       style: TextStyle(
                         fontSize: 13,
-                        color: accentColor.withOpacity(0.8),
+                        color: accentColor.withValues(alpha: 0.8),
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -880,7 +880,7 @@ class _RecordItemWidget extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: trailingColor.withOpacity(0.12),
+              color: trailingColor.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(

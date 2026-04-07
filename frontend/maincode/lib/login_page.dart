@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:maincode/register.dart';
 import '../services/auth_service.dart';
 import 'dashboard.dart'; 
-import 'register.dart'; // <--- DON'T FORGET THIS IMPORT
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -129,7 +128,7 @@ class _LoginPageState extends State<LoginPage> {
         hintText: hint,
         prefixIcon: Icon(icon, color: const Color(0xFF8BAEAE)),
         filled: true,
-        fillColor: Colors.white.withOpacity(0.9),
+        fillColor: Colors.white.withValues(alpha: 0.9),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
       ),
     );

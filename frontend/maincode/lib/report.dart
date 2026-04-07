@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart'; // Make sure to run 'flutter pub add fl_chart'
 import 'package:maincode/services/pet_service.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:maincode/utils/pdf_helper.dart';
 import 'dart:ui' as ui;
 import 'dart:typed_data';
@@ -379,7 +378,7 @@ class _ReportsPageState extends State<ReportsPage> {
                isCurved: true,
                color: isRisk ? Colors.red : Colors.teal,
                barWidth: 5,
-               belowBarData: BarAreaData(show: true, color: (isRisk ? Colors.red : Colors.teal).withOpacity(0.1)),
+               belowBarData: BarAreaData(show: true, color: (isRisk ? Colors.red : Colors.teal).withValues(alpha: 0.1)),
              ),
            ],
          ),

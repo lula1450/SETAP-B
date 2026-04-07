@@ -49,7 +49,7 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 child: ListTile(
                   leading: CircleAvatar(
-                    backgroundColor: const Color(0xFF8BAEAE).withOpacity(0.2),
+                    backgroundColor: const Color(0xFF8BAEAE).withValues(alpha: 0.2),
                     child: _getIcon(log['metric']),
                   ),
                   title: Text(
