@@ -7,10 +7,9 @@ import 'package:file_picker/file_picker.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
-
+import 'package:flutter/foundation.dart';
 
 // Data models
-
 
 class _MedicationRecord {
   String title;
@@ -120,21 +119,11 @@ class _ConditionRecord {
 
 // Medical Document model
 
-
 class _MedicalDocument {
-  /// Display label the user gives the file
   final String label;
-
-  /// Category tag (e.g. "Vet Report", "Prescription", "X-Ray / Scan", …)
   final String category;
-
-  /// Absolute path on device where we copied the file for persistence
   final String filePath;
-
-  /// Original filename — used for extension / icon resolution
   final String fileName;
-
-  /// Upload timestamp
   final DateTime uploadedAt;
 
   _MedicalDocument({
@@ -162,9 +151,7 @@ class _MedicalDocument {
   );
 }
 
-
 // Page
-
 
 class HealthRecordsPage extends StatefulWidget {
   final String petId;
@@ -188,9 +175,7 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
   String get _conditionKey => 'health_conditions_${widget.petId}';
   String get _docKey => 'health_documents_${widget.petId}';
 
-
   // Persistence
-
 
   Future<void> _loadData() async {
     final prefs = await SharedPreferences.getInstance();
@@ -266,43 +251,38 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
     _loadData();
   }
 
-
   // Document upload flow
-
 
   Future<void> _pickAndSaveDocument() async {
     final result = await FilePicker.platform.pickFiles(
       allowMultiple: false,
       type: FileType.custom,
       allowedExtensions: [
-        'pdf',
-        'doc',
-        'docx',
-        'txt',
-        'jpg',
-        'jpeg',
-        'png',
-        'heic',
-        'xls',
-        'xlsx',
-        'csv',
+        'pdf', 'doc', 'docx', 'txt',
+        'jpg', 'jpeg', 'png', 'heic',
+        'xls', 'xlsx', 'csv',
       ],
+      withData: true, // required on web to get bytes
     );
     if (result == null || result.files.isEmpty) return;
 
     final picked = result.files.single;
-    if (picked.path == null) return;
 
-    // Copy the file into app-local storage for persistence
-    final appDir = await getApplicationDocumentsDirectory();
-    final destDir = Directory('${appDir.path}/health_docs/${widget.petId}');
-    await destDir.create(recursive: true);
-    final destPath =
-        '${destDir.path}/${DateTime.now().millisecondsSinceEpoch}_${picked.name}';
-    await File(picked.path!).copy(destPath);
-
-    if (!mounted) return;
-    await _showDocumentMetaDialog(destPath, picked.name);
+    if (kIsWeb) {
+      // On web there is no file system — store metadata only
+      if (!mounted) return;
+      await _showDocumentMetaDialog('', picked.name);
+    } else {
+      if (picked.path == null) return;
+      final appDir = await getApplicationDocumentsDirectory();
+      final destDir = Directory('${appDir.path}/health_docs/${widget.petId}');
+      await destDir.create(recursive: true);
+      final destPath =
+          '${destDir.path}/${DateTime.now().millisecondsSinceEpoch}_${picked.name}';
+      await File(picked.path!).copy(destPath);
+      if (!mounted) return;
+      await _showDocumentMetaDialog(destPath, picked.name);
+    }
   }
 
   Future<void> _showDocumentMetaDialog(
@@ -391,14 +371,21 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
   }
 
   void _openDocument(_MedicalDocument doc) async {
+    if (kIsWeb) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Opening files is not supported on web.')),
+        );
+      }
+      return;
+    }
+    if (doc.filePath.isEmpty) return;
     final file = File(doc.filePath);
     if (!await file.exists()) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text(
-              'File not found — it may have been moved or deleted.',
-            ),
+            content: Text('File not found — it may have been moved or deleted.'),
           ),
         );
       }
@@ -423,8 +410,10 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
               Navigator.pop(context);
-              final file = File(doc.filePath);
-              if (await file.exists()) await file.delete();
+              if (!kIsWeb && doc.filePath.isNotEmpty) {
+                final file = File(doc.filePath);
+                if (await file.exists()) await file.delete();
+              }
               setState(() => _documents.removeAt(index));
               _saveDocuments();
             },
@@ -435,9 +424,7 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
     );
   }
 
-
   // Add dialogs — medications
-
 
   void _showAddMedicationDialog() {
     final nameController = TextEditingController();
@@ -481,7 +468,6 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
                 ),
               ),
               const SizedBox(height: 12),
-              // Start date picker
               GestureDetector(
                 onTap: () async {
                   final picked = await showDatePicker(
@@ -592,9 +578,7 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
     );
   }
 
-
   // Add dialogs — allergies
-
 
   void _showAddAllergyDialog() {
     final nameController = TextEditingController();
@@ -689,7 +673,6 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
     );
   }
 
-
   // Add dialogs — conditions
 
   void _showAddConditionDialog() {
@@ -779,7 +762,6 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
 
   // Remove confirm
 
-
   void _confirmRemove(String itemName, VoidCallback onConfirm) {
     showDialog(
       context: context,
@@ -805,24 +787,12 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
     );
   }
 
-
   // Helpers
-
 
   String _formatDate(DateTime date) {
     const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
     ];
     return '${date.day} ${months[date.month - 1]} ${date.year}';
   }
@@ -839,7 +809,6 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
     );
   }
 
-  /// Returns an (icon, colour) pair based on file extension.
   (IconData, Color) _docIconFor(String fileName) {
     final ext = p.extension(fileName).toLowerCase();
     return switch (ext) {
@@ -933,9 +902,7 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
     );
   }
 
-
   // Build
-
 
   @override
   Widget build(BuildContext context) {
@@ -1054,9 +1021,7 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
     );
   }
 
-
   // Documents card
-
 
   Widget _buildDocumentsCard() {
     const accentColor = Color(0xFF2E7D9B);
@@ -1109,7 +1074,6 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
                   style: TextStyle(fontSize: 13, color: Colors.grey[500]),
                 ),
                 const SizedBox(width: 8),
-                // Upload button
                 GestureDetector(
                   onTap: _pickAndSaveDocument,
                   child: Container(
@@ -1130,7 +1094,6 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
           ),
           Container(height: 1, color: const Color(0xFFF0F0F0)),
 
-          // Empty state — tappable
           if (_documents.isEmpty)
             GestureDetector(
               onTap: _pickAndSaveDocument,
@@ -1192,7 +1155,6 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
                       ),
                       child: Row(
                         children: [
-                          // File-type icon box
                           Container(
                             width: 42,
                             height: 42,
@@ -1203,7 +1165,6 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
                             child: Icon(icon, color: iconColor, size: 22),
                           ),
                           const SizedBox(width: 12),
-                          // Label + filename + category + date
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1231,16 +1192,13 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
                                 const SizedBox(height: 4),
                                 Row(
                                   children: [
-                                    // Category pill
                                     Container(
                                       padding: const EdgeInsets.symmetric(
                                         horizontal: 7,
                                         vertical: 2,
                                       ),
                                       decoration: BoxDecoration(
-                                        color: accentColor.withValues(
-                                          alpha: 0.1,
-                                        ),
+                                        color: accentColor.withValues(alpha: 0.1),
                                         borderRadius: BorderRadius.circular(20),
                                       ),
                                       child: Text(
@@ -1272,7 +1230,6 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
                               ],
                             ),
                           ),
-                          // Open hint + remove
                           Column(
                             children: [
                               Icon(
@@ -1298,10 +1255,7 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
                   if (!isLast)
                     Padding(
                       padding: const EdgeInsets.only(left: 16),
-                      child: Container(
-                        height: 1,
-                        color: const Color(0xFFF5F5F5),
-                      ),
+                      child: Container(height: 1, color: const Color(0xFFF5F5F5)),
                     ),
                 ],
               );
@@ -1421,10 +1375,7 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
                   if (!isLast)
                     Padding(
                       padding: const EdgeInsets.only(left: 16),
-                      child: Container(
-                        height: 1,
-                        color: const Color(0xFFF5F5F5),
-                      ),
+                      child: Container(height: 1, color: const Color(0xFFF5F5F5)),
                     ),
                 ],
               );
@@ -1458,18 +1409,8 @@ class _RecordItemWidget extends StatelessWidget {
 
   String _formatDate(DateTime date) {
     const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
     ];
     return '${date.day} ${months[date.month - 1]} ${date.year}';
   }
