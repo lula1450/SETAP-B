@@ -8,9 +8,9 @@ import 'package:open_filex/open_filex.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
-// ---------------------------------------------------------------------------
+
 // Data models
-// ---------------------------------------------------------------------------
+
 
 class _MedicationRecord {
   String title;
@@ -118,9 +118,8 @@ class _ConditionRecord {
   );
 }
 
-// ---------------------------------------------------------------------------
 // Medical Document model
-// ---------------------------------------------------------------------------
+
 
 class _MedicalDocument {
   /// Display label the user gives the file
@@ -163,9 +162,9 @@ class _MedicalDocument {
   );
 }
 
-// ---------------------------------------------------------------------------
+
 // Page
-// ---------------------------------------------------------------------------
+
 
 class HealthRecordsPage extends StatefulWidget {
   final String petId;
@@ -189,9 +188,9 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
   String get _conditionKey => 'health_conditions_${widget.petId}';
   String get _docKey => 'health_documents_${widget.petId}';
 
-  // ---------------------------------------------------------------------------
+
   // Persistence
-  // ---------------------------------------------------------------------------
+
 
   Future<void> _loadData() async {
     final prefs = await SharedPreferences.getInstance();
@@ -267,9 +266,9 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
     _loadData();
   }
 
-  // ---------------------------------------------------------------------------
+
   // Document upload flow
-  // ---------------------------------------------------------------------------
+
 
   Future<void> _pickAndSaveDocument() async {
     final result = await FilePicker.platform.pickFiles(
@@ -436,9 +435,9 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
     );
   }
 
-  // ---------------------------------------------------------------------------
+
   // Add dialogs — medications
-  // ---------------------------------------------------------------------------
+
 
   void _showAddMedicationDialog() {
     final nameController = TextEditingController();
@@ -593,9 +592,9 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
     );
   }
 
-  // ---------------------------------------------------------------------------
+
   // Add dialogs — allergies
-  // ---------------------------------------------------------------------------
+
 
   void _showAddAllergyDialog() {
     final nameController = TextEditingController();
@@ -690,9 +689,8 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
     );
   }
 
-  // ---------------------------------------------------------------------------
+
   // Add dialogs — conditions
-  // ---------------------------------------------------------------------------
 
   void _showAddConditionDialog() {
     final nameController = TextEditingController();
@@ -779,9 +777,8 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
     );
   }
 
-  // ---------------------------------------------------------------------------
   // Remove confirm
-  // ---------------------------------------------------------------------------
+
 
   void _confirmRemove(String itemName, VoidCallback onConfirm) {
     showDialog(
@@ -808,9 +805,9 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
     );
   }
 
-  // ---------------------------------------------------------------------------
+
   // Helpers
-  // ---------------------------------------------------------------------------
+
 
   String _formatDate(DateTime date) {
     const months = [
@@ -936,9 +933,9 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
     );
   }
 
-  // ---------------------------------------------------------------------------
+
   // Build
-  // ---------------------------------------------------------------------------
+
 
   @override
   Widget build(BuildContext context) {
@@ -1057,9 +1054,9 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
     );
   }
 
-  // ---------------------------------------------------------------------------
+
   // Documents card
-  // ---------------------------------------------------------------------------
+
 
   Widget _buildDocumentsCard() {
     const accentColor = Color(0xFF2E7D9B);
