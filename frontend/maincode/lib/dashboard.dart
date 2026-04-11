@@ -131,6 +131,12 @@ class _DashboardPageState extends State<DashboardPage> {
     final TimeOfDay? pickedTime = await showTimePicker(
       context: context,
       initialTime: initialTime,
+      builder: (BuildContext context, Widget? child) {
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
+          child: child!,
+        );
+      },
     );
 
     if (pickedTime != null && mounted) {
@@ -328,6 +334,12 @@ class _DashboardPageState extends State<DashboardPage> {
     final TimeOfDay? pickedTime = await showTimePicker(
       context: context,
       initialTime: TimeOfDay.now(),
+      builder: (BuildContext context, Widget? child) {
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
+          child: child!,
+        );
+      },
     );
 
     if (pickedTime != null && mounted) {
@@ -626,7 +638,7 @@ class _DashboardPageState extends State<DashboardPage> {
                               )
                             : null,
                         color: isSelected
-                            ? const Color(0xFF8BAEAE).withOpacity(0.3)
+                            ? const Color(0xFF8BAEAE).withValues(alpha: 0.3)
                             : Colors.transparent,
                       ),
                       child: Center(
