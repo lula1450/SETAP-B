@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:maincode/register.dart';
 import '../services/auth_service.dart';
-import 'dashboard.dart'; 
-import 'register.dart'; // <--- DON'T FORGET THIS IMPORT
+import 'dashboard.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -16,6 +15,7 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _passwordController = TextEditingController();
   final AuthService _authService = AuthService();
   bool _isLoading = false;
+  bool _obscurePassword = true;
 
   void _handleLogin() async {
     if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
@@ -71,7 +71,7 @@ class _LoginPageState extends State<LoginPage> {
             const SizedBox(height: 40),
             _buildTextField(_emailController, "Email", Icons.email, false),
             const SizedBox(height: 20),
-            _buildTextField(_passwordController, "Password", Icons.lock, true),
+            _buildPasswordField(),
             const SizedBox(height: 30),
             
             // --- LOGIN BUTTON ---
@@ -128,6 +128,31 @@ class _LoginPageState extends State<LoginPage> {
       decoration: InputDecoration(
         hintText: hint,
         prefixIcon: Icon(icon, color: const Color(0xFF8BAEAE)),
+        filled: true,
+        fillColor: Colors.white.withOpacity(0.9),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
+      ),
+    );
+  }
+
+  Widget _buildPasswordField() {
+    return TextField(
+      controller: _passwordController,
+      obscureText: _obscurePassword,
+      decoration: InputDecoration(
+        hintText: "Password",
+        prefixIcon: const Icon(Icons.lock, color: Color(0xFF8BAEAE)),
+        suffixIcon: IconButton(
+          icon: Icon(
+            _obscurePassword ? Icons.visibility_off : Icons.visibility,
+            color: const Color(0xFF8BAEAE),
+          ),
+          onPressed: () {
+            setState(() {
+              _obscurePassword = !_obscurePassword;
+            });
+          },
+        ),
         filled: true,
         fillColor: Colors.white.withOpacity(0.9),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
