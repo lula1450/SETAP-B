@@ -188,7 +188,6 @@ class PetService {
   // lib/services/pet_service.dart
 
   Future<void> deleteAppointment(int appointmentId) async { 
-  // Added /pets here to match the prefix in main.py
     final url = Uri.parse('$baseUrl/schedule/appointments/$appointmentId');
   
     debugPrint("DEBUG: Sending DELETE request to $url");
@@ -198,7 +197,7 @@ class PetService {
       headers: {"Content-Type": "application/json"},
     );
 
-    if (response.statusCode != 200) {
+    if (response.statusCode != 204) {
       debugPrint("Backend responded with: ${response.statusCode}");
       throw Exception("Failed to delete appointment"); 
     }
