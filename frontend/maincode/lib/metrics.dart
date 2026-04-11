@@ -279,6 +279,43 @@ class _MetricsPageState extends State<MetricsPage> {
               ),
             ),
             Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.85),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.grey.shade300, width: 1),
+                ),
+                padding: const EdgeInsets.all(12.0),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, color: Colors.blueGrey[700], size: 20),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: RichText(
+                        text: TextSpan(
+                          style: TextStyle(color: Colors.blueGrey[800], fontSize: 12),
+                          children: [
+                            const TextSpan(text: "Color Guide: "),
+                            TextSpan(
+                              text: "Teal",
+                              style: TextStyle(color: Colors.blueGrey[700], fontWeight: FontWeight.bold),
+                            ),
+                            const TextSpan(text: " = within 15% of target, "),
+                            TextSpan(
+                              text: "Orange",
+                              style: TextStyle(color: Colors.orange[700], fontWeight: FontWeight.bold),
+                            ),
+                            const TextSpan(text: " = deviates >15% from target"),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Padding(
               padding: const EdgeInsets.only(left: 65.0, right: 16.0, bottom: 8.0),
               child: Row(
                 children: [
