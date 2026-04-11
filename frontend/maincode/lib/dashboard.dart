@@ -107,6 +107,9 @@ class _DashboardPageState extends State<DashboardPage> {
       text: appt['appointment_notes'],
     );
 
+    // Parse existing date
+    DateTime appointmentDate = DateTime.parse(appt['pet_appointment_date']);
+
     // Parse existing time (assuming format "HH:mm:ss")
     final parts = appt['pet_appointment_time'].split(':');
     TimeOfDay initialTime = TimeOfDay(
@@ -114,6 +117,17 @@ class _DashboardPageState extends State<DashboardPage> {
       minute: int.parse(parts[1]),
     );
 
+    // Pick new date
+    final DateTime? pickedDate = await showDatePicker(
+      context: context,
+      initialDate: appointmentDate,
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+
+    if (pickedDate == null) return; // User cancelled date picker
+
+    // Pick new time
     final TimeOfDay? pickedTime = await showTimePicker(
       context: context,
       initialTime: initialTime,
@@ -141,13 +155,13 @@ class _DashboardPageState extends State<DashboardPage> {
                 backgroundColor: const Color(0xFF8BAEAE),
               ),
               onPressed: () async {
-                String timeStr =
-                    "${pickedTime.hour.toString().padLeft(2, '0')}:${pickedTime.minute.toString().padLeft(2, '0')}:00";
+                String dateStr = "${pickedDate.year}-${pickedDate.month.toString().padLeft(2, '0')}-${pickedDate.day.toString().padLeft(2, '0')}";
+                String timeStr = "${pickedTime.hour.toString().padLeft(2, '0')}:${pickedTime.minute.toString().padLeft(2, '0')}:00";
 
                 try {
-                  // You will need to implement updateAppointment in your PetService
                   await _petService.updateAppointment(
                     appointmentId: appt['pet_appointment_id'],
+                    date: dateStr,
                     time: timeStr,
                     notes: notesController.text,
                   );

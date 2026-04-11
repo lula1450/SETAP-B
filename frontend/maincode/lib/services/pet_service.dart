@@ -206,6 +206,7 @@ class PetService {
 
   Future<void> updateAppointment({
    required int appointmentId,
+   required String date,
    required String time,
    required String notes,
  }) async {
@@ -213,8 +214,9 @@ class PetService {
      Uri.parse('$baseUrl/schedule/appointments/$appointmentId'),
      headers: {"Content-Type": "application/json"},
      body: jsonEncode({
-       "pet_appointment_time": time,
-       "appointment_notes": notes,
+       "new_date": date,
+       "new_time": time,
+       "notes": notes,
      }),
    );
 
