@@ -1,0 +1,4 @@
+sphinx>=6.0
+pydata-sphinx-theme>=0.13.0
+myst-parser>=1.0.0
+sphinx-autodoc-typehints>=1.20.0
