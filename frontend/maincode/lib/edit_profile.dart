@@ -41,41 +41,63 @@ class _EditProfilePageState extends State<EditProfilePage> {
     });
   }
 
-  Future<void> _saveProfile() async {
-    if (!_formKey.currentState!.validate()) return;
+Future<void> _saveProfile() async {
+  if (!_formKey.currentState!.validate()) return;
 
-    final prefs = await SharedPreferences.getInstance();
-    final ownerId = prefs.getInt('owner_id') ?? 0;
+  final prefs = await SharedPreferences.getInstance();
+  final ownerId = prefs.getInt('owner_id') ?? 0;
 
-    final data = {
-      "owner_email": _emailController.text.trim(),
-      "owner_first_name": _firstNameController.text.trim(),
-      "owner_last_name": _lastNameController.text.trim(),
-      "owner_phone_number": _phoneController.text.trim(),
-      "owner_address1": _addressController.text.trim(),
-    };
+  final data = {
+    "owner_email": _emailController.text.trim(),
+    "owner_first_name": _firstNameController.text.trim(),
+    "owner_last_name": _lastNameController.text.trim(),
+    "owner_phone_number": _phoneController.text.trim(),
+    "owner_address1": _addressController.text.trim(),
+  };
 
-    // Only update password if user typed a new one
-    final password = _passwordController.text.trim();
-    if (password.isNotEmpty && password != "********") {
-      data["owner_password"] = password;
-    }
-
-    final success = await _service.updateOwnerProfile(ownerId, data);
-
-    if (success && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Profile Updated Successfully!")),
-      );
-      setState(() {
-        _isEditing = false;
-        if (data.containsKey("owner_password")) {
-          _passwordController.text = "********"; 
-        }
-      });
-    }
+  final password = _passwordController.text.trim();
+  if (password.isNotEmpty && password != "********") {
+    data["owner_password"] = password;
   }
 
+  final success = await _service.updateOwnerProfile(ownerId, data);
+
+  if (success && mounted) {
+
+    await prefs.setString('owner_email', data["owner_email"]!);
+    await prefs.setString('owner_first_name', data["owner_first_name"]!);
+    await prefs.setString('owner_last_name', data["owner_last_name"]!);
+    await prefs.setString('owner_phone_number', data["owner_phone_number"]!);
+    await prefs.setString('owner_address1', data["owner_address1"]!);
+
+    showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (dialogContext) {
+      return AlertDialog(
+        title: const Text("Success"),
+        content: const Text("Your profile has been updated."),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              Navigator.of(context).pop();       
+          },
+          child: const Text("Back to Dashboard"),
+        ),
+      ],
+    );
+  },
+);
+
+    setState(() {
+      _isEditing = false;
+      if (data.containsKey("owner_password")) {
+        _passwordController.text = "********";
+      }
+    });
+  }
+}
   @override
   Widget build(BuildContext context) {
     return Scaffold(
