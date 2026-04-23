@@ -1,5 +1,5 @@
 import pytest
-from petsync_backend.calculations import check_15_percent_deviation
+from petsync_backend.calculations import check_15_percent_deviation, calculate_daily_mean
 
 """
 export PYTHONPATH=$PYTHONPATH:. && pytest petsync_backend/routers/tests/test_calculations.py -vv
@@ -35,3 +35,39 @@ def test_division_by_zero_safety():
     is_risk, baseline = check_15_percent_deviation([0.0, 0.0], 5.0)
     assert is_risk is False
     assert baseline == 0.0
+
+
+# Tests for calculate_daily_mean()
+
+def test_calculate_daily_mean_empty():
+    """Verifies that empty metric data returns 0.0."""
+    result = calculate_daily_mean([])
+    assert result == 0.0
+
+
+def test_calculate_daily_mean_single_entry():
+    """Verifies calculation with a single metric entry."""
+    metric_data = [{'value': 50.0}]
+    result = calculate_daily_mean(metric_data)
+    assert result == 50.0
+
+
+def test_calculate_daily_mean_multiple_entries():
+    """Verifies correct mean calculation with multiple entries."""
+    metric_data = [
+        {'value': 10.0},
+        {'value': 20.0},
+        {'value': 30.0}
+    ]
+    result = calculate_daily_mean(metric_data)
+    assert result == 20.0
+
+
+def test_calculate_daily_mean_with_floats():
+    """Verifies calculation with floating point values."""
+    metric_data = [
+        {'value': 15.5},
+        {'value': 24.5}
+    ]
+    result = calculate_daily_mean(metric_data)
+    assert result == 20.0
