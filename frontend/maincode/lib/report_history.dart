@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:maincode/services/pet_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import 'package:maincode/widgets/app_drawer.dart';
 
 class ReportHistoryPage extends StatefulWidget {
   const ReportHistoryPage({super.key});
@@ -341,6 +342,7 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
     final filteredReports = _getFilteredReports();
 
     return Scaffold(
+      endDrawer: const AppDrawer(),
       appBar: AppBar(
         backgroundColor: const Color.fromARGB(255, 139, 174, 174),
         elevation: 0,
@@ -355,6 +357,14 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
+        actions: [
+          Builder(
+            builder: (context) => IconButton(
+              icon: const Icon(Icons.menu, color: Colors.white),
+              onPressed: () => Scaffold.of(context).openEndDrawer(),
+            ),
+          ),
+        ],
       ),
       body: Container(
         width: double.infinity,

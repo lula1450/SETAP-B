@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:maincode/services/pet_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:maincode/widgets/app_drawer.dart';
 
 class EditProfilePage extends StatefulWidget {
   const EditProfilePage({super.key});
@@ -143,9 +144,18 @@ Future<void> _saveProfile() async {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      endDrawer: const AppDrawer(),
       appBar: AppBar(
         title: const Text("Edit Profile"),
         backgroundColor: const Color(0xFF8BAEAE),
+        actions: [
+          Builder(
+            builder: (context) => IconButton(
+              icon: const Icon(Icons.menu),
+              onPressed: () => Scaffold.of(context).openEndDrawer(),
+            ),
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),

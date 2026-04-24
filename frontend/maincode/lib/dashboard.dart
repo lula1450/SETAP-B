@@ -1,20 +1,18 @@
 import 'package:flutter/material.dart';
-import 'package:maincode/login_page.dart';
 import 'package:maincode/petinfo.dart';
 import 'package:maincode/recentlylogged.dart';
 import 'package:maincode/metrics.dart';
 import 'package:maincode/services/pet_service.dart';
 import 'package:maincode/health_records.dart';
 import 'package:maincode/report.dart';
-import 'package:maincode/report_history.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:maincode/add_pet.dart';
-import 'package:maincode/edit_profile.dart';
 import 'package:maincode/services/fun_fact_service.dart';
 import 'package:maincode/feeding_schedule.dart';
 import 'package:maincode/vet_contacts.dart';
 import 'package:maincode/services/advice_service.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:maincode/widgets/app_drawer.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -411,7 +409,7 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      endDrawer: _buildDrawer(),
+      endDrawer: const AppDrawer(),
       appBar: AppBar(
         backgroundColor: const Color.fromARGB(255, 139, 174, 174),
         elevation: 0,
@@ -735,91 +733,6 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  Widget _buildDrawer() {
-    return Drawer(
-      child: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          const DrawerHeader(
-            decoration: BoxDecoration(
-              color: Color.fromARGB(255, 139, 174, 174),
-            ),
-            child: Text(
-              'Settings',
-              style: TextStyle(color: Colors.white, fontSize: 24),
-            ),
-          ),
-          _drawerTile(
-            Icons.person,
-            'Edit Profile',
-            onTap: () {
-              Navigator.pop(context); // Close drawer
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const EditProfilePage(),
-                ),
-              );
-            },
-          ),
-          _drawerTile(Icons.notifications, 'Notifications'),
-          _drawerTile(
-            Icons.palette,
-            'Report History',
-            onTap: () {
-              Navigator.pop(context); // Close drawer
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const ReportHistoryPage(),
-                ),
-              );
-            },
-          ),
-          _drawerTile(
-            Icons.logout,
-            'Logout',
-            onTap: () async {
-              final prefs = await SharedPreferences.getInstance();
-              await prefs.clear();
-              Navigator.pop(context);
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => LoginPage()),
-              );
-            },
-          ),
-          _drawerTile(
-            Icons.delete_forever,
-            'Delete Account',
-            color: Colors.red,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _drawerTile(
-    IconData icon,
-    String title, {
-    Color? color,
-    VoidCallback? onTap,
-  }) {
-    return ListTile(
-      leading: Icon(icon, color: color),
-      title: Text(title, style: TextStyle(color: color)),
-      onTap:
-          onTap ??
-          () {
-            if (title == 'Delete Account') {
-              _showDeleteConfirmation();
-            } else {
-              Navigator.pop(context);
-            }
-          },
-    );
-  }
-
   Widget _appBarTitle() {
     final currentPet = _pets.isNotEmpty ? _pets[_selectedPetIndex] : null;
     String petName = currentPet != null ? currentPet['pet_first_name'] : "Pet";
@@ -1122,49 +1035,6 @@ class _DashboardPageState extends State<DashboardPage> {
         border: Border.all(color: color, width: 20),
       ),
     );
-  }
-
-  void _showDeleteConfirmation() async {
-    final prefs = await SharedPreferences.getInstance();
-    final int ownerId = prefs.getInt('owner_id') ?? 0;
-
-    bool? confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Delete Account"),
-        content: const Text(
-          "Are you sure you want to delete your account? This will remove all your pets and appointments.",
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text("Cancel"),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text("Delete", style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-
-    if (confirm == true && ownerId != 0) {
-      bool success = await _petService.deleteOwner(ownerId);
-      if (success && mounted) {
-        await prefs.clear();
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => LoginPage()),
-        );
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Account deleted successfully")),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Error: Could not delete account")),
-        );
-      }
-    }
   }
 
   Widget _actionButtonsSection(BuildContext context) {
