@@ -155,6 +155,7 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> {
     return clean.add(Duration(days: _weekOffset * 7));
   }
 
+// Function to seed default events for the pets, creating a schedule for the current week and the next few weeks
   void _seedDefaults() {
     final ws = _weekStart;
     for (int i = 0; i < 7; i++) {
@@ -209,3 +210,39 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> {
       _events[petId]?[dayKey]?.removeWhere((e) => e.id == eventId);
     });
   }
+
+  // Function to open the event dialog for adding or editing an event, passing the necessary parameters and callbacks
+
+    Future<void> _openEventDialog({PetEvent? existing, required String dayKey}) async {
+    await showDialog(
+      context: context,
+      builder: (_) => _EventDialog(
+        pets:     _pets,
+        existing: existing,
+        dayKey:   dayKey,
+        onSave:   (ev) => _upsertEvent(ev, dayKey),
+        onDelete: existing == null
+            ? null
+            : () => _deleteEvent(existing.petId, dayKey, existing.id),
+      ),
+    );
+  }
+
+
+// build method for the FeedingSchedulePage, displaying the week label and a placeholder for the schedule UI
+    @override
+  Widget build(BuildContext context) {
+    final ws   = _weekStart;
+    final we   = ws.add(const Duration(days: 6));
+    final months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    final weekLabel = '${months[ws.month - 1]} ${ws.day} – ${months[we.month - 1]} ${we.day}, ${we.year}';
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF7F7F5),
+      appBar: AppBar(
+        title: const Text('Schedule'),
+      ),
+      body: const Center(child: Text('UI continues...')),
+    );
+  }
+}
