@@ -19,6 +19,7 @@ class OwnerCreate(OwnerBase):
 
 class OwnerResponse(OwnerBase):
     owner_id: int
+    password: str
     model_config = ConfigDict(from_attributes=True)
 
 # --- 2. PET SCHEMAS ---

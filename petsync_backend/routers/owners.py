@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session
 from typing import List
 from petsync_backend import models, schemas, database
@@ -57,11 +57,11 @@ def delete_owner(owner_id: int, db: Session = Depends(database.get_db)):
     
     return {"message": f"Owner {owner_id} and all associated data deleted successfully"}
 
-@router.put("/{owner_id}")
-async def update_owner(owner_id: int, owner_data: dict, db: Session = Depends(database.get_db)):
+@router.put("/{owner_id}", response_model=schemas.OwnerResponse)
+async def update_owner(owner_id: int, owner_data: dict = Body(...), db: Session = Depends(database.get_db)):
     db_owner = db.query(models.Owner).filter(models.Owner.owner_id == owner_id).first()
     if not db_owner:
-        return {"error": "Owner not found"}
+        raise HTTPException(status_code=404, detail="Owner not found")
 
     # Update only the fields provided in the request
     for key, value in owner_data.items():

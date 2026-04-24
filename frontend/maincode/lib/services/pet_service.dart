@@ -156,12 +156,35 @@ class PetService {
     }
 
   Future<bool> updateOwnerProfile(int ownerId, Map<String, dynamic> data) async {
-    final response = await http.put(
-      Uri.parse('$baseUrl/owners/$ownerId'),
-      headers: {"Content-Type": "application/json"},
-      body: json.encode(data),
-    );
-    return response.statusCode == 200;
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl/owners/$ownerId'),
+        headers: {"Content-Type": "application/json"},
+        body: json.encode(data),
+      );
+      debugPrint("DEBUG PetService: updateOwnerProfile response status: ${response.statusCode}");
+      debugPrint("DEBUG PetService: updateOwnerProfile response body: ${response.body}");
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint("DEBUG PetService: updateOwnerProfile error: $e");
+      return false;
+    }
+  }
+
+  Future<Map<String, dynamic>> getOwnerProfile(int ownerId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/owners/$ownerId'),
+      );
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        throw Exception('Failed to load owner profile');
+      }
+    } catch (e) {
+      debugPrint('Error fetching owner profile: $e');
+      return {};
+    }
   }
 
   // --- 6. GET REPORT HISTORY ---

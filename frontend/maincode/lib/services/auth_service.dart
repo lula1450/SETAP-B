@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthService {
-  static const String baseUrl = "http://127.0.0.1:8000";
+  static const String baseUrl = "http://localhost:8000";
 
   // --- LOGIN ---
   Future<bool> login(String email, String password) async {
@@ -17,13 +17,27 @@ class AuthService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
+        print("DEBUG: Login response: $data");
         final prefs = await SharedPreferences.getInstance();
         
-        // Save ID and Address info for pet registration later
+        // Save all owner data returned from login
         await prefs.setInt('owner_id', data['owner_id']);
+        await prefs.setString('owner_email', data['owner_email'] ?? "");
+        await prefs.setString('owner_first_name', data['owner_first_name'] ?? "");
+        await prefs.setString('owner_last_name', data['owner_last_name'] ?? "");
+        await prefs.setString('owner_phone_number', data['owner_phone_number'] ?? "");
         await prefs.setString('owner_address1', data['owner_address1'] ?? "");
+        await prefs.setString('owner_address2', data['owner_address2'] ?? "");
         await prefs.setString('owner_postcode', data['owner_postcode'] ?? "");
         await prefs.setString('owner_city', data['owner_city'] ?? "");
+        // Store password for editing profile
+        await prefs.setString('owner_password', password);
+        // Store a flag indicating password is set (we don't store actual password for security)
+        await prefs.setBool('owner_password_set', true);
+        
+        print("DEBUG: Saved owner_email: ${prefs.getString('owner_email')}");
+        print("DEBUG: Saved owner_first_name: ${prefs.getString('owner_first_name')}");
+        print("DEBUG: Saved owner_password: ${prefs.getString('owner_password')}");
         
         return true;
       }
@@ -65,11 +79,19 @@ class AuthService {
         final data = jsonDecode(response.body);
         final prefs = await SharedPreferences.getInstance();
         
-        // IMPORTANT: Save these now so AddPetPage can auto-fill them
+        // Save all owner data
         await prefs.setInt('owner_id', data['owner_id']);
+        await prefs.setString('owner_email', email);
+        await prefs.setString('owner_first_name', firstName);
+        await prefs.setString('owner_last_name', lastName);
+        await prefs.setString('owner_phone_number', phone);
         await prefs.setString('owner_address1', address);
         await prefs.setString('owner_postcode', postcode);
         await prefs.setString('owner_city', city);
+        // Store password for editing profile
+        await prefs.setString('owner_password', password);
+        // Store a flag indicating password is set (we don't store actual password for security)
+        await prefs.setBool('owner_password_set', true);
         
         return true;
       }
