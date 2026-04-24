@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+// ─── Entry point ────────────────────────────────────────────────────────────
 void main() => runApp(const PetCareApp());
 
 class PetCareApp extends StatelessWidget {
@@ -10,9 +11,57 @@ class PetCareApp extends StatelessWidget {
     return MaterialApp(
       title: 'Pet Care',
       debugShowCheckedModeBanner: false,
-      home: const Scaffold(
-        body: Center(child: Text('Pet Care App')),
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1D9E75)),
+        useMaterial3: true,
+        fontFamily: 'Roboto',
       ),
+      home: const FeedingSchedulePage(),
     );
+  }
+}
+
+// ─── Models ──────────────────────────────────────────────────────────────────
+enum EventType { feeding, vet, other }
+
+extension EventTypeExtension on EventType {
+  String get label {
+    switch (this) {
+      case EventType.feeding: return 'Feeding';
+      case EventType.vet:     return 'Vet appointment';
+      case EventType.other:   return 'Other';
+    }
+  }
+
+  Color get backgroundColor {
+    switch (this) {
+      case EventType.feeding: return const Color(0xFFE1F5EE);
+      case EventType.vet:     return const Color(0xFFE6F1FB);
+      case EventType.other:   return const Color(0xFFFAECE7);
+    }
+  }
+
+  Color get textColor {
+    switch (this) {
+      case EventType.feeding: return const Color(0xFF0F6E56);
+      case EventType.vet:     return const Color(0xFF185FA5);
+      case EventType.other:   return const Color(0xFF993C1D);
+    }
+  }
+
+  Color get borderColor {
+    switch (this) {
+      case EventType.feeding: return const Color(0xFF5DCAA5);
+      case EventType.vet:     return const Color(0xFF85B7EB);
+      case EventType.other:   return const Color(0xFFF0997B);
+    }
+  }
+
+  IconData get icon {
+    switch (this) {
+      case EventType.feeding: return Icons.restaurant_rounded;
+      case EventType.vet:     return Icons.local_hospital_rounded;
+      case EventType.other:   return Icons.event_note_rounded;
+    }
   }
 }
