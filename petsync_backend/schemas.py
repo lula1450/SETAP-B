@@ -17,6 +17,17 @@ class OwnerBase(BaseModel):
 class OwnerCreate(OwnerBase):
     password: str # Added this so registration works!
 
+class OwnerUpdate(BaseModel):
+    owner_first_name: Optional[str] = None
+    owner_last_name: Optional[str] = None
+    owner_email: Optional[str] = None
+    owner_phone_number: Optional[str] = None
+    owner_address1: Optional[str] = None
+    owner_address2: Optional[str] = None
+    owner_postcode: Optional[str] = None
+    owner_city: Optional[str] = None
+    password: Optional[str] = None
+
 class OwnerResponse(OwnerBase):
     owner_id: int
     password: str

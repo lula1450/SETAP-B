@@ -59,7 +59,7 @@ class PetSyncFirewall(BaseHTTPMiddleware):
         if request.method in ["POST", "PUT", "PATCH"]:
             try:
                 body = await request.body()
-                body_str = body.decode("utf-8").lower()
+                body_str = body.decode("utf-8", errors="ignore").lower()
                 
                 # Check body for malicious patterns
                 if any(pattern in body_str for pattern in self.FORBIDDEN_PATTERNS):
@@ -70,13 +70,14 @@ class PetSyncFirewall(BaseHTTPMiddleware):
                         content={"detail": "Security Threat Blocked by PetSync Firewall"}
                     )
                 
-                # Re-create the request body for downstream handlers
-                # (reading the body consumes the stream, so we need to restore it)
+                # Properly restore the body by creating a new scope
                 async def receive():
-                    return {"type": "http.request", "body": body}
+                    return {"type": "http.request", "body": body, "more_body": False}
+                
                 request._receive = receive
                 
             except Exception as e:
-                print(f"⚠️ Firewall error: {e}")
+                print(f"⚠️ Firewall error processing body: {e}")
+                # Don't block on firewall errors, log and continue
             
         return await call_next(request)
