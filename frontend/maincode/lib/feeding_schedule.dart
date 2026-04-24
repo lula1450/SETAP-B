@@ -147,3 +147,65 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> {
     super.initState();
     _seedDefaults();
   }
+
+    DateTime get _weekStart {
+    final today = DateTime.now();
+    final monday = today.subtract(Duration(days: today.weekday - 1));
+    final clean  = DateTime(monday.year, monday.month, monday.day);
+    return clean.add(Duration(days: _weekOffset * 7));
+  }
+
+  void _seedDefaults() {
+    final ws = _weekStart;
+    for (int i = 0; i < 7; i++) {
+      final d = ws.add(Duration(days: i));
+      final k = _dateKey(d);
+
+      _events['buddy']!.putIfAbsent(k, () => [
+        PetEvent(id: _uid(), type: EventType.feeding, name: 'Morning feed', time: const TimeOfDay(hour: 7,  minute: 30), petId: 'buddy'),
+        PetEvent(id: _uid(), type: EventType.feeding, name: 'Evening feed', time: const TimeOfDay(hour: 18, minute: 0),  petId: 'buddy'),
+        if (i == 2) PetEvent(id: _uid(), type: EventType.vet, name: 'Checkup', time: const TimeOfDay(hour: 10, minute: 0), petId: 'buddy'),
+      ]);
+
+      _events['whiskers']!.putIfAbsent(k, () => [
+        PetEvent(id: _uid(), type: EventType.feeding, name: 'Breakfast', time: const TimeOfDay(hour: 8,  minute: 0),  petId: 'whiskers'),
+        PetEvent(id: _uid(), type: EventType.feeding, name: 'Dinner',    time: const TimeOfDay(hour: 17, minute: 30), petId: 'whiskers'),
+      ]);
+    }
+  }
+
+    void _shiftWeek(int dir) {
+    setState(() {
+      _weekOffset = dir == 0 ? 0 : _weekOffset + dir;
+      _seedDefaults();
+    });
+  }
+
+  List<PetEvent> _eventsForDay(String petId, String dayKey) {
+    final list = List<PetEvent>.from(_events[petId]?[dayKey] ?? []);
+    list.sort((a, b) {
+      final aMin = a.time.hour * 60 + a.time.minute;
+      final bMin = b.time.hour * 60 + b.time.minute;
+      return aMin.compareTo(bMin);
+    });
+    return list;
+  }
+
+  void _upsertEvent(PetEvent ev, String dayKey) {
+    setState(() {
+      final petMap  = _events[ev.petId]!;
+      final dayList = petMap.putIfAbsent(dayKey, () => []);
+      final idx     = dayList.indexWhere((e) => e.id == ev.id);
+      if (idx >= 0) {
+        dayList[idx] = ev;
+      } else {
+        dayList.add(ev);
+      }
+    });
+  }
+
+  void _deleteEvent(String petId, String dayKey, String eventId) {
+    setState(() {
+      _events[petId]?[dayKey]?.removeWhere((e) => e.id == eventId);
+    });
+  }
