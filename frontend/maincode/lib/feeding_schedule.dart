@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-// ─── Entry point ────────────────────────────────────────────────────────────
+// Entry point of the application
 void main() => runApp(const PetCareApp());
 
 class PetCareApp extends StatelessWidget {
@@ -21,7 +21,7 @@ class PetCareApp extends StatelessWidget {
   }
 }
 
-// ─── Models ──────────────────────────────────────────────────────────────────
+// Model classes for pets and events
 enum EventType { feeding, vet, other }
 
 extension EventTypeExtension on EventType {
@@ -105,3 +105,45 @@ class PetEvent {
     );
   }
 }
+
+// Helper functions for generating unique IDs and formatting dates/times
+String _uid() => DateTime.now().microsecondsSinceEpoch.toRadixString(36);
+
+String _dateKey(DateTime d) =>
+    '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+String _fmt12(TimeOfDay t) {
+  final hour   = t.hourOfPeriod == 0 ? 12 : t.hourOfPeriod;
+  final min    = t.minute.toString().padLeft(2, '0');
+  final period = t.period == DayPeriod.am ? 'am' : 'pm';
+  return '$hour:$min $period';
+}
+
+// Main page for displaying and managing the feeding schedule
+class FeedingSchedulePage extends StatefulWidget {
+  const FeedingSchedulePage({super.key});
+
+  @override
+  State<FeedingSchedulePage> createState() => _FeedingSchedulePageState();
+}
+
+// State class for the FeedingSchedulePage, managing the active pet, week offset, and events
+class _FeedingSchedulePageState extends State<FeedingSchedulePage> {
+  static const List<Pet> _pets = [
+    Pet(id: 'buddy',    name: 'Buddy',    species: 'Dog'),
+    Pet(id: 'whiskers', name: 'Whiskers', species: 'Cat'),
+  ];
+
+  String _activePetId = 'buddy';
+  int    _weekOffset  = 0;
+
+  final Map<String, Map<String, List<PetEvent>>> _events = {
+    'buddy':    {},
+    'whiskers': {},
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    _seedDefaults();
+  }
