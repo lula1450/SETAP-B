@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'services/pet_info_service.dart';
-import 'package:maincode/edit_profile.dart';
+import 'package:maincode/widgets/app_drawer.dart';
 
 class PetInfoPage extends StatelessWidget {
   final int speciesId;
@@ -22,7 +22,7 @@ class PetInfoPage extends StatelessWidget {
     };
 
     return Scaffold(
-      endDrawer: _buildDrawer(context),
+      endDrawer: const AppDrawer(),
       appBar: AppBar(
         backgroundColor: const Color(0xFF8BAEAE),
         elevation: 0,
@@ -181,66 +181,6 @@ class PetInfoPage extends StatelessWidget {
               )),
         ],
       ),
-    );
-  }
-
-  Drawer _buildDrawer(BuildContext context) {
-    return Drawer(
-      child: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          const DrawerHeader(
-            decoration:
-                BoxDecoration(color: Color.fromARGB(255, 139, 174, 174)),
-            child: Text('Settings',
-                style: TextStyle(color: Colors.white, fontSize: 24)),
-          ),
-          _drawerTile(context, Icons.person, 'Edit Profile', onTap: () {
-            Navigator.pop(context);
-            Navigator.push(context,
-                MaterialPageRoute(builder: (context) => const EditProfilePage()));
-          }),
-          _drawerTile(context, Icons.notifications, 'Notifications'),
-          _drawerTile(context, Icons.palette, 'Report History'),
-          _drawerTile(context, Icons.logout, 'Logout'),
-          _drawerTile(context, Icons.delete_forever, 'Delete Account',
-              color: Colors.red),
-        ],
-      ),
-    );
-  }
-
-  ListTile _drawerTile(BuildContext context, IconData icon, String title,
-      {Color? color, VoidCallback? onTap}) {
-    return ListTile(
-      leading: Icon(icon, color: color),
-      title: Text(title, style: TextStyle(color: color)),
-      onTap: onTap ??
-          () {
-            if (title == 'Delete Account') {
-              showDialog(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text("Delete Account?"),
-                  content:
-                      const Text("Permanently delete profile and pet data?"),
-                  actions: [
-                    TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text("Cancel")),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text("Delete",
-                          style: TextStyle(color: Colors.white)),
-                    ),
-                  ],
-                ),
-              );
-            } else {
-              Navigator.pop(context);
-            }
-          },
     );
   }
 }

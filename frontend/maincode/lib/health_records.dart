@@ -1,13 +1,13 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:maincode/edit_profile.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter/foundation.dart';
+import 'package:maincode/widgets/app_drawer.dart';
 
 // Data models
 
@@ -826,89 +826,13 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
     };
   }
 
-  Widget _buildDrawer() {
-    return Drawer(
-      child: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          const DrawerHeader(
-            decoration: BoxDecoration(
-              color: Color.fromARGB(255, 139, 174, 174),
-            ),
-            child: Text(
-              'Settings',
-              style: TextStyle(color: Colors.white, fontSize: 24),
-            ),
-          ),
-          _drawerTile(
-            Icons.person,
-            'Edit Profile',
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const EditProfilePage()),
-              );
-            },
-          ),
-          _drawerTile(Icons.notifications, 'Notifications'),
-          _drawerTile(Icons.palette, 'Report History'),
-          _drawerTile(Icons.logout, 'Logout'),
-          _drawerTile(
-            Icons.delete_forever,
-            'Delete Account',
-            color: Colors.red,
-            onTap: () {
-              Navigator.pop(context);
-              _showDeleteConfirmation();
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _drawerTile(
-    IconData icon,
-    String title, {
-    Color? color,
-    VoidCallback? onTap,
-  }) {
-    return ListTile(
-      leading: Icon(icon, color: color),
-      title: Text(title, style: TextStyle(color: color)),
-      onTap: onTap ?? () => Navigator.pop(context),
-    );
-  }
-
-  void _showDeleteConfirmation() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Delete Account?"),
-        content: const Text("Permanently delete profile and pet data?"),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Cancel"),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Delete", style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-  }
-
   // Build
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      endDrawer: _buildDrawer(),
+      endDrawer: const AppDrawer(),
       appBar: AppBar(
         title: const Text(
           'Health Records',
@@ -924,9 +848,8 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
         actions: [
           Builder(
             builder: (context) => IconButton(
-              icon: const Icon(Icons.settings_outlined),
+              icon: const Icon(Icons.menu),
               onPressed: () => Scaffold.of(context).openEndDrawer(),
-              tooltip: 'Settings',
             ),
           ),
         ],
