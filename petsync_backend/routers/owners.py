@@ -3,10 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List
 from petsync_backend import models, schemas, database
 
-router = APIRouter(
-    prefix="/owners",
-    tags=["owners"]
-)
+router = APIRouter()
 
 @router.post("/", response_model=schemas.OwnerResponse, status_code=201)
 def create_owner(owner: schemas.OwnerCreate, db: Session = Depends(database.get_db)):
@@ -57,17 +54,30 @@ def delete_owner(owner_id: int, db: Session = Depends(database.get_db)):
     
     return {"message": f"Owner {owner_id} and all associated data deleted successfully"}
 
-@router.put("/{owner_id}")
-async def update_owner(owner_id: int, owner_data: dict, db: Session = Depends(database.get_db)):
+@router.put("/{owner_id}", response_model=schemas.OwnerResponse)
+async def update_owner(owner_id: int, owner_data: schemas.OwnerUpdate, db: Session = Depends(database.get_db)):
+    print(f"\n{'='*60}")
+    print(f"DEBUG: update_owner called with owner_id={owner_id}")
+    print(f"DEBUG: owner_data={owner_data}")
+    print(f"{'='*60}\n")
+    
     db_owner = db.query(models.Owner).filter(models.Owner.owner_id == owner_id).first()
+    print(f"DEBUG: Query result for owner_id {owner_id}: {db_owner}")
+    
     if not db_owner:
-        return {"error": "Owner not found"}
+        # Debug: List all owners in the database
+        all_owners = db.query(models.Owner).all()
+        print(f"DEBUG: All owners in database: {[(o.owner_id, o.owner_email) for o in all_owners]}")
+        raise HTTPException(status_code=404, detail="Owner not found")
 
-    # Update only the fields provided in the request
-    for key, value in owner_data.items():
-        if hasattr(db_owner, key):
+    # Update only the fields provided in the request (excluding None values)
+    update_data = owner_data.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        if value is not None and hasattr(db_owner, key):
+            print(f"DEBUG: Setting {key} = {value}")
             setattr(db_owner, key, value)
     
     db.commit()
     db.refresh(db_owner)
+    print(f"DEBUG: Owner updated successfully: {db_owner}")
     return db_owner

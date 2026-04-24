@@ -14,6 +14,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
   final PetService _service = PetService();
 
   bool _isEditing = false; // Controls whether fields are editable
+  bool _showPassword = false; // Controls password visibility
 
   // Controllers
   final TextEditingController _emailController = TextEditingController();
@@ -22,6 +23,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
   final TextEditingController _lastNameController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _addressController = TextEditingController();
+  final TextEditingController _postcodeController = TextEditingController();
+  final TextEditingController _cityController = TextEditingController();
 
   @override
   void initState() {
@@ -31,13 +34,27 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   Future<void> _loadCurrentData() async {
     final prefs = await SharedPreferences.getInstance();
+    
+    // Load all user data from SharedPreferences (saved during login/signup)
+    debugPrint("DEBUG: Loading profile data from SharedPreferences");
+    debugPrint("DEBUG: owner_email = ${prefs.getString('owner_email')}");
+    debugPrint("DEBUG: owner_first_name = ${prefs.getString('owner_first_name')}");
+    debugPrint("DEBUG: owner_last_name = ${prefs.getString('owner_last_name')}");
+    debugPrint("DEBUG: owner_phone_number = ${prefs.getString('owner_phone_number')}");
+    debugPrint("DEBUG: owner_address1 = ${prefs.getString('owner_address1')}");
+    debugPrint("DEBUG: owner_postcode = ${prefs.getString('owner_postcode')}");
+    debugPrint("DEBUG: owner_city = ${prefs.getString('owner_city')}");
+    debugPrint("DEBUG: owner_password_set = ${prefs.getBool('owner_password_set')}");
+    
     setState(() {
       _emailController.text = prefs.getString('owner_email') ?? "";
-      _passwordController.text = "********"; // placeholder for now
+      _passwordController.text = "••••••••"; // Show dots if password is set
       _firstNameController.text = prefs.getString('owner_first_name') ?? "";
       _lastNameController.text = prefs.getString('owner_last_name') ?? "";
       _phoneController.text = prefs.getString('owner_phone_number') ?? "";
       _addressController.text = prefs.getString('owner_address1') ?? "";
+      _postcodeController.text = prefs.getString('owner_postcode') ?? "";
+      _cityController.text = prefs.getString('owner_city') ?? "";
     });
   }
 
@@ -53,49 +70,74 @@ Future<void> _saveProfile() async {
     "owner_last_name": _lastNameController.text.trim(),
     "owner_phone_number": _phoneController.text.trim(),
     "owner_address1": _addressController.text.trim(),
+    "owner_postcode": _postcodeController.text.trim(),
+    "owner_city": _cityController.text.trim(),
   };
 
   final password = _passwordController.text.trim();
-  if (password.isNotEmpty && password != "********") {
-    data["owner_password"] = password;
+  if (password.isNotEmpty && password != "••••••••" && password != "********") {
+    data["password"] = password;
   }
 
+  debugPrint("DEBUG: Saving profile with data: $data");
+  debugPrint("DEBUG: Owner ID: $ownerId");
+  
   final success = await _service.updateOwnerProfile(ownerId, data);
+
+  debugPrint("DEBUG: Update success: $success");
 
   if (success && mounted) {
 
+    // Update SharedPreferences with new values
     await prefs.setString('owner_email', data["owner_email"]!);
     await prefs.setString('owner_first_name', data["owner_first_name"]!);
     await prefs.setString('owner_last_name', data["owner_last_name"]!);
     await prefs.setString('owner_phone_number', data["owner_phone_number"]!);
     await prefs.setString('owner_address1', data["owner_address1"]!);
+    await prefs.setString('owner_postcode', data["owner_postcode"]!);
+    await prefs.setString('owner_city', data["owner_city"]!);
+    
+    // Update password if it was changed
+    if (data.containsKey("password")) {
+      await prefs.setString('owner_password', data["password"]!);
+    }
+    
+    debugPrint("DEBUG: SharedPreferences updated successfully");
 
-    showDialog(
-    context: context,
-    barrierDismissible: false,
-    builder: (dialogContext) {
-      return AlertDialog(
-        title: const Text("Success"),
-        content: const Text("Your profile has been updated."),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(dialogContext).pop();
-              Navigator.of(context).pop();       
-          },
-          child: const Text("Back to Dashboard"),
-        ),
-      ],
-    );
-  },
-);
-
+    // Update UI with saved values and exit edit mode
     setState(() {
       _isEditing = false;
-      if (data.containsKey("owner_password")) {
-        _passwordController.text = "********";
-      }
+      _showPassword = false; // Reset password visibility
+      // Show dots for password in view mode
+      _passwordController.text = "••••••••";
     });
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text("Success"),
+          content: const Text("Your profile has been updated."),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                Navigator.of(context).pop();       
+              },
+              child: const Text("Back to Dashboard"),
+            ),
+          ],
+        );
+      },
+    );
+  } else {
+    debugPrint("DEBUG: Update failed or widget not mounted");
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Failed to update profile. Please try again.")),
+      );
+    }
   }
 }
   @override
@@ -112,11 +154,13 @@ Future<void> _saveProfile() async {
           child: ListView(
             children: [
               _buildTextField(_emailController, "Email", isEmail: true),
-              _buildTextField(_passwordController, "Password", isPassword: true),
+              _buildPasswordField(),
               _buildTextField(_firstNameController, "First Name"),
               _buildTextField(_lastNameController, "Last Name"),
               _buildTextField(_phoneController, "Phone Number", isPhone: true),
               _buildTextField(_addressController, "Address"),
+              _buildTextField(_postcodeController, "Postcode"),
+              _buildTextField(_cityController, "City"),
               const SizedBox(height: 30),
               _isEditing
                   ? ElevatedButton(
@@ -128,10 +172,20 @@ Future<void> _saveProfile() async {
                       child: const Text("Save Changes", style: TextStyle(color: Colors.white)),
                     )
                   : ElevatedButton(
-                      onPressed: () {
+                      onPressed: () async {
+                        // Load the current password from SharedPreferences
+                        final prefs = await SharedPreferences.getInstance();
+                        final currentPassword = prefs.getString('owner_password') ?? "";
+                        
+                        debugPrint("DEBUG: Fetching current password");
+                        debugPrint("DEBUG: Current password loaded: $currentPassword");
+                        
                         setState(() {
                           _isEditing = true;
-                          _passwordController.text = ""; // allow password update
+                          _showPassword = false; // Reset visibility when entering edit mode
+                          // Load the actual password from SharedPreferences
+                          _passwordController.text = currentPassword;
+                          debugPrint("DEBUG: Password set in controller: ${_passwordController.text}");
                         });
                       },
                       style: ElevatedButton.styleFrom(
@@ -149,6 +203,9 @@ Future<void> _saveProfile() async {
 
   Widget _buildTextField(TextEditingController controller, String label,
       {bool isPhone = false, bool isEmail = false, bool isPassword = false}) {
+    // Don't obscure text if we're showing the password placeholder and not editing
+    bool shouldObscure = isPassword && _isEditing;
+    
     return Padding(
       padding: const EdgeInsets.only(bottom: 15),
       child: TextFormField(
@@ -159,10 +216,67 @@ Future<void> _saveProfile() async {
             : isEmail
                 ? TextInputType.emailAddress
                 : TextInputType.text,
-        obscureText: isPassword,
+        obscureText: shouldObscure,
         decoration: InputDecoration(
           labelText: label,
-          border: const OutlineInputBorder(),
+          border: OutlineInputBorder(
+            borderSide: BorderSide(color: Colors.grey[300]!),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderSide: BorderSide(color: Colors.grey[300]!),
+          ),
+          disabledBorder: OutlineInputBorder(
+            borderSide: BorderSide(color: Colors.grey[300]!),
+          ),
+          filled: true,
+          fillColor: _isEditing ? Colors.white : Colors.grey[200],
+        ),
+        style: TextStyle(
+          color: _isEditing ? Colors.black : Colors.grey[700],
+        ),
+        validator: (value) {
+          if (!_isEditing) return null;
+          if (value == null || value.isEmpty) return "Cannot be empty";
+          return null;
+        },
+      ),
+    );
+  }
+
+  Widget _buildPasswordField() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 15),
+      child: TextFormField(
+        controller: _passwordController,
+        enabled: _isEditing,
+        obscureText: !_showPassword,
+        decoration: InputDecoration(
+          labelText: "Password",
+          border: OutlineInputBorder(
+            borderSide: BorderSide(color: Colors.grey[300]!),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderSide: BorderSide(color: Colors.grey[300]!),
+          ),
+          disabledBorder: OutlineInputBorder(
+            borderSide: BorderSide(color: Colors.grey[300]!),
+          ),
+          filled: true,
+          fillColor: _isEditing ? Colors.white : Colors.grey[200],
+          suffixIcon: IconButton(
+            icon: Icon(
+              _showPassword ? Icons.visibility : Icons.visibility_off,
+              color: const Color(0xFF8BAEAE),
+            ),
+            onPressed: () {
+              setState(() {
+                _showPassword = !_showPassword;
+              });
+            },
+          ),
+        ),
+        style: TextStyle(
+          color: _isEditing ? Colors.black : Colors.grey[700],
         ),
         validator: (value) {
           if (!_isEditing) return null;

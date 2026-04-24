@@ -15,7 +15,7 @@ class Owner(Base):
     owner_first_name = Column(String(50), nullable=False, index=True)
     owner_last_name = Column(String(100), nullable=False, index=True)
     owner_email = Column(String(100), unique=True, nullable=False, index=True)
-    password = Column(String(40), nullable=False, default="password123")
+    password = Column(String(255), nullable=False, default="password123")
     owner_phone_number = Column(String(15), unique=True, nullable=False, index=True)
     owner_address1 = Column(String(100), nullable=False)
     owner_address2 = Column(String(100))

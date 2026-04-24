@@ -28,7 +28,14 @@ def login(details: LoginRequest, db: Session = Depends(get_db)):
     return {
         "status": "success",
         "owner_id": owner.owner_id,
-        "first_name": owner.owner_first_name
+        "owner_email": owner.owner_email,
+        "owner_first_name": owner.owner_first_name,
+        "owner_last_name": owner.owner_last_name,
+        "owner_phone_number": owner.owner_phone_number,
+        "owner_address1": owner.owner_address1,
+        "owner_address2": owner.owner_address2,
+        "owner_postcode": owner.owner_postcode,
+        "owner_city": owner.owner_city,
     }
 
 @router.post("/signup")
