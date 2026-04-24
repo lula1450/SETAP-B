@@ -65,3 +65,43 @@ extension EventTypeExtension on EventType {
     }
   }
 }
+
+class Pet {
+  final String id;
+  final String name;
+  final String species;
+
+  const Pet({required this.id, required this.name, required this.species});
+}
+
+class PetEvent {
+  final String id;
+  final EventType type;
+  final String name;
+  final TimeOfDay time;
+  final String petId;
+
+  PetEvent({
+    required this.id,
+    required this.type,
+    required this.name,
+    required this.time,
+    required this.petId,
+  });
+
+  PetEvent copyWith({
+    String? id,
+    EventType? type,
+    String? name,
+    TimeOfDay? time,
+    String? petId,
+  }) {
+    return PetEvent(
+      id:    id    ?? this.id,
+      type:  type  ?? this.type,
+      name:  name  ?? this.name,
+      time:  time  ?? this.time,
+      petId: petId ?? this.petId,
+    );
+  }
+}
