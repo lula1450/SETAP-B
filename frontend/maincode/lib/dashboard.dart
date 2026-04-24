@@ -10,6 +10,7 @@ import 'package:maincode/report_history.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:maincode/add_pet.dart';
 import 'package:maincode/edit_profile.dart';
+import 'package:maincode/notification.dart';
 import 'package:maincode/services/fun_fact_service.dart';
 import 'package:maincode/feeding_schedule.dart';
 import 'package:maincode/vet_contacts.dart';
@@ -762,7 +763,19 @@ class _DashboardPageState extends State<DashboardPage> {
               );
             },
           ),
-          _drawerTile(Icons.notifications, 'Notifications'),
+          _drawerTile(
+            Icons.notifications,
+            'Notifications',
+            onTap: () {
+              Navigator.pop(context); // close drawer
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const NotificationSettingsPage(),
+                ),
+              );
+            },
+          ),
           _drawerTile(
             Icons.palette,
             'Report History',

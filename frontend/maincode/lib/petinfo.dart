@@ -86,6 +86,7 @@ class PetInfoPage extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 16),
+
               GestureDetector(
                 onTap: () async {
                   final Uri url = Uri.parse(petInfo["helpUrl"]);
@@ -102,42 +103,19 @@ class PetInfoPage extends StatelessWidget {
                   ),
                 ),
               ),
+
               const SizedBox(height: 16),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+
+              Wrap(
+                spacing: 16,
+                runSpacing: 16,
                 children: [
-                  Expanded(
-                      child: _buildCard(
-                          "Breed Info", petInfo["breedInfo"], cardIcons)),
-                  const SizedBox(width: 16),
-                  Expanded(
-                      child: _buildCard(
-                          "Care Tips", petInfo["careTips"], cardIcons)),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                      child: _buildCard(
-                          "Personality", petInfo["personality"], cardIcons)),
-                  const SizedBox(width: 16),
-                  Expanded(
-                      child: _buildCard("Diet", petInfo["diet"], cardIcons)),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                      child: _buildCard("Potential Health Issues",
-                          petInfo["health"] ?? [], cardIcons)),
-                  const SizedBox(width: 16),
-                  Expanded(
-                      child: _buildCard("Preferred Environment",
-                          petInfo["environment"] ?? [], cardIcons)),
+                  _cardItem("Breed Info", petInfo["breedInfo"], cardIcons, context),
+                  _cardItem("Care Tips", petInfo["careTips"], cardIcons, context),
+                  _cardItem("Personality", petInfo["personality"], cardIcons, context),
+                  _cardItem("Diet", petInfo["diet"], cardIcons, context),
+                  _cardItem("Potential Health Issues", petInfo["health"] ?? [], cardIcons, context),
+                  _cardItem("Preferred Environment", petInfo["environment"] ?? [], cardIcons, context),
                 ],
               ),
             ],
@@ -147,39 +125,54 @@ class PetInfoPage extends StatelessWidget {
     );
   }
 
-  Widget _buildCard(String title, List items, Map<String, IconData> icons) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white, // Solid white cards
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.black12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 4,
-            offset: const Offset(2, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icons[title], color: Colors.blue[800]),
-              const SizedBox(width: 8),
-              Text(title,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.bold, fontSize: 16)),
-            ],
-          ),
-          const SizedBox(height: 8),
-          ...items.map<Widget>((item) => Padding(
+  Widget _cardItem(String title, List items, Map<String, IconData> icons, BuildContext context) {
+    final width = (MediaQuery.of(context).size.width - 48) / 2;
+
+    return SizedBox(
+      width: width,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.black12),
+          boxShadow: const [
+            BoxShadow(
+              color: Colors.black12,
+              blurRadius: 4,
+              offset: Offset(2, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Icon(icons[title], color: Colors.blue),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            ...items.map<Widget>(
+              (item) => Padding(
                 padding: const EdgeInsets.symmetric(vertical: 2),
-                child: Text(item),
-              )),
-        ],
+                child: Text(
+                  item.toString(),
+                  softWrap: true,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -190,18 +183,23 @@ class PetInfoPage extends StatelessWidget {
         padding: EdgeInsets.zero,
         children: [
           const DrawerHeader(
-            decoration:
-                BoxDecoration(color: Color.fromARGB(255, 139, 174, 174)),
-            child: Text('Settings',
-                style: TextStyle(color: Colors.white, fontSize: 24)),
+            decoration: BoxDecoration(color: Color(0xFF8BAEAE)),
+            child: Text(
+              'Settings',
+              style: TextStyle(color: Colors.white, fontSize: 24),
+            ),
           ),
           _drawerTile(context, Icons.person, 'Edit Profile', onTap: () {
             Navigator.pop(context);
-            Navigator.push(context,
-                MaterialPageRoute(builder: (context) => const EditProfilePage()));
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const EditProfilePage(),
+              ),
+            );
           }),
           _drawerTile(context, Icons.notifications, 'Notifications'),
-          _drawerTile(context, Icons.palette, 'Report History'),
+          _drawerTile(context, Icons.history, 'Report History'),
           _drawerTile(context, Icons.logout, 'Logout'),
           _drawerTile(context, Icons.delete_forever, 'Delete Account',
               color: Colors.red),
@@ -215,32 +213,7 @@ class PetInfoPage extends StatelessWidget {
     return ListTile(
       leading: Icon(icon, color: color),
       title: Text(title, style: TextStyle(color: color)),
-      onTap: onTap ??
-          () {
-            if (title == 'Delete Account') {
-              showDialog(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text("Delete Account?"),
-                  content:
-                      const Text("Permanently delete profile and pet data?"),
-                  actions: [
-                    TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text("Cancel")),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text("Delete",
-                          style: TextStyle(color: Colors.white)),
-                    ),
-                  ],
-                ),
-              );
-            } else {
-              Navigator.pop(context);
-            }
-          },
+      onTap: onTap ?? () => Navigator.pop(context),
     );
   }
 }
