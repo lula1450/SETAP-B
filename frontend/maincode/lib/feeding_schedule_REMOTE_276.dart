@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:maincode/widgets/app_drawer.dart';
 
 // Entry point of the app
 void main() => runApp(const PetCareApp());
@@ -9,20 +8,6 @@ class PetCareApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-<<<<<<< HEAD
-    return Scaffold(
-      endDrawer: const AppDrawer(),
-      appBar: AppBar(
-        title: const Text('Feeding Schedule'),
-        actions: [
-          Builder(
-            builder: (context) => IconButton(
-              icon: const Icon(Icons.menu),
-              onPressed: () => Scaffold.of(context).openEndDrawer(),
-            ),
-          ),
-        ],
-=======
     return MaterialApp(
       title: 'Pet Care',
       debugShowCheckedModeBanner: false,
@@ -30,7 +15,6 @@ class PetCareApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1D9E75)),
         useMaterial3: true,
         fontFamily: 'Roboto',
->>>>>>> feeding_schedule
       ),
       home: const FeedingSchedulePage(),
     );

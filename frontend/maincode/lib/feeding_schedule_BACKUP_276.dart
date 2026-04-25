@@ -9,7 +9,6 @@ class PetCareApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-<<<<<<< HEAD
     return Scaffold(
       endDrawer: const AppDrawer(),
       appBar: AppBar(
@@ -22,15 +21,6 @@ class PetCareApp extends StatelessWidget {
             ),
           ),
         ],
-=======
-    return MaterialApp(
-      title: 'Pet Care',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1D9E75)),
-        useMaterial3: true,
-        fontFamily: 'Roboto',
->>>>>>> feeding_schedule
       ),
       home: const FeedingSchedulePage(),
     );
