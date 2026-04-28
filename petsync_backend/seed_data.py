@@ -4,10 +4,11 @@ from datetime import datetime, timedelta, time
 
 from petsync_backend.database import SessionLocal, engine, Base
 from petsync_backend.models import (
-    PetAppointment, Species_config, MetricDefinition, MetricName, 
-    MetricUnit, SpeciesType, Owner, Pet, HealthMetric, ReportFrequency, PetGoal, VetContact
+    PetAppointment, Species_config, MetricDefinition, MetricName,
+    SpeciesType, Owner, Pet, HealthMetric, ReportFrequency, PetGoal, VetContact
 )
-from petsync_backend.species_data import SPECIES_DATA 
+from petsync_backend.config.species_data import SPECIES_DATA
+from petsync_backend.config.metric_definitions import seed_metric_definitions
 from petsync_backend.utils.report_generator import generate_report_for_pet
 
 def seed_data():
@@ -45,27 +46,7 @@ def seed_data():
             species_objects.append(existing)
 
     # 3. Seed Metric Definitions
-    print("Seeding Metric Definitions...")
-    unit_mapping = {
-        MetricName.weight: MetricUnit.kg,
-        MetricName.water_intake: MetricUnit.ml,
-        MetricName.humidity_level: MetricUnit.percent,
-        MetricName.stool_quality: MetricUnit.scale_1_5,
-        MetricName.energy_level: MetricUnit.scale_1_5,
-        MetricName.appetite: MetricUnit.scale_1_5,
-    }
-
-    for s_obj in species_objects:
-        for m_name in MetricName:
-            if m_name in [MetricName.notes, MetricName.custom]: continue
-            exists = db.query(MetricDefinition).filter(
-                MetricDefinition.species_id == s_obj.species_id,
-                MetricDefinition.metric_name == m_name
-            ).first()
-            if not exists:
-                unit = unit_mapping.get(m_name, MetricUnit.text)
-                db.add(MetricDefinition(species_id=s_obj.species_id, metric_name=m_name, metric_unit=unit))
-    db.commit()
+    seed_metric_definitions(db, species_objects)
 
     # 4. Seed Bentley and Maisie
     print("Seeding Bentley and Maisie...")
