@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, time
 from petsync_backend.database import SessionLocal, engine, Base
 from petsync_backend.models import (
     PetAppointment, Species_config, MetricDefinition, MetricName, 
-    MetricUnit, SpeciesType, Owner, Pet, HealthMetric, ReportFrequency, PetGoal
+    MetricUnit, SpeciesType, Owner, Pet, HealthMetric, ReportFrequency, PetGoal, VetContact
 )
 from petsync_backend.species_data import SPECIES_DATA 
 from petsync_backend.utils.report_generator import generate_report_for_pet
@@ -169,7 +169,7 @@ def seed_data():
             pet_appointment_date=(today + timedelta(days=2)).date(), 
         # Convert to a time object
             pet_appointment_time=time(10, 30), 
-            appointment_notes="Annual Booster Vaccinations - Dr. Smith"
+            appointment_notes="Happy Paws Veterinary - Annual Booster Vaccinations"
         ),
         PetAppointment(
             pet_id=maisie.pet_id,
@@ -177,8 +177,16 @@ def seed_data():
             pet_appointment_date=(today + timedelta(days=5)).date(),
         # Convert to a time object
              pet_appointment_time=time(14, 15),
-             appointment_notes="Weight management follow-up and joint check"
-        )
+             appointment_notes="Riverside Pet Clinic - Weight management follow-up and joint check"
+        ),
+        PetAppointment(
+            pet_id=bentley.pet_id,
+        # Convert to a date object
+            pet_appointment_date=(today + timedelta(days=12)).date(),
+        # Convert to a time object
+            pet_appointment_time=time(11, 0),
+            appointment_notes="Happy Paws Veterinary - Flea and tick treatment"
+        ),
     ]
 
     for appt in appointments:
@@ -191,9 +199,36 @@ def seed_data():
             db.add(appt)
     db.commit()
 
+    # --- 6. Seed Vet Contacts ---
+    print("Seeding Vet Contacts...")
+    vet_contacts = [
+        VetContact(
+            owner_id=owner_id,
+            clinic_name="Happy Paws Veterinary",
+            phone="07912345678",
+            email="contact@happypaws.com",
+            address="45 Main Street, London, SW1A 1AA"
+        ),
+        VetContact(
+            owner_id=owner_id,
+            clinic_name="Riverside Pet Clinic",
+            phone="02071234567",
+            email="info@riversidepet.com",
+            address="78 River Road, London, SE1 7TP"
+        ),
+    ]
+
+    for vet in vet_contacts:
+        exists = db.query(VetContact).filter(
+            VetContact.owner_id == owner_id,
+            VetContact.clinic_name == vet.clinic_name
+        ).first()
+        if not exists:
+            db.add(vet)
+    db.commit()
     
 
-    # 6. Trigger Automated Report Generation
+    # 7. Trigger Automated Report Generation
     print("Creating Automated Report History...")
     for pet in [bentley, maisie]:
         for freq in [ReportFrequency.weekly, ReportFrequency.monthly]:

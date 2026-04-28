@@ -1,5 +1,5 @@
 
-from petsync_backend.routers import auth, pets, health, schedule, reports, owners
+from petsync_backend.routers import auth, pets, health, schedule, reports, owners, vets
 
 
 from petsync_backend.middleware import PetSyncFirewall
@@ -49,6 +49,7 @@ app.include_router(health.router, prefix="/health", tags=["health"])
 app.include_router(schedule.router, prefix="/schedule", tags=["schedule"])
 app.include_router(reports.router, prefix="/reports", tags=["reports"])
 app.include_router(owners.router, prefix="/owners", tags=["owners"])
+app.include_router(vets.router, prefix="/vets", tags=["vets"])
 
 @app.get("/")
 async def root():

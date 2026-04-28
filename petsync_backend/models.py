@@ -215,3 +215,19 @@ class PetReport(Base):
     report_summary = Column(Text, nullable=False)  # JSON serialized summary of metrics
     has_risk_flags = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+# --- 9. VET CONTACTS ---
+class VetContact(Base):
+    __tablename__ = "vet_contact"
+
+    vet_id = Column(Integer, primary_key=True, index=True)
+    owner_id = Column(Integer, ForeignKey("owner.owner_id"), nullable=False, index=True)
+    clinic_name = Column(String(100), nullable=False)
+    phone = Column(String(20), nullable=False)
+    email = Column(String(100), nullable=True)
+    address = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relationship to owner
+    owner = relationship("Owner", backref="vet_contacts")
