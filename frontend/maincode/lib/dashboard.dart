@@ -412,6 +412,7 @@ class _DashboardPageState extends State<DashboardPage> {
       endDrawer: const AppDrawer(),
       appBar: AppBar(
         backgroundColor: const Color.fromARGB(255, 139, 174, 174),
+        foregroundColor: Colors.black,
         elevation: 0,
         toolbarHeight: 120,
         centerTitle: true,
@@ -765,7 +766,7 @@ class _DashboardPageState extends State<DashboardPage> {
         Text(
           _isLoading ? 'Loading...' : "$petName's Dashboard",
           style: const TextStyle(
-            color: Colors.white,
+            color: Colors.black,
             fontWeight: FontWeight.bold,
             fontSize: 18,
           ),
@@ -797,7 +798,7 @@ class _DashboardPageState extends State<DashboardPage> {
         const Text(
           "CHANGE",
           style: TextStyle(
-            color: Colors.white,
+            color: Colors.black,
             fontSize: 7,
             fontWeight: FontWeight.bold,
           ),

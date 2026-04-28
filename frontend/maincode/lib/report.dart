@@ -142,7 +142,7 @@ class _ReportsPageState extends State<ReportsPage> {
 
     return Scaffold(
       endDrawer: const AppDrawer(),
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: Text('Health: ${widget.petName}'),
         backgroundColor: const Color(0xFF8BAEAE),
@@ -156,7 +156,15 @@ class _ReportsPageState extends State<ReportsPage> {
           ),
         ],
       ),
-      body: _isLoading
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFF8BAEAE), Color(0xFFB2D3C2), Color(0xFFE0F7F4)],
+          ),
+        ),
+        child: _isLoading
           ? const Center(child: CircularProgressIndicator(color: Color(0xFF8BAEAE)))
           : SingleChildScrollView(
               padding: const EdgeInsets.all(20.0),
@@ -224,6 +232,7 @@ class _ReportsPageState extends State<ReportsPage> {
                 ],
               ),
             ),
+      ),
     );
   }
 

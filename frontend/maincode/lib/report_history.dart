@@ -349,18 +349,18 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
         title: const Text(
           'Report History',
           style: TextStyle(
-            color: Colors.white,
+            color: Colors.black,
             fontWeight: FontWeight.bold,
           ),
         ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: const Icon(Icons.arrow_back, color: Colors.black),
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
           Builder(
             builder: (context) => IconButton(
-              icon: const Icon(Icons.menu, color: Colors.white),
+              icon: const Icon(Icons.menu, color: Colors.black),
               onPressed: () => Scaffold.of(context).openEndDrawer(),
             ),
           ),
@@ -397,7 +397,7 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                              color: Colors.black,
                             ),
                           ),
                           const SizedBox(height: 8),

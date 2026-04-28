@@ -254,7 +254,7 @@ class _MetricsPageState extends State<MetricsPage> {
           children: [
             CircleAvatar(radius: 30, backgroundColor: Colors.white, child: Icon(Icons.pets, size: 25, color: petThemeColor)),
             const SizedBox(height: 8),
-            Text("${widget.petName}'s Metrics", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 18)),
+            Text("${widget.petName}'s Metrics", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black, fontSize: 18)),
           ],
         ),
       ),
