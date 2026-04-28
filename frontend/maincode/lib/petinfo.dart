@@ -29,7 +29,7 @@ class PetInfoPage extends StatelessWidget {
         centerTitle: true,
         title: const Text(
           'Pet Information',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
         ),
         actions: [
           Builder(

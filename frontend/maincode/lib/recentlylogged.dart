@@ -39,7 +39,15 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
 
           final logs = snapshot.data!;
 
-          return ListView.builder(
+          return Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFF8BAEAE), Color(0xFFB2D3C2), Color(0xFFE0F7F4)],
+              ),
+            ),
+            child: ListView.builder(
             padding: const EdgeInsets.all(16),
             itemCount: logs.length,
             itemBuilder: (context, index) {
@@ -74,6 +82,7 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
                 ),
               );
             },
+          ),
           );
         },
       ),
