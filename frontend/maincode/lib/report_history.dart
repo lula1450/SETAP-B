@@ -366,23 +366,57 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
           ),
         ],
       ),
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFF8BAEAE),
-              Color(0xFFB2D3C2),
-              Color(0xFFE0F7F4),
-            ],
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Color(0xFF8BAEAE),
+                    Color(0xFFB2D3C2),
+                    Color(0xFFE0F7F4),
+                  ],
+                ),
+              ),
+            ),
           ),
-        ),
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : SingleChildScrollView(
+          Positioned(
+            top: -40,
+            left: -100,
+            child: _backgroundCircle(350, Colors.white.withValues(alpha: 0.1)),
+          ),
+          Positioned(
+            top: -20,
+            left: -70,
+            child: _backgroundCircle(370, Colors.white.withValues(alpha: 0.2)),
+          ),
+          Positioned(
+            top: 10,
+            left: -30,
+            child: _backgroundCircle(340, Colors.white.withValues(alpha: 0.3)),
+          ),
+          Positioned(
+            bottom: -40,
+            right: -100,
+            child: _backgroundCircle(350, Colors.white.withValues(alpha: 0.1)),
+          ),
+          Positioned(
+            bottom: -20,
+            right: -70,
+            child: _backgroundCircle(370, Colors.white.withValues(alpha: 0.2)),
+          ),
+          Positioned(
+            bottom: 10,
+            right: -30,
+            child: _backgroundCircle(340, Colors.white.withValues(alpha: 0.3)),
+          ),
+          Positioned.fill(
+            child: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : SingleChildScrollView(
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -420,7 +454,7 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
                                     decoration: BoxDecoration(
                                       color: isSelected
                                           ? Colors.white
-                                          : Colors.white.withOpacity(0.5),
+                                          : Colors.white.withValues(alpha: 0.75),
                                       borderRadius: BorderRadius.circular(12),
                                       border: Border.all(
                                         color: isSelected
@@ -506,7 +540,7 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
                               decoration: BoxDecoration(
                                 color: _filterFrequency == "all"
                                     ? Colors.white
-                                    : Colors.white.withOpacity(0.5),
+                                    : Colors.white.withValues(alpha: 0.75),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
@@ -533,7 +567,7 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
                               decoration: BoxDecoration(
                                 color: _filterFrequency == "weekly"
                                     ? Colors.white
-                                    : Colors.white.withOpacity(0.5),
+                                    : Colors.white.withValues(alpha: 0.75),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
@@ -560,7 +594,7 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
                               decoration: BoxDecoration(
                                 color: _filterFrequency == "monthly"
                                     ? Colors.white
-                                    : Colors.white.withOpacity(0.5),
+                                    : Colors.white.withValues(alpha: 0.75),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
@@ -590,7 +624,7 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
                               Icon(
                                 Icons.description_outlined,
                                 size: 48,
-                                color: Colors.white.withOpacity(0.5),
+                                color: Colors.white.withValues(alpha: 0.75),
                               ),
                               const SizedBox(height: 8),
                               Text(
@@ -614,6 +648,19 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
                   ],
                 ),
               ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _backgroundCircle(double size, Color color) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: color, width: 30),
       ),
     );
   }
