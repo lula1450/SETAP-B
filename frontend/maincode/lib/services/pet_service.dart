@@ -263,4 +263,107 @@ class PetService {
    );
    return response.statusCode == 200;
  }
+
+  // --- GET VET CONTACTS ---
+  Future<List<dynamic>> getOwnerVetContacts(int ownerId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/vets/owner/$ownerId'),
+    );
+
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    } else if (response.statusCode == 404) {
+      return [];
+    } else {
+      throw Exception('Failed to load vet contacts');
+    }
+  }
+
+  // --- CREATE VET CONTACT ---
+  Future<bool> createVetContact({
+    required int ownerId,
+    required String clinicName,
+    required String phone,
+    required String email,
+    required String address,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse("$baseUrl/vets/create"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "owner_id": ownerId,
+          "clinic_name": clinicName,
+          "phone": phone,
+          "email": email,
+          "address": address,
+        }),
+      );
+
+      if (response.statusCode == 201) {
+        debugPrint("Vet contact created successfully");
+        return true;
+      } else {
+        debugPrint("Failed to create vet contact: ${response.body}");
+        return false;
+      }
+    } catch (e) {
+      debugPrint("Error creating vet contact: $e");
+      return false;
+    }
+  }
+
+  // --- UPDATE VET CONTACT ---
+  Future<bool> updateVetContact({
+    required int vetId,
+    required int ownerId,
+    required String clinicName,
+    required String phone,
+    required String email,
+    required String address,
+  }) async {
+    try {
+      final response = await http.put(
+        Uri.parse("$baseUrl/vets/$vetId"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "clinic_name": clinicName,
+          "phone": phone,
+          "email": email,
+          "address": address,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        debugPrint("Vet contact updated successfully");
+        return true;
+      } else {
+        debugPrint("Failed to update vet contact: ${response.statusCode} - ${response.body}");
+        return false;
+      }
+    } catch (e) {
+      debugPrint("Error updating vet contact: $e");
+      return false;
+    }
+  }
+
+  // --- DELETE VET CONTACT ---
+  Future<bool> deleteVetContact(int vetId) async {
+    try {
+      final response = await http.delete(
+        Uri.parse("$baseUrl/vets/$vetId"),
+      );
+
+      if (response.statusCode == 200) {
+        debugPrint("Vet contact deleted successfully");
+        return true;
+      } else {
+        debugPrint("Failed to delete vet contact: ${response.body}");
+        return false;
+      }
+    } catch (e) {
+      debugPrint("Error deleting vet contact: $e");
+      return false;
+    }
+  }
 }
