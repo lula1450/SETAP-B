@@ -9,30 +9,22 @@ class PetCareApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-<<<<<<< HEAD
-    return Scaffold(
-      endDrawer: const AppDrawer(),
-      appBar: AppBar(
-        title: const Text('Feeding Schedule'),
-        actions: [
-          Builder(
-            builder: (context) => IconButton(
-              icon: const Icon(Icons.menu),
-              onPressed: () => Scaffold.of(context).openEndDrawer(),
-            ),
-          ),
-        ],
-=======
     return MaterialApp(
-      title: 'Pet Care',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1D9E75)),
-        useMaterial3: true,
-        fontFamily: 'Roboto',
->>>>>>> feeding_schedule
+      home: Scaffold(
+        endDrawer: const AppDrawer(),
+        appBar: AppBar(
+          title: const Text('Feeding Schedule'),
+          actions: [
+            Builder(
+              builder: (context) => IconButton(
+                icon: const Icon(Icons.menu),
+                onPressed: () => Scaffold.of(context).openEndDrawer(),
+              ),
+            ),
+          ],
+        ),
+        body: const FeedingSchedulePage(),
       ),
-      home: const FeedingSchedulePage(),
     );
   }
 }
