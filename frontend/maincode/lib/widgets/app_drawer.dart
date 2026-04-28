@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:maincode/login_page.dart';
 import 'package:maincode/edit_profile.dart';
 import 'package:maincode/report_history.dart';
+import 'package:maincode/services/auth_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AppDrawer extends StatelessWidget {
@@ -21,9 +22,20 @@ class AppDrawer extends StatelessWidget {
             child: const Text("Cancel"),
           ),
           TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              // Handle account deletion here
+            onPressed: () async {
+              final navigator = Navigator.of(context);
+              navigator.pop();
+              final prefs = await SharedPreferences.getInstance();
+              final ownerId = prefs.getInt('owner_id');
+              if (ownerId != null) {
+                final success = await AuthService().deleteAccount(ownerId);
+                if (success) {
+                  await prefs.clear();
+                  navigator.pushReplacement(
+                    MaterialPageRoute(builder: (context) => const LoginPage()),
+                  );
+                }
+              }
             },
             child: const Text("Delete", style: TextStyle(color: Colors.red)),
           ),
@@ -44,7 +56,7 @@ class AppDrawer extends StatelessWidget {
             ),
             child: Text(
               'Settings',
-              style: TextStyle(color: Colors.white, fontSize: 24),
+              style: TextStyle(color: Colors.black, fontSize: 24),
             ),
           ),
           _drawerTile(
@@ -80,13 +92,31 @@ class AppDrawer extends StatelessWidget {
             context,
             Icons.logout,
             'Logout',
-            onTap: () async {
-              final prefs = await SharedPreferences.getInstance();
-              await prefs.clear();
-              Navigator.pop(context);
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => const LoginPage()),
+            onTap: () {
+              showDialog(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text("Logout"),
+                  content: const Text("Are you sure you want to logout?"),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text("Cancel"),
+                    ),
+                    TextButton(
+                      onPressed: () async {
+                        final navigator = Navigator.of(context);
+                        navigator.pop();
+                        final prefs = await SharedPreferences.getInstance();
+                        await prefs.clear();
+                        navigator.pushReplacement(
+                          MaterialPageRoute(builder: (context) => const LoginPage()),
+                        );
+                      },
+                      child: const Text("Logout"),
+                    ),
+                  ],
+                ),
               );
             },
           ),

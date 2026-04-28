@@ -100,7 +100,7 @@ class AuthService {
   Future<bool> deleteAccount(int ownerId) async {
     try {
       final response = await http.delete(
-        Uri.parse("$baseUrl/auth/owner/$ownerId"),
+        Uri.parse("$baseUrl/owners/$ownerId"),
       );
       return response.statusCode == 200;
     } catch (e) {

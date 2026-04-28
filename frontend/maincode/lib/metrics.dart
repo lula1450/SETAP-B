@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:maincode/widgets/app_drawer.dart';
 
 class MetricsPage extends StatefulWidget {
   final int petId;
@@ -244,7 +245,7 @@ class _MetricsPageState extends State<MetricsPage> {
     });
 
     return Scaffold(
-      endDrawer: _buildDrawer(),
+      endDrawer: const AppDrawer(),
       appBar: AppBar(
         backgroundColor: const Color.fromARGB(255, 139, 174, 174),
         toolbarHeight: 120,
@@ -417,53 +418,6 @@ class _MetricsPageState extends State<MetricsPage> {
     );
   }
 
-  // --- Settings Drawer (copied from Dashboard) ---
-  Widget _buildDrawer() {
-    return Drawer(
-      child: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          const DrawerHeader(
-            decoration: BoxDecoration(color: Color.fromARGB(255, 139, 174, 174)),
-            child: Text('Settings', style: TextStyle(color: Colors.white, fontSize: 24)),
-          ),
-          _drawerTile(Icons.person, 'Edit Profile'),
-          _drawerTile(Icons.notifications, 'Notifications'),
-          _drawerTile(Icons.palette, 'Report History'),
-          _drawerTile(Icons.logout, 'Logout'),
-          _drawerTile(Icons.delete_forever, 'Delete Account', color: Colors.red),
-        ],
-      ),
-    );
-  }
-
-  Widget _drawerTile(IconData icon, String title, {Color? color}) {
-    return ListTile(
-      leading: Icon(icon, color: color),
-      title: Text(title, style: TextStyle(color: color)),
-      onTap: () {
-        if (title == 'Delete Account') {
-          _showDeleteConfirmation();
-        } else {
-          Navigator.pop(context);
-        }
-      },
-    );
-  }
-
-  void _showDeleteConfirmation() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Delete Account?"),
-        content: const Text("Permanently delete profile and pet data?"),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
-          ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.red), onPressed: () => Navigator.pop(context), child: const Text("Delete", style: TextStyle(color: Colors.white))),
-        ],
-      ),
-    );
-  }
 }
 
 class _SparklinePainter extends CustomPainter {
