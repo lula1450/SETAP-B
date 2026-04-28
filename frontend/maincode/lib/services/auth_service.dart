@@ -17,9 +17,8 @@ class AuthService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        print("DEBUG: Login response: $data");
         final prefs = await SharedPreferences.getInstance();
-        
+
         // Save all owner data returned from login
         await prefs.setInt('owner_id', data['owner_id']);
         await prefs.setString('owner_email', data['owner_email'] ?? "");
@@ -32,13 +31,8 @@ class AuthService {
         await prefs.setString('owner_city', data['owner_city'] ?? "");
         // Store password for editing profile
         await prefs.setString('owner_password', password);
-        // Store a flag indicating password is set (we don't store actual password for security)
         await prefs.setBool('owner_password_set', true);
-        
-        print("DEBUG: Saved owner_email: ${prefs.getString('owner_email')}");
-        print("DEBUG: Saved owner_first_name: ${prefs.getString('owner_first_name')}");
-        print("DEBUG: Saved owner_password: ${prefs.getString('owner_password')}");
-        
+
         return true;
       }
       return false;
