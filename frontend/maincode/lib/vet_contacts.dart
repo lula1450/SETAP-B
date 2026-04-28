@@ -366,15 +366,50 @@ class _VetContactsPageState extends State<VetContactsPage> {
           ),
         ],
       ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF8BAEAE), Color(0xFFB2D3C2), Color(0xFFE0F7F4)],
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xFF8BAEAE), Color(0xFFB2D3C2), Color(0xFFE0F7F4)],
+                ),
+              ),
+            ),
           ),
-        ),
-        child: _isLoading
+          Positioned(
+            top: -40,
+            left: -100,
+            child: _backgroundCircle(350, Colors.white.withValues(alpha: 0.1)),
+          ),
+          Positioned(
+            top: -20,
+            left: -70,
+            child: _backgroundCircle(370, Colors.white.withValues(alpha: 0.2)),
+          ),
+          Positioned(
+            top: 10,
+            left: -30,
+            child: _backgroundCircle(340, Colors.white.withValues(alpha: 0.3)),
+          ),
+          Positioned(
+            bottom: -40,
+            right: -100,
+            child: _backgroundCircle(350, Colors.white.withValues(alpha: 0.1)),
+          ),
+          Positioned(
+            bottom: -20,
+            right: -70,
+            child: _backgroundCircle(370, Colors.white.withValues(alpha: 0.2)),
+          ),
+          Positioned(
+            bottom: 10,
+            right: -30,
+            child: _backgroundCircle(340, Colors.white.withValues(alpha: 0.3)),
+          ),
+          _isLoading
             ? const Center(child: CircularProgressIndicator())
             : _vetContacts.isEmpty
                 ? Center(
@@ -415,7 +450,7 @@ class _VetContactsPageState extends State<VetContactsPage> {
                         padding: const EdgeInsets.only(bottom: 12.0),
                         child: Container(
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.85),
+                            color: Colors.white.withValues(alpha: 0.85),
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
                               color: const Color(0xFF5DCAA5),
@@ -425,7 +460,7 @@ class _VetContactsPageState extends State<VetContactsPage> {
                               BoxShadow(
                                 offset: const Offset(0, 4),
                                 blurRadius: 8,
-                                color: Colors.black.withOpacity(0.1),
+                                color: Colors.black.withValues(alpha: 0.1),
                               ),
                             ],
                           ),
@@ -486,12 +521,24 @@ class _VetContactsPageState extends State<VetContactsPage> {
                       );
                     },
                   ),
+        ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showAddVetDialog,
         backgroundColor: const Color.fromARGB(255, 139, 174, 174),
         label: const Text('Add Vet Contact'),
         icon: const Icon(Icons.add),
+      ),
+    );
+  }
+
+  Widget _backgroundCircle(double size, Color color) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: color, width: 30),
       ),
     );
   }

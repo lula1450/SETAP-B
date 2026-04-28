@@ -831,20 +831,16 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
+      backgroundColor: Colors.transparent,
       endDrawer: const AppDrawer(),
       appBar: AppBar(
         title: const Text(
           'Health Records',
           style: TextStyle(fontWeight: FontWeight.w600),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: const Color.fromARGB(255, 139, 174, 174),
         foregroundColor: Colors.black87,
         elevation: 0,
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Container(color: const Color(0xFFE8ECF0), height: 1),
-        ),
         actions: [
           Builder(
             builder: (context) => IconButton(
@@ -854,11 +850,55 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xFF8BAEAE), Color(0xFFB2D3C2), Color(0xFFE0F7F4)],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: -40,
+            left: -100,
+            child: _backgroundCircle(350, Colors.white.withValues(alpha: 0.1)),
+          ),
+          Positioned(
+            top: -20,
+            left: -70,
+            child: _backgroundCircle(370, Colors.white.withValues(alpha: 0.2)),
+          ),
+          Positioned(
+            top: 10,
+            left: -30,
+            child: _backgroundCircle(340, Colors.white.withValues(alpha: 0.3)),
+          ),
+          Positioned(
+            bottom: -40,
+            right: -100,
+            child: _backgroundCircle(350, Colors.white.withValues(alpha: 0.1)),
+          ),
+          Positioned(
+            bottom: -20,
+            right: -70,
+            child: _backgroundCircle(370, Colors.white.withValues(alpha: 0.2)),
+          ),
+          Positioned(
+            bottom: 10,
+            right: -30,
+            child: _backgroundCircle(340, Colors.white.withValues(alpha: 0.3)),
+          ),
+          Positioned.fill(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : ListView(
+                    padding: const EdgeInsets.all(16),
+                    children: [
                 // Medications
                 _buildSectionCard(
                   title: 'Medications',
@@ -941,6 +981,20 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
                 const SizedBox(height: 24),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _backgroundCircle(double size, Color color) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: color, width: 30),
+      ),
     );
   }
 
@@ -952,7 +1006,7 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Colors.white.withValues(alpha: 0.8),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -1002,7 +1056,7 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
                   child: Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      color: accentColor.withValues(alpha: 0.1),
+                      color: accentColor.withValues(alpha: 0.03),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Icon(
@@ -1121,7 +1175,7 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
                                         vertical: 2,
                                       ),
                                       decoration: BoxDecoration(
-                                        color: accentColor.withValues(alpha: 0.1),
+                                        color: accentColor.withValues(alpha: 0.03),
                                         borderRadius: BorderRadius.circular(20),
                                       ),
                                       child: Text(
@@ -1204,7 +1258,7 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Colors.white.withValues(alpha: 0.8),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -1249,7 +1303,7 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
                   child: Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      color: accentColor.withValues(alpha: 0.1),
+                      color: accentColor.withValues(alpha: 0.03),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Icon(Icons.add, color: accentColor, size: 18),
@@ -1390,7 +1444,7 @@ class _RecordItemWidget extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: trailingColor.withValues(alpha: 0.12),
+              color: trailingColor.withValues(alpha: 0.04),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
