@@ -35,18 +35,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   Future<void> _loadCurrentData() async {
     final prefs = await SharedPreferences.getInstance();
-    
-    // Load all user data from SharedPreferences (saved during login/signup)
-    debugPrint("DEBUG: Loading profile data from SharedPreferences");
-    debugPrint("DEBUG: owner_email = ${prefs.getString('owner_email')}");
-    debugPrint("DEBUG: owner_first_name = ${prefs.getString('owner_first_name')}");
-    debugPrint("DEBUG: owner_last_name = ${prefs.getString('owner_last_name')}");
-    debugPrint("DEBUG: owner_phone_number = ${prefs.getString('owner_phone_number')}");
-    debugPrint("DEBUG: owner_address1 = ${prefs.getString('owner_address1')}");
-    debugPrint("DEBUG: owner_postcode = ${prefs.getString('owner_postcode')}");
-    debugPrint("DEBUG: owner_city = ${prefs.getString('owner_city')}");
-    debugPrint("DEBUG: owner_password_set = ${prefs.getBool('owner_password_set')}");
-    
+        
     setState(() {
       _emailController.text = prefs.getString('owner_email') ?? "";
       _passwordController.text = "••••••••"; // Show dots if password is set

@@ -294,6 +294,7 @@ class PetService {
   // --- CREATE VET CONTACT ---
   Future<bool> createVetContact({
     required int ownerId,
+    int? petId,
     required String clinicName,
     required String phone,
     required String email,
@@ -305,6 +306,7 @@ class PetService {
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
           "owner_id": ownerId,
+          "pet_id": petId,
           "clinic_name": clinicName,
           "phone": phone,
           "email": email,
@@ -329,6 +331,7 @@ class PetService {
   Future<bool> updateVetContact({
     required int vetId,
     required int ownerId,
+    int? petId,
     required String clinicName,
     required String phone,
     required String email,
@@ -339,6 +342,7 @@ class PetService {
         Uri.parse("$baseUrl/vets/$vetId"),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
+          "pet_id": petId,
           "clinic_name": clinicName,
           "phone": phone,
           "email": email,

@@ -440,7 +440,7 @@ class _DashboardPageState extends State<DashboardPage> {
               _buildDailySchedule(),
               _actionButtonsSection(context),
               _dailyInfoSection(),
-              _navigationGridSection(),
+              _navigationGridSection(_getPetColor(_selectedPetIndex)),
               const SizedBox(height: 30),
             ],
           ),
@@ -468,10 +468,10 @@ class _DashboardPageState extends State<DashboardPage> {
             children: [
               Text(
                 "Household Schedule: $_selectedDay/${_focusedDay.month}",
-                style: const TextStyle(fontWeight: FontWeight.bold),
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
               IconButton(
-                icon: const Icon(Icons.add_circle, color: Color(0xFF8BAEAE)),
+                icon: Icon(Icons.add_circle, color: Colors.white.withValues(alpha: 0.75)),
                 onPressed: () => _showBookingDialog(_selectedDay!),
               ),
             ],
@@ -479,7 +479,7 @@ class _DashboardPageState extends State<DashboardPage> {
           if (dailyAppts.isEmpty)
             const Text(
               "No appointments today.",
-              style: TextStyle(fontSize: 11, color: Colors.grey),
+              style: TextStyle(fontSize: 15, color: Colors.grey),
             )
           else
             ...dailyAppts.map((appt) {
@@ -505,13 +505,20 @@ class _DashboardPageState extends State<DashboardPage> {
                   title: Text(
                     "$petName: ${appt['appointment_notes'] ?? 'Vet Visit'}",
                     style: const TextStyle(
-                      fontSize: 12,
+                      fontSize: 15,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   subtitle: Text(
-                    appt['pet_appointment_time'],
-                    style: const TextStyle(fontSize: 10),
+                    () {
+                      final t = appt['pet_appointment_time'] as String;
+                      final h = int.parse(t.substring(0, 2));
+                      final min = t.substring(3, 5);
+                      final period = h >= 12 ? 'pm' : 'am';
+                      final hour = h == 0 ? 12 : (h > 12 ? h - 12 : h);
+                      return '$hour:$min$period';
+                    }(),
+                    style: const TextStyle(fontSize: 13),
                   ),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -586,7 +593,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 "${months[_focusedDay.month - 1]} ${_focusedDay.year}",
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
-                  fontSize: 12,
+                  fontSize: 16,
                 ),
               ),
               IconButton(
@@ -643,7 +650,7 @@ class _DashboardPageState extends State<DashboardPage> {
                       child: Center(
                         child: Text(
                           "$day",
-                          style: const TextStyle(fontSize: 10),
+                          style: const TextStyle(fontSize: 13),
                         ),
                       ),
                     ),
@@ -880,16 +887,22 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Widget _calendarHeaderRow() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceAround,
-      children: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
-          .map(
-            (day) => Text(
-              day,
-              style: const TextStyle(fontSize: 10, color: Colors.grey),
-            ),
-          )
-          .toList(),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Row(
+        children: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+            .map(
+              (day) => Expanded(
+                child: Center(
+                  child: Text(
+                    day,
+                    style: const TextStyle(fontSize: 13, color: Colors.grey),
+                  ),
+                ),
+              ),
+            )
+            .toList(),
+      ),
     );
   }
 
@@ -899,30 +912,24 @@ class _DashboardPageState extends State<DashboardPage> {
       final selectedPet = _pets[_selectedPetIndex];
       petName = selectedPet['pet_first_name'] ?? "your pet";
     }
+    final petColor = _getPetColor(_selectedPetIndex);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
       child: Column(
         children: [
-          _infoBox("Daily fun fact for $petName:", _dailyFact),
+          _infoBox("Daily fun fact for $petName:", _dailyFact, petColor),
           const SizedBox(height: 10),
-          _infoBox("Advice for $petName:", _dailyAdvice),
+          _infoBox("Advice for $petName:", _dailyAdvice, petColor),
         ],
       ),
     );
   }
 
-  Widget _navigationGridSection() {
+  Widget _navigationGridSection(Color petColor) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.4),
-          borderRadius: BorderRadius.circular(15),
-          border: Border.all(color: Colors.white24),
-        ),
-        child: GridView.count(
+      child: GridView.count(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           crossAxisCount: 4,
@@ -931,6 +938,7 @@ class _DashboardPageState extends State<DashboardPage> {
           children: [
             _gridButton(
               "Generate\nreport",
+              petColor,
               onTap: () {
                 if (_pets.isNotEmpty) {
                   Navigator.push(
@@ -954,6 +962,7 @@ class _DashboardPageState extends State<DashboardPage> {
             ),
             _gridButton(
               "Health\nrecords",
+              petColor,
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -963,6 +972,7 @@ class _DashboardPageState extends State<DashboardPage> {
             ),
             _gridButton(
               "Feeding\nschedule",
+              petColor,
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -971,26 +981,26 @@ class _DashboardPageState extends State<DashboardPage> {
               ),
             ),
             _gridButton(
-              "Vet\ncontacts",
+              "Household\nvet contacts",
+              petColor,
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => const VetContactsPage(),
+                  builder: (context) => VetContactsPage(pets: _pets, selectedPetIndex: _selectedPetIndex),
                 ),
               ),
             ),
           ],
         ),
-      ),
     );
   }
 
-  Widget _infoBox(String title, String content) {
+  Widget _infoBox(String title, String content, Color petColor) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.5),
+        color: petColor.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Colors.black12),
       ),
@@ -998,21 +1008,21 @@ class _DashboardPageState extends State<DashboardPage> {
         children: [
           Text(
             title,
-            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 4),
-          Text(content, style: const TextStyle(fontSize: 10)),
+          Text(content, style: const TextStyle(fontSize: 14)),
         ],
       ),
     );
   }
 
-  Widget _gridButton(String label, {VoidCallback? onTap}) {
+  Widget _gridButton(String label, Color petColor, {VoidCallback? onTap}) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.5),
+          color: petColor.withValues(alpha: 0.35),
           borderRadius: BorderRadius.circular(15),
           border: Border.all(color: Colors.black12),
         ),
@@ -1020,7 +1030,7 @@ class _DashboardPageState extends State<DashboardPage> {
           child: Text(
             label,
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold),
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
           ),
         ),
       ),
@@ -1039,36 +1049,125 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Widget _actionButtonsSection(BuildContext context) {
-    // Get the name of the currently selected pet, default to "Pet" if list is empty
     String currentPetName = _pets.isNotEmpty
         ? _pets[_selectedPetIndex]['pet_first_name']
         : "Pet";
+    final petColor = _getPetColor(_selectedPetIndex);
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 20.0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          // Pass the name to the helper
-          _actionButton(context, "Log $currentPetName's daily\nmetrics"),
-          _actionButton(context, "$currentPetName's recently\nlogged data"),
-          _actionButton(context, "Find out\nmore about $currentPetName"),
-          const Column(
-            children: [
-              Icon(
-                Icons.sentiment_very_satisfied,
-                size: 40,
-                color: Colors.orange,
-              ),
-              Text("Current mood", style: TextStyle(fontSize: 8)),
-            ],
-          ),
+          _actionButton(context, "Log $currentPetName's daily\nmetrics", petColor),
+          _actionButton(context, "$currentPetName's recently\nlogged data", petColor),
+          _actionButton(context, "Find out\nmore about $currentPetName", petColor),
+          _upcomingAppointmentButton(context, petColor),
         ],
       ),
     );
   }
 
-  Widget _actionButton(BuildContext context, String text) {
+  Widget _upcomingAppointmentButton(BuildContext context, Color petColor) {
+    Map<String, dynamic>? next;
+
+    if (_pets.isNotEmpty) {
+      final currentPetId = _pets[_selectedPetIndex]['pet_id'];
+      final now = DateTime.now();
+      final todayStr =
+          "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
+
+      final upcoming = _appointments
+          .where((a) =>
+              a['pet_id'] == currentPetId &&
+              a['appointment_status'] == 'Scheduled' &&
+              (a['pet_appointment_date'] as String).compareTo(todayStr) >= 0)
+          .toList();
+
+      upcoming.sort((a, b) => (a['pet_appointment_date'] as String)
+          .compareTo(b['pet_appointment_date'] as String));
+
+      next = upcoming.isNotEmpty ? upcoming.first : null;
+    }
+
+    final petName = _pets.isNotEmpty
+        ? _pets[_selectedPetIndex]['pet_first_name'] as String
+        : '';
+
+    String label;
+    if (next != null) {
+      final parts = (next['pet_appointment_date'] as String).split('-');
+      const months = [
+        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      ];
+      final day = int.parse(parts[2]);
+      final month = months[int.parse(parts[1]) - 1];
+      label = "$petName\nAppt: $day $month";
+    } else {
+      label = "No upcoming\nappointment";
+    }
+
+    return InkWell(
+      onTap: next == null
+          ? null
+          : () {
+              final timeStr = next!['pet_appointment_time'] as String;
+              final timeParts = timeStr.split(':');
+              final hour = int.parse(timeParts[0]);
+              final min = timeParts[1];
+              final period = hour >= 12 ? 'pm' : 'am';
+              final displayHour =
+                  hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
+              final notes = (next['appointment_notes'] as String?) ?? '';
+
+              showDialog(
+                context: context,
+                builder: (_) => AlertDialog(
+                  title: const Text("Next Appointment"),
+                  content: Text(
+                    "${next!['pet_appointment_date']}  $displayHour:$min$period"
+                    "${notes.isNotEmpty ? '\n\n$notes' : ''}",
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text("Close"),
+                    ),
+                  ],
+                ),
+              );
+            },
+      child: Container(
+        width: 100,
+        height: 90,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: petColor.withValues(alpha: 0.35),
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(color: Colors.black12),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.calendar_today,
+              size: 24,
+              color: next != null ? const Color(0xFF8BAEAE) : Colors.grey,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _actionButton(BuildContext context, String text, Color petColor) {
     return InkWell(
       onTap: () {
         if (_pets.isEmpty) return; // Guard clause if data isn't loaded
@@ -1107,18 +1206,18 @@ class _DashboardPageState extends State<DashboardPage> {
         }
       },
       child: Container(
-        width: 90,
+        width: 100,
         height: 90,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.5),
+          color: petColor.withValues(alpha: 0.35),
           borderRadius: BorderRadius.circular(15),
           border: Border.all(color: Colors.black12),
         ),
         child: Text(
           text,
           textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold),
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
         ),
       ),
     );
