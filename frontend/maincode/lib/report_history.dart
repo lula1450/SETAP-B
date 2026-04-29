@@ -657,7 +657,7 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
                           const Text(
                             'Select Pet',
                             style: TextStyle(
-                              fontSize: 12,
+                              fontSize: 15,
                               fontWeight: FontWeight.bold,
                               color: Colors.black,
                             ),
@@ -695,7 +695,7 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
                                     child: Text(
                                       pet['pet_first_name'],
                                       style: TextStyle(
-                                        fontSize: 11,
+                                        fontSize: 13,
                                         fontWeight: FontWeight.bold,
                                         color: isSelected
                                             ? const Color(0xFF8BAEAE)
