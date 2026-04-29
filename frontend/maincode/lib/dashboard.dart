@@ -14,7 +14,6 @@ import 'package:maincode/services/advice_service.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:maincode/widgets/app_drawer.dart';
 
-
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
 

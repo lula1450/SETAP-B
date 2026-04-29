@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart'; // Make sure to run 'flutter pub add fl_chart'
 import 'package:maincode/services/pet_service.dart';
@@ -7,6 +8,7 @@ import 'dart:ui' as ui;
 import 'dart:typed_data';
 import 'package:flutter/rendering.dart';
 import 'package:maincode/widgets/app_drawer.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ReportsPage extends StatefulWidget {
   final int petId;
@@ -22,8 +24,9 @@ class _ReportsPageState extends State<ReportsPage> {
   final PetService _service = PetService();
   Map<String, dynamic> _analysisData = {};
   bool _isLoading = true;
-  String _selectedMetric = "weight"; // Default to weight
-  List<String> _availableMetrics = []; // available metrics fetched from backend
+  String _selectedMetric = "weight";
+  List<String> _availableMetrics = [];
+  final Set<String> _customMetrics = {};
   final GlobalKey _chartKey = GlobalKey();
   DateTimeRange? _selectedDateRange;
 
@@ -38,9 +41,23 @@ class _ReportsPageState extends State<ReportsPage> {
     setState(() => _isLoading = true);
     try {
       final metrics = await _service.getLoggedMetrics(widget.petId);
+
+      final prefs = await SharedPreferences.getInstance();
+      final customNames = prefs.getStringList('custom_metrics_${widget.petId}') ?? [];
+      final customKeys = <String>[];
+      for (final name in customNames) {
+        final key = name.toLowerCase().replaceAll(' ', '_');
+        final histRaw = prefs.getString('custom_history_${widget.petId}_$key') ?? '[]';
+        final entries = jsonDecode(histRaw) as List;
+        if (entries.isNotEmpty) {
+          customKeys.add(key);
+          _customMetrics.add(key);
+        }
+      }
+
       if (!mounted) return;
       setState(() {
-        _availableMetrics = metrics;
+        _availableMetrics = [...customKeys, ...metrics];
         if (!_availableMetrics.contains(_selectedMetric) && _availableMetrics.isNotEmpty) {
           _selectedMetric = _availableMetrics.first;
         }
@@ -48,8 +65,72 @@ class _ReportsPageState extends State<ReportsPage> {
     } catch (e) {
       debugPrint('Failed to fetch available metrics: $e');
     }
-    // Then load the analysis for the selected metric
     await _loadData();
+  }
+
+  DateTime _parseCustomTime(String t) {
+    const months = {
+      'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4, 'May': 5, 'Jun': 6,
+      'Jul': 7, 'Aug': 8, 'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12,
+    };
+    try {
+      final parts = t.split(', ');
+      final dateParts = parts[0].split(' ');
+      final timeParts = parts[1].split(':');
+      return DateTime(
+        int.parse(dateParts[2]), months[dateParts[1]]!, int.parse(dateParts[0]),
+        int.parse(timeParts[0]), int.parse(timeParts[1]),
+      );
+    } catch (_) {
+      return DateTime(2000);
+    }
+  }
+
+  Future<Map<String, dynamic>> _loadCustomMetricData(String metricKey) async {
+    final prefs = await SharedPreferences.getInstance();
+    final histRaw = prefs.getString('custom_history_${widget.petId}_$metricKey') ?? '[]';
+    var entries = (jsonDecode(histRaw) as List)
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
+
+    entries.sort((a, b) => _parseCustomTime(a['time']?.toString() ?? '')
+        .compareTo(_parseCustomTime(b['time']?.toString() ?? '')));
+
+    if (_selectedDateRange != null) {
+      final rangeEnd = _selectedDateRange!.end.add(const Duration(days: 1));
+      entries = entries.where((e) {
+        final t = _parseCustomTime(e['time']?.toString() ?? '');
+        return !t.isBefore(_selectedDateRange!.start) && t.isBefore(rangeEnd);
+      }).toList();
+    }
+
+    final numericEntries = entries
+        .where((e) => double.tryParse(e['value'].toString()) != null)
+        .toList();
+
+    if (numericEntries.isEmpty) {
+      return {"message": "No numeric data to display", "points": [], "is_risk": false};
+    }
+
+    final values = numericEntries.map((e) => double.parse(e['value'].toString())).toList();
+    final current = values.last;
+    final baseline = values.reduce((a, b) => a + b) / values.length;
+    final isRisk = baseline != 0 && (current - baseline).abs() / baseline >= 0.15;
+
+    final points = List.generate(numericEntries.length, (i) => {
+      "x": i,
+      "y": values[i],
+      "date": numericEntries[i]['time']?.toString() ?? '',
+    });
+
+    return {
+      "metric": metricKey,
+      "is_risk": isRisk,
+      "baseline": baseline,
+      "current": current,
+      "message": isRisk ? "Significant change detected!" : "Health stable",
+      "points": points,
+    };
   }
 
   // Capture the chart widget as PNG bytes
@@ -60,37 +141,48 @@ class _ReportsPageState extends State<ReportsPage> {
     return byteData!.buffer.asUint8List();
   }
 
-  // Show native date range picker and refresh data when chosen
   Future<void> _selectDateRange() async {
-    final DateTimeRange? picked = await showDateRangePicker(
-      context: context,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
-      initialDateRange: _selectedDateRange,
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: Color(0xFF8BAEAE), // Matches app theme
-            ),
-          ),
-          child: child!,
-        );
-      },
+    final theme = Theme.of(context).copyWith(
+      colorScheme: const ColorScheme.light(
+        primary: Color(0xFF8BAEAE),
+        onSurface: Colors.black87,
+      ),
     );
 
-    if (picked != null) {
-      setState(() => _selectedDateRange = picked);
-      _loadData(); // reload with new range
-    }
+    final start = await showDatePicker(
+      context: context,
+      initialDate: _selectedDateRange?.start ?? DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+      helpText: 'SELECT START DATE',
+      builder: (context, child) => Theme(data: theme, child: child!),
+    );
+    if (start == null || !mounted) return;
+
+    final end = await showDatePicker(
+      context: context,
+      initialDate: _selectedDateRange?.end ?? DateTime.now(),
+      firstDate: start,
+      lastDate: DateTime.now(),
+      helpText: 'SELECT END DATE',
+      builder: (context, child) => Theme(data: theme, child: child!),
+    );
+    if (end == null) return;
+
+    setState(() => _selectedDateRange = DateTimeRange(start: start, end: end));
+    _loadData();
   }
 
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
-    // Standardizing the metric name for the backend
-    final String? start = _selectedDateRange?.start.toIso8601String();
-    final String? end = _selectedDateRange?.end.toIso8601String();
-    final data = await _service.getMetricAnalysis(widget.petId, _selectedMetric, startDate: start, endDate: end);
+    final Map<String, dynamic> data;
+    if (_customMetrics.contains(_selectedMetric)) {
+      data = await _loadCustomMetricData(_selectedMetric);
+    } else {
+      final String? start = _selectedDateRange?.start.toIso8601String();
+      final String? end = _selectedDateRange?.end.toIso8601String();
+      data = await _service.getMetricAnalysis(widget.petId, _selectedMetric, startDate: start, endDate: end);
+    }
     if (!mounted) return;
     setState(() {
       _analysisData = data;
@@ -142,7 +234,6 @@ class _ReportsPageState extends State<ReportsPage> {
 
     return Scaffold(
       endDrawer: const AppDrawer(),
-      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: Text('Health: ${widget.petName}'),
         backgroundColor: const Color(0xFF8BAEAE),
@@ -157,6 +248,7 @@ class _ReportsPageState extends State<ReportsPage> {
         ],
       ),
       body: Container(
+        constraints: const BoxConstraints.expand(),
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
@@ -236,7 +328,7 @@ class _ReportsPageState extends State<ReportsPage> {
                         // Capture the chart image from the RepaintBoundary
                         Uint8List chartImage = await _capturePng();
                         // Generate and preview the PDF with the captured image
-                        await PdfHelper.generateReport(widget.petName, _analysisData, chartImage);
+                        await PdfHelper.generateReport(widget.petName, _analysisData, chartImage, dateRange: _selectedDateRange);
                       } catch (e) {
                         debugPrint('PDF preview error: $e');
                         if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not generate preview')));
@@ -310,7 +402,7 @@ class _ReportsPageState extends State<ReportsPage> {
         children: [
           Row(
             children: [
-              Icon(isRisk ? Icons.warning : Icons.check_circle, 
+              Icon(isRisk ? Icons.warning : Icons.check_circle,
                    color: isRisk ? Colors.red : Colors.teal),
               const SizedBox(width: 10),
               Text(
@@ -319,8 +411,10 @@ class _ReportsPageState extends State<ReportsPage> {
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          Text(_analysisData['message'] ?? 'Gathering data...'),
+          if (isRisk) ...[
+            const SizedBox(height: 10),
+            Text((_analysisData['message'] ?? '').replaceAll(RegExp(r'[\u{1F000}-\u{1FFFF}]|[\u{2600}-\u{27BF}]', unicode: true), '').trim()),
+          ],
         ],
       ),
     );

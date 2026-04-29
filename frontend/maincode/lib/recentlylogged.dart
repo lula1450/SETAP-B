@@ -21,6 +21,7 @@ class RecentlyLoggedDataPage extends StatefulWidget {
 class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
   final PetService _service = PetService();
   late Future<List<Map<String, dynamic>>> _historyFuture;
+  final List<Map<String, dynamic>> _loadedLogs = [];
 
   @override
   void initState() {
@@ -49,7 +50,7 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
         final entries = jsonDecode(histRaw) as List;
         for (final e in entries) {
           all.add({
-            'metric': e['metric'],
+            'metric': key,
             'display': e['display'] ?? name,
             'value': e['value'],
             'unit': e['unit'] ?? '',
@@ -83,6 +84,104 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
     }
   }
 
+  Future<void> _deleteLog(Map<String, dynamic> log, int index) async {
+    setState(() => _loadedLogs.removeAt(index));
+
+    final isCustom = log['isCustom'] == true;
+    bool success = isCustom
+        ? await _deleteCustomLog(log)
+        : await _service.deleteHealthLog(widget.petId, log['id'] as int? ?? -1);
+
+    if (!success && mounted) {
+      setState(() => _loadedLogs.insert(index, log));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to delete log entry.')),
+      );
+    }
+  }
+
+  Future<bool> _deleteCustomLog(Map<String, dynamic> log) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final metric = log['metric'] as String;
+      final key = 'custom_history_${widget.petId}_$metric';
+      final histRaw = prefs.getString(key) ?? '[]';
+      
+      debugPrint('Attempting to delete: metric=$metric, key=$key');
+      debugPrint('Current storage: $histRaw');
+      
+      final entries = List<Map<String, dynamic>>.from(
+        (jsonDecode(histRaw) as List).map((e) => Map<String, dynamic>.from(e as Map)),
+      );
+      
+      final initialLength = entries.length;
+      debugPrint('Entries before delete: $initialLength');
+      
+      entries.removeWhere((e) {
+        final matches = e['time'] == log['time'] && 
+               e['value'].toString() == log['value'].toString() &&
+               e['metric'] == metric;
+        if (matches) {
+          debugPrint('Found match: $e');
+        }
+        return matches;
+      });
+      
+      debugPrint('Entries after delete: ${entries.length}');
+      
+      if (entries.length < initialLength) {
+        await prefs.setString(key, jsonEncode(entries));
+        debugPrint('Successfully deleted and saved');
+        return true;
+      } else {
+        debugPrint('No entries were deleted');
+        return false;
+      }
+    } catch (e) {
+      debugPrint('Error deleting custom log: $e');
+      return false;
+    }
+  }
+
+  void _showLogDetails(BuildContext context, Map<String, dynamic> log, int index, String displayName, bool isCustom) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(displayName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Text('Value: ${log['value']} ${log['unit']}', style: const TextStyle(fontSize: 15)),
+            const SizedBox(height: 4),
+            Text('Logged: ${log['time']}', style: const TextStyle(color: Colors.grey)),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.delete),
+                label: const Text('Delete entry'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red.shade400,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () async {
+                  Navigator.pop(ctx);
+                  await _deleteLog(log, index);
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -96,11 +195,19 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
-          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return const Center(child: Text('No data logged yet.'));
           }
 
-          final logs = snapshot.data!;
+          if (snapshot.hasError) {
+            return Center(child: Text('Error: ${snapshot.error}'));
+          }
+
+          if (_loadedLogs.isEmpty && snapshot.hasData && snapshot.data != null && snapshot.data!.isNotEmpty) {
+            _loadedLogs.addAll(snapshot.data!);
+          }
+
+          if (_loadedLogs.isEmpty) {
+            return const Center(child: Text('No data logged yet.'));
+          }
 
           return Container(
             decoration: const BoxDecoration(
@@ -112,18 +219,20 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
             ),
             child: ListView.builder(
               padding: const EdgeInsets.all(16),
-              itemCount: logs.length,
+              itemCount: _loadedLogs.length,
               itemBuilder: (context, index) {
-                final log = logs[index];
+                final log = _loadedLogs[index];
                 final isCustom = log['isCustom'] == true;
                 final displayName = isCustom
                     ? (log['display'] as String? ?? (log['metric'] as String).replaceAll('_', ' '))
                     : (log['metric'] as String).replaceAll('_', ' ').toUpperCase();
 
                 return Card(
+                  key: ValueKey('${log['metric']}_${log['time']}_$index'),
                   margin: const EdgeInsets.only(bottom: 12),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   child: ListTile(
+                    onTap: () => _showLogDetails(context, log, index, displayName, isCustom),
                     leading: CircleAvatar(
                       backgroundColor: isCustom
                           ? Colors.purple.withValues(alpha: 0.15)
