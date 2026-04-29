@@ -83,7 +83,7 @@ class AppDrawer extends StatelessWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => const NotificationPage(),
+                  builder: (context) => const NotificationSettingsPage(),
                 ),
               );
             },
