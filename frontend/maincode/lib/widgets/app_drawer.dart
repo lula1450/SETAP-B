@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:maincode/login_page.dart';
 import 'package:maincode/edit_profile.dart';
+import 'package:maincode/notfications.dart';
 import 'package:maincode/report_history.dart';
 import 'package:maincode/services/auth_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -73,7 +74,20 @@ class AppDrawer extends StatelessWidget {
               );
             },
           ),
-          _drawerTile(context, Icons.notifications, 'Notifications'),
+          _drawerTile(
+            context,
+            Icons.notifications,
+            'Notifications',
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const NotificationSettingsPage(),
+                ),
+              );
+            },
+          ),
           _drawerTile(
             context,
             Icons.palette,
