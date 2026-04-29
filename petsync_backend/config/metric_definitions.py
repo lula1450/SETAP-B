@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from petsync_backend.models import MetricDefinition, MetricName, MetricUnit
+from petsync_backend.models import MetricDefinition, MetricName, MetricUnit, SpeciesType
 
 UNIT_MAPPING = {
     MetricName.weight: MetricUnit.kg,
@@ -22,15 +22,42 @@ UNIT_MAPPING = {
     MetricName.wheel_activity: MetricUnit.minutes_day,
 }
 
-SKIP_METRICS = {MetricName.notes, MetricName.custom}
+SPECIES_METRICS = {
+    SpeciesType.dog: [
+        MetricName.weight, MetricName.energy_level, MetricName.appetite,
+        MetricName.water_intake, MetricName.stool_quality,
+        MetricName.grooming_frequency, MetricName.vomit_events,
+    ],
+    SpeciesType.cat: [
+        MetricName.weight, MetricName.energy_level, MetricName.appetite,
+        MetricName.water_intake, MetricName.stool_quality,
+        MetricName.litter_box_usage, MetricName.grooming_frequency, MetricName.vomit_events,
+    ],
+    SpeciesType.rabbit: [
+        MetricName.weight, MetricName.appetite, MetricName.water_intake,
+        MetricName.stool_pellets, MetricName.chewing_behaviour, MetricName.grooming_frequency,
+    ],
+    SpeciesType.hamster: [
+        MetricName.weight, MetricName.water_intake, MetricName.wheel_activity,
+        MetricName.chewing_behaviour, MetricName.grooming_frequency,
+    ],
+    SpeciesType.bird: [
+        MetricName.weight, MetricName.appetite, MetricName.water_intake,
+        MetricName.feather_condition, MetricName.wing_strength,
+        MetricName.perch_activity, MetricName.vocalisation_level,
+    ],
+    SpeciesType.snake: [
+        MetricName.weight, MetricName.appetite, MetricName.water_intake,
+        MetricName.shedding_quality, MetricName.basking_time, MetricName.humidity_level,
+    ],
+}
 
 
 def seed_metric_definitions(db: Session, species_objects: list) -> None:
     print("Seeding Metric Definitions...")
     for s_obj in species_objects:
-        for m_name in MetricName:
-            if m_name in SKIP_METRICS:
-                continue
+        relevant = SPECIES_METRICS.get(s_obj.species_name, list(UNIT_MAPPING.keys()))
+        for m_name in relevant:
             correct_unit = UNIT_MAPPING.get(m_name, MetricUnit.text)
             exists = db.query(MetricDefinition).filter(
                 MetricDefinition.species_id == s_obj.species_id,

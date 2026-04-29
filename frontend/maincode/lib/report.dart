@@ -186,23 +186,37 @@ class _ReportsPageState extends State<ReportsPage> {
                         },
                       ),
                     ),
-                  const Text("Trend Analysis", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 10),
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8.0),
-                    child: Row(
-                      children: const [
-                        Icon(Icons.info_outline, size: 16, color: Colors.black54),
-                        SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Note: The analysis flags significant changes when the current value deviates by 15% or more from the baseline.',
-                            style: TextStyle(fontSize: 12, color: Colors.black54),
+                  Row(
+                    children: [
+                      const Text("Trend Analysis", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: () => showDialog(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                            title: const Text("About This Analysis"),
+                            content: const Text(
+                              'The analysis flags significant changes when the current value deviates by 15% or more from the baseline.',
+                            ),
+                            actions: [
+                              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Got it")),
+                            ],
                           ),
                         ),
-                      ],
-                    ),
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.3),
+                            borderRadius: BorderRadius.circular(30),
+                            border: Border.all(color: Colors.grey.shade300),
+                          ),
+                          child: Icon(Icons.info_outline, color: Colors.blueGrey[700], size: 18),
+                        ),
+                      ),
+                    ],
                   ),
+                  const SizedBox(height: 10),
                   RepaintBoundary(
                     key: _chartKey,
                     child: _buildChart(isRisk),
@@ -320,12 +334,26 @@ class _ReportsPageState extends State<ReportsPage> {
     List<FlSpot> spots = points.map((p) => FlSpot(p['x'].toDouble(), p['y'].toDouble())).toList();
 
     return Container(
-      height: 250,
-      padding: const EdgeInsets.only(right: 20, top: 20),
+      height: 320,
+      padding: const EdgeInsets.only(left: 8, right: 20, top: 20, bottom: 8),
       child: LineChart(
         LineChartData(
           gridData: const FlGridData(show: false),
           titlesData: FlTitlesData(
+            leftTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                reservedSize: 48,
+                getTitlesWidget: (value, meta) => Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: Text(
+                    meta.formattedValue,
+                    style: const TextStyle(fontSize: 10),
+                    textAlign: TextAlign.right,
+                  ),
+                ),
+              ),
+            ),
             bottomTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
@@ -344,19 +372,22 @@ class _ReportsPageState extends State<ReportsPage> {
             topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
             rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
           ),
-           borderData: FlBorderData(show: false),
-           lineBarsData: [
-             LineChartBarData(
-               spots: spots,
-               isCurved: true,
-               color: isRisk ? Colors.red : Colors.teal,
-               barWidth: 5,
-               belowBarData: BarAreaData(show: true, color: (isRisk ? Colors.red : Colors.teal).withOpacity(0.1)),
-             ),
-           ],
-         ),
-       ),
-     );
+          borderData: FlBorderData(show: false),
+          lineBarsData: [
+            LineChartBarData(
+              spots: spots,
+              isCurved: true,
+              color: isRisk ? Colors.red : Colors.teal,
+              barWidth: 5,
+              belowBarData: BarAreaData(
+                show: true,
+                color: (isRisk ? Colors.red : Colors.teal).withValues(alpha: 0.1),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildBaselineInfo() {
@@ -369,7 +400,9 @@ class _ReportsPageState extends State<ReportsPage> {
         title: const Text("Calculated Baseline"),
         subtitle: const Text("Average based on history"),
         trailing: Text(
-          "${_analysisData['baseline'] ?? 'N/A'}",
+          _analysisData['baseline'] != null
+              ? (double.tryParse(_analysisData['baseline'].toString())?.toStringAsFixed(2) ?? 'N/A')
+              : 'N/A',
           style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
         ),
       ),

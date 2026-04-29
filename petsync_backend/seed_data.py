@@ -116,6 +116,16 @@ def seed_data():
         (maisie, MetricName.stool_quality, 4.0, 0.5, "stable"),
     ]
 
+    # Realistic hour ranges (hour_min, hour_max) per metric
+    METRIC_HOURS = {
+        MetricName.weight:        (7, 8),    # morning weigh-in
+        MetricName.energy_level:  (11, 13),  # midday observation
+        MetricName.appetite:      None,       # cycles through meal times below
+        MetricName.water_intake:  (18, 20),  # end-of-day measurement
+        MetricName.stool_quality: (8, 10),   # morning check
+    }
+    MEAL_HOURS = [(7, 8), (12, 13), (18, 19)]  # breakfast, lunch, dinner
+
     for pet, m_name, base, var, trend in scenarios:
         m_def = db.query(MetricDefinition).filter(
             MetricDefinition.species_id == pet.species_id, MetricDefinition.metric_name == m_name
@@ -125,16 +135,25 @@ def seed_data():
                 days_back = i * 2
                 val = base
                 if trend == "recovery":
-                    if i < 10: val -= (i * 0.4) # Dropping
-                    elif i < 20: val = base - 4.0 + random.uniform(-0.2, 0.2) # Bottomed out
-                    else: val = (base - 4.0) + ((i - 20) * 0.4) # Recovering
+                    if i < 10: val -= (i * 0.4)
+                    elif i < 20: val = base - 4.0 + random.uniform(-0.2, 0.2)
+                    else: val = (base - 4.0) + ((i - 20) * 0.4)
                 else:
                     val = base + random.uniform(-var, var)
 
+                hour_range = METRIC_HOURS.get(m_name)
+                if hour_range is None:
+                    h_min, h_max = MEAL_HOURS[i % 3]
+                else:
+                    h_min, h_max = hour_range
+                log_hour = random.randint(h_min, h_max)
+                log_minute = random.randint(0, 59)
+
+                base_day = datetime.utcnow().replace(hour=log_hour, minute=log_minute, second=0, microsecond=0)
                 db.add(HealthMetric(
                     pet_id=pet.pet_id, metric_def_id=m_def.metric_def_id,
                     metric_value=round(val, 2),
-                    metric_time=datetime.utcnow() - timedelta(days=days_back)
+                    metric_time=base_day - timedelta(days=days_back)
                 ))
     db.commit()
 
