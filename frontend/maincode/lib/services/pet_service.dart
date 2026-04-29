@@ -247,6 +247,18 @@ class PetService {
    }
  }
 
+  Future<bool> deleteHealthLog(int metricId) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/health/history/entry/$metricId'),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint("Delete health log error: $e");
+      return false;
+    }
+  }
+
   Future<bool> deletePet(int petId) async {
   try {
     final response = await http.delete(Uri.parse("$baseUrl/pets/$petId"));

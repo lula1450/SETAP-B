@@ -192,10 +192,20 @@ def set_metric_goal(pet_id: int, metric_name: str, goal: str, db: Session = Depe
     db.commit()
     return {"status": "success", "message": f"Goal updated for {metric_name}."}
 
+@router.delete("/history/entry/{metric_id}")
+def delete_health_entry(metric_id: int, db: Session = Depends(get_db)):
+    entry = db.query(HealthMetric).filter(HealthMetric.health_metric_id == metric_id).first()
+    if not entry:
+        raise HTTPException(status_code=404, detail="Log entry not found")
+    db.delete(entry)
+    db.commit()
+    return {"status": "deleted"}
+
 @router.get("/history/{pet_id}")
 async def get_pet_history(pet_id: int, db: Session = Depends(get_db)):
     # Join HealthMetric with MetricDefinition to get the name and unit
     history = db.query(
+        HealthMetric.health_metric_id,
         HealthMetric.metric_value,
         HealthMetric.metric_time,
         MetricDefinition.metric_name,
@@ -208,6 +218,7 @@ async def get_pet_history(pet_id: int, db: Session = Depends(get_db)):
     # Format it for the Flutter list
     return [
         {
+            "id": h.health_metric_id,
             "metric": h.metric_name.value if hasattr(h.metric_name, 'value') else str(h.metric_name),
             "value": h.metric_value,
             "unit": h.metric_unit.value if hasattr(h.metric_unit, 'value') else str(h.metric_unit),

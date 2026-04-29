@@ -2,9 +2,10 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'dart:typed_data';
+import 'package:flutter/material.dart' show DateTimeRange;
 
 class PdfHelper {
-  static Future<void> generateReport(String petName, Map<String, dynamic> data, Uint8List chartImage) async {
+  static Future<void> generateReport(String petName, Map<String, dynamic> data, Uint8List chartImage, {DateTimeRange? dateRange}) async {
     final pdf = pw.Document();
     final image = pw.MemoryImage(chartImage);
 
@@ -21,11 +22,19 @@ class PdfHelper {
             pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
               children: [
-                pw.Text("Clinical Health Report: $petName", 
+                pw.Text("Clinical Health Report: $petName",
                   style: pw.TextStyle(fontSize: 22, fontWeight: pw.FontWeight.bold, color: PdfColors.teal900)),
                 pw.Text(DateTime.now().toString().substring(0, 10), style: const pw.TextStyle(color: PdfColors.grey700)),
               ],
             ),
+            if (dateRange != null)
+              pw.Padding(
+                padding: const pw.EdgeInsets.only(top: 6),
+                child: pw.Text(
+                  "Date range: ${dateRange.start.day}/${dateRange.start.month}/${dateRange.start.year} – ${dateRange.end.day}/${dateRange.end.month}/${dateRange.end.year}",
+                  style: const pw.TextStyle(color: PdfColors.grey700),
+                ),
+              ),
             pw.Divider(thickness: 2, color: PdfColors.teal),
             pw.SizedBox(height: 20),
 
@@ -49,13 +58,13 @@ class PdfHelper {
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
                   pw.Text("Clinical Insight:", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-                  pw.Text(data['message'] ?? 'No anomalies detected in the current period.'),
+                  pw.Text((data['message'] ?? 'No anomalies detected in the current period.').replaceAll(RegExp(r'[\u{1F000}-\u{1FFFF}]|[\u{2600}-\u{27BF}]', unicode: true), '').trim()),
                   pw.SizedBox(height: 10),
                   pw.Row(
                     children: [
-                      pw.Text("Baseline Average: ${data['baseline']} "),
+                      pw.Text("Baseline Average: ${(double.tryParse(data['baseline'].toString()) ?? 0.0).toStringAsFixed(2)} "),
                       pw.SizedBox(width: 20),
-                      pw.Text("Latest Reading: ${data['current']}", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                      pw.Text("Latest Reading: ${(double.tryParse(data['current'].toString()) ?? 0.0).toStringAsFixed(2)}", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
                     ],
                   ),
                 ],
