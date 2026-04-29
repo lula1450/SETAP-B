@@ -9,6 +9,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:open_filex/open_filex.dart' as open_file;
+import 'package:printing/printing.dart';
 
 class ReportHistoryPage extends StatefulWidget {
   const ReportHistoryPage({super.key});
@@ -151,14 +152,8 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
 
   Future<void> _openCustomReport(Map<String, dynamic> report) async {
     if (kIsWeb) {
-      // On web, we can't directly open files, so show a message
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('File viewing is not available on web version. File data is stored locally.'),
-          ),
-        );
-      }
+      // On web, show a preview dialog
+      _showWebPreview(report);
     } else {
       // On native platforms, use OpenFilex
       try {
@@ -180,6 +175,94 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
           );
         }
       }
+    }
+  }
+
+  void _showWebPreview(Map<String, dynamic> report) {
+    final fileName = report['name'] as String? ?? 'File';
+    final bytes = report['bytes'] as String?;
+    final extension = fileName.split('.').last.toLowerCase();
+    
+    if (bytes == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('File data not available for preview.')),
+        );
+      }
+      return;
+    }
+
+    // For PDFs, use the Printing package which provides a proper viewer
+    if (extension == 'pdf') {
+      try {
+        final pdfBytes = base64Decode(bytes);
+        showDialog(
+          context: context,
+          builder: (ctx) => Dialog.fullscreen(
+            child: Column(
+              children: [
+                AppBar(
+                  title: Text(fileName),
+                  backgroundColor: const Color(0xFF8BAEAE),
+                  leading: IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
+                ),
+                Expanded(
+                  child: PdfPreview(
+                    build: (format) => pdfBytes,
+                    allowSharing: true,
+                    allowPrinting: true,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error loading PDF: $e')),
+          );
+        }
+      }
+    } else {
+      // For images, show in a dialog
+      showDialog(
+        context: context,
+        builder: (ctx) => Dialog(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AppBar(
+                title: Text(fileName),
+                automaticallyImplyLeading: true,
+                backgroundColor: const Color(0xFF8BAEAE),
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: _buildImagePreview(bytes),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+  }
+
+  Widget _buildImagePreview(String base64Data) {
+    try {
+      final bytes = base64Decode(base64Data);
+      return Image.memory(bytes, fit: BoxFit.contain);
+    } catch (e) {
+      return Center(
+        child: Text('Error loading image: $e'),
+      );
     }
   }
 
@@ -910,6 +993,11 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             IconButton(
+              icon: const Icon(Icons.edit, color: Colors.blue),
+              tooltip: 'Rename',
+              onPressed: () => _showRenameDialog(report, index),
+            ),
+            IconButton(
               icon: const Icon(Icons.open_in_new, color: Color(0xFF8BAEAE)),
               tooltip: 'Open',
               onPressed: () => _openCustomReport(report),
@@ -923,6 +1011,67 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
         ),
       ),
     );
+  }
+
+  void _showRenameDialog(Map<String, dynamic> report, int index) {
+    final currentName = report['name'] as String? ?? 'Custom Report';
+    final controller = TextEditingController(text: currentName);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Rename Report'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            hintText: 'Enter new file name',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              final newName = controller.text.trim();
+              if (newName.isNotEmpty) {
+                _renameCustomReport(index, newName);
+                Navigator.pop(ctx);
+              }
+            },
+            child: const Text('Rename'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _renameCustomReport(int index, String newName) async {
+    if (_selectedPetId == null) return;
+
+    try {
+      final updated = _customReports[index];
+      updated['name'] = newName;
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+          'custom_reports_${_selectedPetId!}', jsonEncode(_customReports));
+
+      if (mounted) {
+        setState(() => _customReports = [..._customReports]);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('File renamed successfully')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error renaming file: $e')),
+        );
+      }
+    }
   }
 
   Widget _backgroundCircle(double size, Color color) {

@@ -106,13 +106,37 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
       final metric = log['metric'] as String;
       final key = 'custom_history_${widget.petId}_$metric';
       final histRaw = prefs.getString(key) ?? '[]';
+      
+      // Debug: Log what we're trying to delete
+      debugPrint('Deleting custom log: metric=$metric, time=${log['time']}, value=${log['value']}');
+      debugPrint('Key: $key');
+      debugPrint('Existing data: $histRaw');
+      
       final entries = List<Map<String, dynamic>>.from(
         (jsonDecode(histRaw) as List).map((e) => Map<String, dynamic>.from(e as Map)),
       );
-      entries.removeWhere((e) => e['time'] == log['time'] && e['value'].toString() == log['value'].toString());
-      await prefs.setString(key, jsonEncode(entries));
-      return true;
-    } catch (_) {
+      
+      final initialLength = entries.length;
+      entries.removeWhere((e) {
+        final matches = e['time'] == log['time'] && 
+                       e['value'].toString() == log['value'].toString() &&
+                       e['metric'] == metric;
+        if (matches) {
+          debugPrint('Found matching entry to delete: $e');
+        }
+        return matches;
+      });
+      
+      if (entries.length < initialLength) {
+        await prefs.setString(key, jsonEncode(entries));
+        debugPrint('Successfully deleted entry. New length: ${entries.length}');
+        return true;
+      } else {
+        debugPrint('No matching entry found to delete');
+        return false;
+      }
+    } catch (e) {
+      debugPrint('Error deleting custom log: $e');
       return false;
     }
   }
