@@ -192,9 +192,12 @@ def set_metric_goal(pet_id: int, metric_name: str, goal: str, db: Session = Depe
     db.commit()
     return {"status": "success", "message": f"Goal updated for {metric_name}."}
 
-@router.delete("/history/entry/{metric_id}")
-def delete_health_entry(metric_id: int, db: Session = Depends(get_db)):
-    entry = db.query(HealthMetric).filter(HealthMetric.health_metric_id == metric_id).first()
+@router.delete("/history/entry/{pet_id}/{metric_id}")
+def delete_health_entry(pet_id: int, metric_id: int, db: Session = Depends(get_db)):
+    entry = db.query(HealthMetric).filter(
+        HealthMetric.health_metric_id == metric_id,
+        HealthMetric.pet_id == pet_id
+    ).first()
     if not entry:
         raise HTTPException(status_code=404, detail="Log entry not found")
     db.delete(entry)

@@ -90,7 +90,7 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
     final isCustom = log['isCustom'] == true;
     bool success = isCustom
         ? await _deleteCustomLog(log)
-        : await _service.deleteHealthLog(log['id'] as int? ?? -1);
+        : await _service.deleteHealthLog(widget.petId, log['id'] as int? ?? -1);
 
     if (!success && mounted) {
       setState(() => _loadedLogs.insert(index, log));
@@ -107,32 +107,34 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
       final key = 'custom_history_${widget.petId}_$metric';
       final histRaw = prefs.getString(key) ?? '[]';
       
-      // Debug: Log what we're trying to delete
-      debugPrint('Deleting custom log: metric=$metric, time=${log['time']}, value=${log['value']}');
-      debugPrint('Key: $key');
-      debugPrint('Existing data: $histRaw');
+      debugPrint('Attempting to delete: metric=$metric, key=$key');
+      debugPrint('Current storage: $histRaw');
       
       final entries = List<Map<String, dynamic>>.from(
         (jsonDecode(histRaw) as List).map((e) => Map<String, dynamic>.from(e as Map)),
       );
       
       final initialLength = entries.length;
+      debugPrint('Entries before delete: $initialLength');
+      
       entries.removeWhere((e) {
         final matches = e['time'] == log['time'] && 
-                       e['value'].toString() == log['value'].toString() &&
-                       e['metric'] == metric;
+               e['value'].toString() == log['value'].toString() &&
+               e['metric'] == metric;
         if (matches) {
-          debugPrint('Found matching entry to delete: $e');
+          debugPrint('Found match: $e');
         }
         return matches;
       });
       
+      debugPrint('Entries after delete: ${entries.length}');
+      
       if (entries.length < initialLength) {
         await prefs.setString(key, jsonEncode(entries));
-        debugPrint('Successfully deleted entry. New length: ${entries.length}');
+        debugPrint('Successfully deleted and saved');
         return true;
       } else {
-        debugPrint('No matching entry found to delete');
+        debugPrint('No entries were deleted');
         return false;
       }
     } catch (e) {

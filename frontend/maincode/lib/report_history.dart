@@ -3,13 +3,17 @@ import 'package:flutter/foundation.dart';
 import 'package:maincode/services/pet_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:maincode/widgets/app_drawer.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart' as p;
-import 'package:open_filex/open_filex.dart' as open_file;
 import 'package:printing/printing.dart';
+
+// Platform-specific imports (guarded for web compatibility)
+import 'package:path/path.dart' as p;
+
+// Native-only imports
+import 'dart:io' show Directory, File;
+import 'package:path_provider/path_provider.dart';
 
 class ReportHistoryPage extends StatefulWidget {
   const ReportHistoryPage({super.key});
@@ -85,6 +89,7 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
 
     // On web, we store the bytes; on native platforms, we store the path
     String storagePath = '';
+    List<int>? fileBytes;
     
     if (kIsWeb) {
       // On web, use bytes - store a base64 encoded version
@@ -98,6 +103,7 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
       }
       // Create a simple identifier for web files
       storagePath = 'web_${DateTime.now().millisecondsSinceEpoch}_${picked.name}';
+      fileBytes = picked.bytes;
     } else {
       // On native platforms, use the file path
       if (picked.path == null) return;
@@ -115,7 +121,7 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
       'name': picked.name,
       'path': storagePath,
       'date': DateTime.now().toIso8601String(),
-      if (kIsWeb) 'bytes': picked.bytes != null ? _bytesToBase64(picked.bytes!) : null,
+      if (kIsWeb && fileBytes != null) 'bytes': _bytesToBase64(fileBytes),
     };
 
     final prefs = await SharedPreferences.getInstance();
@@ -152,14 +158,24 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
 
   Future<void> _openCustomReport(Map<String, dynamic> report) async {
     if (kIsWeb) {
-      // On web, show a preview dialog
+      // On web, show a preview dialog with bytes
       _showWebPreview(report);
     } else {
-      // On native platforms, use OpenFilex
+      // On native platforms, read from file and preview
       try {
         final path = report['path'] as String;
-        if (await File(path).exists()) {
-          await _openFile(path);
+        final file = File(path);
+        
+        if (await file.exists()) {
+          final fileBytes = await file.readAsBytes();
+          final fileName = report['name'] as String? ?? 'File';
+          final extension = fileName.split('.').last.toLowerCase();
+          
+          if (extension == 'pdf') {
+            _showNativePdfPreview(fileName, fileBytes);
+          } else {
+            _showNativeImagePreview(fileName, fileBytes);
+          }
         } else {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -211,7 +227,7 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
                 ),
                 Expanded(
                   child: PdfPreview(
-                    build: (format) => pdfBytes,
+                    build: (format) async => pdfBytes,
                     allowSharing: true,
                     allowPrinting: true,
                   ),
@@ -232,23 +248,26 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
       showDialog(
         context: context,
         builder: (ctx) => Dialog(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              AppBar(
-                title: Text(fileName),
-                automaticallyImplyLeading: true,
-                backgroundColor: const Color(0xFF8BAEAE),
-              ),
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: _buildImagePreview(bytes),
+          child: SizedBox(
+            width: MediaQuery.of(ctx).size.width * 0.9,
+            height: MediaQuery.of(ctx).size.height * 0.8,
+            child: Column(
+              children: [
+                AppBar(
+                  title: Text(fileName),
+                  automaticallyImplyLeading: true,
+                  backgroundColor: const Color(0xFF8BAEAE),
+                ),
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: _buildImagePreview(bytes),
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       );
@@ -266,18 +285,60 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
     }
   }
 
-  Future<void> _openFile(String path) async {
-    try {
-      // On native platforms, use open_filex to open the file with system default app
-      await open_file.OpenFilex.open(path);
-    } catch (e) {
-      debugPrint('Error opening file: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not open file: $e')),
-        );
-      }
-    }
+  void _showNativePdfPreview(String fileName, List<int> fileBytes) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog.fullscreen(
+        child: Column(
+          children: [
+            AppBar(
+              title: Text(fileName),
+              backgroundColor: const Color(0xFF8BAEAE),
+              leading: IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => Navigator.pop(ctx),
+              ),
+            ),
+            Expanded(
+              child: PdfPreview(
+                build: (format) async => Uint8List.fromList(fileBytes),
+                allowSharing: true,
+                allowPrinting: true,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showNativeImagePreview(String fileName, List<int> fileBytes) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        child: SizedBox(
+          width: MediaQuery.of(ctx).size.width * 0.9,
+          height: MediaQuery.of(ctx).size.height * 0.8,
+          child: Column(
+            children: [
+              AppBar(
+                title: Text(fileName),
+                automaticallyImplyLeading: true,
+                backgroundColor: const Color(0xFF8BAEAE),
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Image.memory(Uint8List.fromList(fileBytes), fit: BoxFit.contain),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _fetchReportsForPet(int petId) async {
@@ -1053,7 +1114,17 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
 
     try {
       final updated = _customReports[index];
-      updated['name'] = newName;
+      final oldName = updated['name'] as String? ?? '';
+      
+      // Preserve the original file extension
+      final oldExtension = oldName.contains('.')
+          ? '.${oldName.split('.').last}'
+          : '';
+      
+      // Add extension if user didn't provide one
+      final finalName = newName.contains('.') ? newName : '$newName$oldExtension';
+      
+      updated['name'] = finalName;
 
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(
