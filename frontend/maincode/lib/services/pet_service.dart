@@ -22,13 +22,14 @@ class PetService {
   }
 
   // --- 2. CREATE PET ---
-  Future<bool> createPet({
+  // Returns the new pet's ID on success, or -1 on failure.
+  Future<int> createPet({
     required String pet_first_name,
     required String pet_last_name,
     required int species_id,
   }) async {
     final prefs = await SharedPreferences.getInstance();
-    
+
     final int? ownerId = prefs.getInt('owner_id');
     final String? ownerAddr = prefs.getString('owner_address1');
     final String? ownerPost = prefs.getString('owner_postcode');
@@ -36,12 +37,12 @@ class PetService {
 
     if (ownerId == null) {
       debugPrint("Error: No owner_id found in SharedPreferences");
-      return false;
+      return -1;
     }
 
     try {
       final response = await http.post(
-        Uri.parse("$baseUrl/pets/create"), 
+        Uri.parse("$baseUrl/pets/create"),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
           "pet_first_name": pet_first_name,
@@ -53,10 +54,14 @@ class PetService {
           "pet_city": ownerCity ?? "City not set",
         }),
       );
-      return response.statusCode == 200 || response.statusCode == 201;
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final body = json.decode(response.body);
+        return body['pet_id'] as int;
+      }
+      return -1;
     } catch (e) {
       debugPrint("Connection Error: $e");
-      return false;
+      return -1;
     }
   }
 
@@ -268,6 +273,28 @@ class PetService {
     return false;
   }
 }
+
+  Future<bool> renamePet(int petId, Map<String, dynamic> petData, String newFirstName, String newLastName) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl/pets/$petId'),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "pet_first_name": newFirstName,
+          "pet_last_name": newLastName,
+          "species_id": petData['species_id'],
+          "owner_id": petData['owner_id'],
+          "pet_address1": petData['pet_address1'] ?? "Address not set",
+          "pet_postcode": petData['pet_postcode'] ?? "Postcode not set",
+          "pet_city": petData['pet_city'] ?? "City not set",
+        }),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint("Rename pet error: $e");
+      return false;
+    }
+  }
 
   Future<bool> updatePetImage(int petId, String imagePath) async {
    final response = await http.put(

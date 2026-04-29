@@ -15,7 +15,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:maincode/widgets/app_drawer.dart';
 
 class DashboardPage extends StatefulWidget {
-  const DashboardPage({super.key});
+  final int? initialPetId;
+  const DashboardPage({super.key, this.initialPetId});
 
   @override
   State<DashboardPage> createState() => _DashboardPageState();
@@ -232,6 +233,73 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
+  void _renamePetDialog(Map<String, dynamic> pet) async {
+    final firstNameController = TextEditingController(text: pet['pet_first_name'] ?? '');
+    final lastNameController = TextEditingController(text: pet['pet_last_name'] ?? '');
+    final messenger = ScaffoldMessenger.of(context);
+
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        title: const Text("Edit Pet Name"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: firstNameController,
+              decoration: InputDecoration(
+                labelText: "First Name",
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: lastNameController,
+              decoration: InputDecoration(
+                labelText: "Last Name (Optional)",
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () async {
+              final newFirst = firstNameController.text.trim();
+              if (newFirst.isEmpty) return;
+              Navigator.pop(context);
+              final success = await _petService.renamePet(
+                pet['pet_id'],
+                pet,
+                newFirst,
+                lastNameController.text.trim(),
+              );
+              if (success) {
+                _fetchPets();
+                messenger.showSnackBar(
+                  SnackBar(content: Text("${pet['pet_first_name']} renamed to $newFirst")),
+                );
+              } else {
+                messenger.showSnackBar(
+                  const SnackBar(content: Text("Failed to rename pet")),
+                );
+              }
+            },
+            child: const Text("Save"),
+          ),
+        ],
+      ),
+    );
+
+    firstNameController.dispose();
+    lastNameController.dispose();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -261,6 +329,10 @@ class _DashboardPageState extends State<DashboardPage> {
             _isLoading = false;
 
             if (_pets.isNotEmpty) {
+              if (widget.initialPetId != null) {
+                final idx = _pets.indexWhere((p) => p['pet_id'] == widget.initialPetId);
+                if (idx != -1) _selectedPetIndex = idx;
+              }
               _updateDailyFact();
               _updateDailyAdvice();
             }
@@ -723,17 +795,23 @@ class _DashboardPageState extends State<DashboardPage> {
               Navigator.pop(context);
               _fetchAppointments();
             },
-            // ADD THE DELETE ICON HERE
-            trailing: IconButton(
-              icon: const Icon(
-                Icons.delete_outline,
-                color: Colors.redAccent,
-                size: 20,
-              ),
-              onPressed: () {
-                // We'll define this function next
-                _deletePet(pet['pet_id'], pet['pet_first_name']);
-              },
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.edit_outlined, color: Colors.blueGrey, size: 20),
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _renamePetDialog(pet);
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+                  onPressed: () {
+                    _deletePet(pet['pet_id'], pet['pet_first_name']);
+                  },
+                ),
+              ],
             ),
           );
         },
@@ -806,7 +884,7 @@ class _DashboardPageState extends State<DashboardPage> {
           "CHANGE",
           style: TextStyle(
             color: Colors.black,
-            fontSize: 7,
+            fontSize: 11,
             fontWeight: FontWeight.bold,
           ),
         ),
