@@ -74,6 +74,16 @@ async def analyze_health_metric(pet_id, metric_name, current_value, metric_def, 
 
 # --- 3. ROUTES ---
 
+@router.get("/metrics/{pet_id}")
+def get_available_metrics(pet_id: int, db: Session = Depends(get_db)):
+    pet = db.query(Pet).filter(Pet.pet_id == pet_id).first()
+    if not pet:
+        raise HTTPException(status_code=404, detail="Pet not found")
+    definitions = db.query(MetricDefinition).filter(
+        MetricDefinition.species_id == pet.species_id
+    ).all()
+    return [{"name": d.metric_name.value, "unit": d.metric_unit.value} for d in definitions]
+
 @router.post("/log", response_model=HealthMetricLogResponse)
 async def log_health_metric(log: HealthMetricLogCreate, db: Session = Depends(get_db)):
     pet = db.query(Pet).filter(Pet.pet_id == log.pet_id).first()

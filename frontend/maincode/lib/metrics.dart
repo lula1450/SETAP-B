@@ -26,59 +26,250 @@ class _MetricsPageState extends State<MetricsPage> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = "";
 
-  final List<String> _metrics = [
-    "Weight", "Stool Quality", "Energy Level", "Appetite", "Water Intake",
-    "Litter Box Usage", "Grooming Frequency", "Vomit Events", "Feather Condition",
-    "Wing Strength", "Perch Activity", "Vocalisation Level", "Basking Time",
-    "Shedding Quality", "Humidity Level", "Stool pellets", "Chewing Behaviour",
-    "Wheel Activity"
-  ];
-
+  List<String> _metrics = [];
+  List<String> _customMetricNames = [];
+  bool _loadingMetrics = true;
+  Map<String, String> _customUnits = {};
   List<String> _favorites = [];
 
   @override
   void initState() {
     super.initState();
     _loadFavorites();
-    _refreshAllMetrics();
+    _loadMetricsThenRefresh();
+  }
+
+  Future<void> _loadMetricsThenRefresh() async {
+    final fetched = await _healthService.getAvailableMetrics(widget.petId);
+    final prefs = await SharedPreferences.getInstance();
+    final custom = prefs.getStringList('custom_metrics_${widget.petId}') ?? [];
+    final hidden = prefs.getStringList('hidden_metrics_${widget.petId}') ?? [];
+    final unitsRaw = prefs.getString('custom_units_${widget.petId}') ?? '{}';
+    final unitsMap = Map<String, String>.from(jsonDecode(unitsRaw) as Map);
+    if (mounted) {
+      setState(() {
+        _customMetricNames = List<String>.from(custom);
+        _metrics = [
+          ...custom,
+          ...fetched.map(_toDisplayName).where((m) => !hidden.contains(m)),
+        ];
+        _customUnits = unitsMap;
+        _loadingMetrics = false;
+      });
+      _refreshAllMetrics();
+    }
+  }
+
+  Future<void> _removeMetric(String name) async {
+    final prefs = await SharedPreferences.getInstance();
+    final custom = prefs.getStringList('custom_metrics_${widget.petId}') ?? [];
+
+    if (custom.contains(name)) {
+      custom.remove(name);
+      await prefs.setStringList('custom_metrics_${widget.petId}', custom);
+      final updatedUnits = Map<String, String>.from(_customUnits)..remove(name);
+      await prefs.setString('custom_units_${widget.petId}', jsonEncode(updatedUnits));
+      final key = name.toLowerCase().replaceAll(" ", "_");
+      await prefs.remove('custom_current_${widget.petId}_$key');
+      await prefs.remove('custom_target_${widget.petId}_$key');
+      await prefs.remove('custom_history_${widget.petId}_$key');
+      setState(() {
+        _customUnits = updatedUnits;
+        _customMetricNames.remove(name);
+      });
+    } else {
+      final hidden = prefs.getStringList('hidden_metrics_${widget.petId}') ?? [];
+      if (!hidden.contains(name)) {
+        hidden.add(name);
+        await prefs.setStringList('hidden_metrics_${widget.petId}', hidden);
+      }
+    }
+
+    setState(() {
+      _metrics.remove(name);
+      _favorites.remove(name);
+      _latestValues.remove(name);
+    });
+
+    _saveFavorites();
+  }
+
+  Future<void> _addCustomMetric() async {
+    final nameController = TextEditingController();
+    const unitOptions = ["kg", "ml", "mins", "%", "/5", "count", "none"];
+    String selectedUnit = "none";
+
+    final result = await showDialog<Map<String, String>>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+          title: const Text("Add Custom Metric"),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                textCapitalization: TextCapitalization.words,
+                decoration: const InputDecoration(hintText: "e.g. Sleep Duration"),
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                initialValue: selectedUnit,
+                decoration: const InputDecoration(labelText: "Unit"),
+                items: unitOptions.map((u) => DropdownMenuItem(value: u, child: Text(u))).toList(),
+                onChanged: (v) => setDialogState(() => selectedUnit = v ?? "none"),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, {
+                "name": nameController.text.trim(),
+                "unit": selectedUnit,
+              }),
+              child: const Text("Add"),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (!mounted) return;
+    final name = result?["name"] ?? "";
+    final unit = result?["unit"] ?? "none";
+    if (name.isEmpty || _metrics.contains(name)) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final custom = prefs.getStringList('custom_metrics_${widget.petId}') ?? [];
+    custom.add(name);
+    await prefs.setStringList('custom_metrics_${widget.petId}', custom);
+
+    final updatedUnits = Map<String, String>.from(_customUnits)..[name] = unit;
+    await prefs.setString('custom_units_${widget.petId}', jsonEncode(updatedUnits));
+
+    setState(() {
+      _customUnits = updatedUnits;
+      _customMetricNames.insert(0, name);
+      _metrics.insert(0, name);
+    });
+  }
+
+  void _showDeleteMetricDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+          title: const Text("Remove a Metric"),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: _metrics.isEmpty
+                ? const Text("No metrics to remove.")
+                : ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: _metrics.length,
+                    itemBuilder: (_, i) {
+                      final name = _metrics[i];
+                      return ListTile(
+                        title: Text(name),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.delete_outline, color: Colors.red),
+                          onPressed: () {
+                            _removeMetric(name);
+                            setDialogState(() {});
+                          },
+                        ),
+                      );
+                    },
+                  ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Done")),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _toDisplayName(String backendName) {
+    return backendName.split('_').map((w) => w[0].toUpperCase() + w.substring(1)).join(' ');
   }
 
   // --- NEW: UNIT MAPPING LOGIC ---
   String _getUnitForMetric(String metricName) {
     final name = metricName.toLowerCase().trim();
     switch (name) {
-      case "weight": return "kg";
-      case "water intake": return "ml";
-      case "basking time":
-      case "wheel activity": return "mins";
-      case "humidity level": return "%";
-      case "stool pellets":
-      case "vomit events": return "count";
-      case "stool quality":
-      case "energy level":
-      case "appetite":
-      case "vocalisation level":
-      case "wing strength":
-      case "feather condition":
-      case "perch activity":
-      case "shedding quality":
-      case "chewing behaviour": return "/5"; // Scale 1-5
-      default: return "";
+      case "weight":           return "kg";
+      case "water intake":     return "ml/day";
+      case "basking time":     return "mins/day";
+      case "wheel activity":   return "mins/day";
+      case "humidity level":   return "%";
+      case "litter box usage": return "x/day";
+      case "grooming frequency": return "x/day";
+      case "vomit events":     return "x/day";
+      case "stool pellets":    return "pellets/day";
+      case "stool quality":    return "/5";
+      case "energy level":     return "/5";
+      case "appetite":         return "/5";
+      case "vocalisation level": return "/5";
+      case "wing strength":    return "/5";
+      case "feather condition": return "/5";
+      case "perch activity":   return "/5";
+      case "shedding quality": return "/5";
+      case "chewing behaviour": return "/5";
+      default: return _customUnits[metricName] == "none" ? "" : (_customUnits[metricName] ?? "");
     }
   }
 
-  String _getGoalText(String title) {
+
+  void _checkAndWarnDeviation(BuildContext ctx, String title, String enteredValue, String targetValue) {
+    final current = double.tryParse(enteredValue);
+    final target = double.tryParse(targetValue);
+    if (current == null || target == null || target == 0) return;
+
+    final deviation = (current - target).abs() / target;
+    if (deviation <= 0.15) return;
+
     final unit = _getUnitForMetric(title);
-    return unit.isNotEmpty ? "Goal ($unit)" : "Goal";
+    final isAbove = current > target;
+    final percent = (deviation * 100).toStringAsFixed(0);
+
+    showDialog(
+      context: ctx,
+      builder: (dlgCtx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        title: Row(
+          children: [
+            const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
+            const SizedBox(width: 8),
+            Expanded(child: Text("$title Alert", style: const TextStyle(fontSize: 16))),
+          ],
+        ),
+        content: Text(
+          "$title is $percent% ${isAbove ? 'above' : 'below'} the target of $targetValue $unit.\n\nConsider speaking to your vet if this continues.",
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dlgCtx), child: const Text("Dismiss")),
+        ],
+      ),
+    );
   }
 
   Future<void> _refreshAllMetrics() async {
     setState(() => _latestValues = {});
+    final prefs = await SharedPreferences.getInstance();
     for (var metric in _metrics) {
-      String backendName = metric.toLowerCase().replaceAll(" ", "_");
-      Map<String, String> data = await _healthService.getLatestMetricData(widget.petId, backendName);
-      if (mounted) {
-        setState(() => _latestValues[metric] = data);
+      if (_customMetricNames.contains(metric)) {
+        final key = metric.toLowerCase().replaceAll(" ", "_");
+        final value = prefs.getString('custom_current_${widget.petId}_$key') ?? '---';
+        final target = prefs.getString('custom_target_${widget.petId}_$key') ?? '';
+        if (mounted) setState(() => _latestValues[metric] = {'value': value, 'target': target});
+      } else {
+        final backendName = metric.toLowerCase().replaceAll(" ", "_");
+        final data = await _healthService.getLatestMetricData(widget.petId, backendName);
+        if (mounted) setState(() => _latestValues[metric] = data);
       }
     }
   }
@@ -122,37 +313,83 @@ class _MetricsPageState extends State<MetricsPage> {
     return nameColors[index % nameColors.length];
   }
 
-  void _showEditDialog(BuildContext context, String title) {
+  void _showInfoDialog(BuildContext ctx, String title) {
+    final String unit = _getUnitForMetric(title);
+    final String currentVal = _latestValues[title]?['value'] ?? '---';
+    final String targetVal = _latestValues[title]?['target'] ?? '';
+
+    showDialog(
+      context: ctx,
+      builder: (dlgCtx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _infoRow(Icons.monitor_heart_outlined, "Current",
+                (currentVal == '---' || currentVal == '...') ? 'Not yet logged' : '$currentVal $unit'),
+            const SizedBox(height: 12),
+            _infoRow(Icons.flag_outlined, "Target",
+                targetVal.isEmpty ? 'Not set' : '$targetVal $unit'),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dlgCtx), child: const Text("Close")),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(dlgCtx);
+              _showEditDialog(ctx, title);
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF8BAEAE)),
+            child: const Text("Log Value", style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _infoRow(IconData icon, String label, String value) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: const Color(0xFF8BAEAE)),
+        const SizedBox(width: 8),
+        Text('$label: ', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+        Flexible(child: Text(value, style: const TextStyle(fontSize: 14))),
+      ],
+    );
+  }
+
+  void _showEditDialog(BuildContext outerCtx, String title, {bool showValue = true, bool showTarget = true}) {
     final TextEditingController valueController = TextEditingController();
     final TextEditingController goalController = TextEditingController();
     final String unit = _getUnitForMetric(title);
     bool isLogging = false;
 
     showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) {
+      context: outerCtx,
+      builder: (dlgCtx) => StatefulBuilder(
+        builder: (dlgCtx, setDialogState) {
           return AlertDialog(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-            title: Text("Log $title"),
+            title: Text(showValue && showTarget ? "Log $title" : showValue ? "Log Current $title" : "Set Target for $title"),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                TextField(
+                if (showValue) TextField(
                   controller: valueController,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   decoration: InputDecoration(
-                    labelText: "Current $title", 
+                    labelText: "Current $title",
                     hintText: "e.g. 4.5",
                     suffixText: unit,
                   ),
                 ),
-                const SizedBox(height: 10),
-                TextField(
+                if (showValue && showTarget) const SizedBox(height: 10),
+                if (showTarget) TextField(
                   controller: goalController,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   decoration: InputDecoration(
-                    labelText: "Target Goal", 
+                    labelText: "Target Goal",
                     hintText: "e.g. 5.0",
                     suffixText: unit,
                   ),
@@ -160,8 +397,8 @@ class _MetricsPageState extends State<MetricsPage> {
               ],
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
-              isLogging 
+              TextButton(onPressed: () => Navigator.pop(dlgCtx), child: const Text("Cancel")),
+              isLogging
                 ? const Padding(padding: EdgeInsets.all(8.0), child: CircularProgressIndicator())
                 : ElevatedButton(
                     onPressed: () async {
@@ -170,33 +407,65 @@ class _MetricsPageState extends State<MetricsPage> {
                       String backendName = title.toLowerCase().replaceAll(" ", "_");
 
                       try {
-                        if (valueController.text.isNotEmpty) {
-                          await _healthService.logMetric(
-                            petId: widget.petId,
-                            metricName: backendName,
-                            value: valueController.text,
-                          );
+                        final prefs = await SharedPreferences.getInstance();
+                        final customList = prefs.getStringList('custom_metrics_${widget.petId}') ?? [];
+                        final isCustom = customList.contains(title);
+                        if (isCustom) {
+                          final key = title.toLowerCase().replaceAll(" ", "_");
+                          if (valueController.text.isNotEmpty) {
+                            await prefs.setString('custom_current_${widget.petId}_$key', valueController.text);
+                            final histKey = 'custom_history_${widget.petId}_$key';
+                            final existing = jsonDecode(prefs.getString(histKey) ?? '[]') as List;
+                            final now = DateTime.now();
+                            const mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                            final timeStr = '${now.day.toString().padLeft(2,'0')} ${mo[now.month-1]} ${now.year}, ${now.hour.toString().padLeft(2,'0')}:${now.minute.toString().padLeft(2,'0')}';
+                            existing.insert(0, {
+                              'metric': key,
+                              'display': title,
+                              'value': valueController.text,
+                              'unit': _getUnitForMetric(title),
+                              'time': timeStr,
+                            });
+                            await prefs.setString(histKey, jsonEncode(existing));
+                            debugPrint('[Metrics] Saved history entry to $histKey');
+                          }
+                          if (goalController.text.isNotEmpty) {
+                            await prefs.setString('custom_target_${widget.petId}_$key', goalController.text);
+                          }
+                        } else {
+                          if (valueController.text.isNotEmpty) {
+                            await _healthService.logMetric(
+                              petId: widget.petId,
+                              metricName: backendName,
+                              value: valueController.text,
+                            );
+                          }
+                          if (goalController.text.isNotEmpty) {
+                            await _healthService.syncGoalToBackend(
+                              widget.petId,
+                              backendName,
+                              goalController.text,
+                            );
+                          }
                         }
-                        if (goalController.text.isNotEmpty) {
-                          await _healthService.syncGoalToBackend(
-                            widget.petId, 
-                            backendName, 
-                            goalController.text
-                          );
-                        }
-                        if (context.mounted) {
-                          Navigator.pop(context);
-                          _refreshAllMetrics();
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text("Updated $title successfully!"), backgroundColor: Colors.green.shade700),
-                          );
+                        if (!mounted) return;
+                        final effectiveTarget = goalController.text.isNotEmpty
+                            ? goalController.text
+                            : (_latestValues[title]?['target'] ?? '');
+                        Navigator.pop(dlgCtx);
+                        _refreshAllMetrics();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text("Updated $title successfully!"), backgroundColor: Colors.green.shade700),
+                        );
+                        if (valueController.text.isNotEmpty && effectiveTarget.isNotEmpty) {
+                          _checkAndWarnDeviation(context, title, valueController.text, effectiveTarget);
                         }
                       } catch (e) {
                         setDialogState(() => isLogging = false);
                         debugPrint("Save error: $e");
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error saving data: $e")));
+                        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error saving data: $e")));
                       }
-                    }, 
+                    },
                     child: const Text("Save")
                   ),
             ],
@@ -246,6 +515,27 @@ class _MetricsPageState extends State<MetricsPage> {
 
     return Scaffold(
       endDrawer: const AppDrawer(),
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          FloatingActionButton.extended(
+            heroTag: "delete_metric",
+            onPressed: _showDeleteMetricDialog,
+            backgroundColor: const Color.fromARGB(255, 139, 174, 174),
+            icon: const Icon(Icons.delete_outline, color: Colors.white, size: 18),
+            label: const Text("Delete Metric", style: TextStyle(color: Colors.white, fontSize: 12)),
+          ),
+          const SizedBox(height: 10),
+          FloatingActionButton.extended(
+            heroTag: "add_metric",
+            onPressed: _addCustomMetric,
+            backgroundColor: const Color.fromARGB(255, 139, 174, 174),
+            icon: const Icon(Icons.add, color: Colors.white, size: 18),
+            label: const Text("Custom Metric", style: TextStyle(color: Colors.white, fontSize: 12)),
+          ),
+        ],
+      ),
       appBar: AppBar(
         backgroundColor: const Color.fromARGB(255, 139, 174, 174),
         toolbarHeight: 120,
@@ -266,54 +556,61 @@ class _MetricsPageState extends State<MetricsPage> {
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: TextField(
-                controller: _searchController,
-                onChanged: (val) => setState(() => _searchQuery = val.toLowerCase()),
-                decoration: InputDecoration(
-                  hintText: 'Search Metrics...',
-                  fillColor: Colors.white.withOpacity(0.9),
-                  filled: true,
-                  prefixIcon: const Icon(Icons.search),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none)
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.85),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.grey.shade300, width: 1),
-                ),
-                padding: const EdgeInsets.all(12.0),
-                child: Row(
-                  children: [
-                    Icon(Icons.info_outline, color: Colors.blueGrey[700], size: 20),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: RichText(
-                        text: TextSpan(
-                          style: TextStyle(color: Colors.blueGrey[800], fontSize: 12),
-                          children: [
-                            const TextSpan(text: "Color Guide: "),
-                            TextSpan(
-                              text: "Teal",
-                              style: TextStyle(color: Colors.blueGrey[700], fontWeight: FontWeight.bold),
-                            ),
-                            const TextSpan(text: " = within 15% of target, "),
-                            TextSpan(
-                              text: "Orange",
-                              style: TextStyle(color: Colors.orange[700], fontWeight: FontWeight.bold),
-                            ),
-                            const TextSpan(text: " = deviates >15% from target"),
-                          ],
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _searchController,
+                          onChanged: (val) => setState(() => _searchQuery = val.toLowerCase()),
+                          decoration: InputDecoration(
+                            hintText: 'Search Metrics...',
+                            fillColor: Colors.white.withValues(alpha: 0.9),
+                            filled: true,
+                            prefixIcon: const Icon(Icons.search),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: () => showDialog(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                            title: const Text("Colour Guide"),
+                            content: RichText(
+                              text: TextSpan(
+                                style: TextStyle(color: Colors.blueGrey[800], fontSize: 14),
+                                children: [
+                                  TextSpan(text: "Teal", style: TextStyle(color: Colors.blueGrey[700], fontWeight: FontWeight.bold)),
+                                  const TextSpan(text: " = within 15% of target\n\n"),
+                                  TextSpan(text: "Orange", style: TextStyle(color: Colors.orange[700], fontWeight: FontWeight.bold)),
+                                  const TextSpan(text: " = deviates more than 15% from target"),
+                                ],
+                              ),
+                            ),
+                            actions: [
+                              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Got it")),
+                            ],
+                          ),
+                        ),
+                        child: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.3),
+                            borderRadius: BorderRadius.circular(30),
+                            border: Border.all(color: Colors.grey.shade300),
+                          ),
+                          child: Icon(Icons.info_outline, color: Colors.blueGrey[700], size: 20),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
             Padding(
@@ -328,15 +625,17 @@ class _MetricsPageState extends State<MetricsPage> {
               ),
             ),
             Expanded(
-              child: ListView.builder(
-                itemCount: filteredMetrics.length,
-                itemBuilder: (context, index) {
-                  String title = filteredMetrics[index];
-                  String currentVal = _latestValues[title]?['value'] ?? "...";
-                  String targetVal = _latestValues[title]?['target'] ?? "";
-                  return _metricRow(context, title, currentVal, targetVal, _favorites.contains(title));
-                },
-              ),
+              child: _loadingMetrics
+                  ? const Center(child: CircularProgressIndicator(color: Colors.white))
+                  : ListView.builder(
+                      itemCount: filteredMetrics.length,
+                      itemBuilder: (context, index) {
+                        String title = filteredMetrics[index];
+                        String currentVal = _latestValues[title]?['value'] ?? "...";
+                        String targetVal = _latestValues[title]?['target'] ?? "";
+                        return _metricRow(context, title, currentVal, targetVal, _favorites.contains(title));
+                      },
+                    ),
             ),
           ],
         ),
@@ -350,8 +649,8 @@ class _MetricsPageState extends State<MetricsPage> {
     // 2. Calculate Status Color
     Color statusColor = _getStatusColor(current, target);
 
-    String displayCurrent = (current == "..." || current == "---") ? current : "$current $unit";
-    String displayGoal = target.isNotEmpty ? "$target $unit" : _getGoalText(title);
+    String displayCurrent = (current == "..." || current == "---") ? "" : "$current $unit";
+    String displayGoal = target.isNotEmpty ? "$target $unit" : "";
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
@@ -359,25 +658,24 @@ class _MetricsPageState extends State<MetricsPage> {
         children: [
           IconButton(
             icon: Icon(isFavorite ? Icons.star : Icons.star_border, 
-              color: isFavorite ? Colors.amber : Colors.white.withOpacity(0.7)), 
+              color: isFavorite ? Colors.amber : Colors.white.withValues(alpha: 0.7)),
             onPressed: () => _toggleFavorite(title)
           ),
           // Main Metric Name Button
           Expanded(
-            flex: 3, 
+            flex: 3,
             child: _metricButton(
-              title, 
-              Colors.white.withOpacity(0.8), 
-              () => _showEditDialog(context, title),
-              borderColor: statusColor, // Pass the status color here
-              showSpark: true,          // Enable the sparkline here
+              title,
+              Colors.white.withValues(alpha: 0.8),
+              () => _showInfoDialog(context, title),
+              borderColor: statusColor,
+              showSpark: true,
             )
           ),
           const SizedBox(width: 8),
-          Expanded(flex: 1, child: _metricButton(displayCurrent, const Color.fromARGB(123, 249, 249, 249), () => _showEditDialog(context, title))),
+          Expanded(flex: 1, child: _metricButton(displayCurrent, const Color.fromARGB(123, 249, 249, 249), () => _showEditDialog(context, title, showValue: true, showTarget: false))),
           const SizedBox(width: 8),
-          // 3. QUICK LOG SHORTCUT (The Target column now also opens the log)
-          Expanded(flex: 1, child: _metricButton(displayGoal, const Color.fromARGB(82, 255, 255, 255), () => _showEditDialog(context, title))),
+          Expanded(flex: 1, child: _metricButton(displayGoal, const Color.fromARGB(82, 255, 255, 255), () => _showEditDialog(context, title, showValue: false, showTarget: true))),
         ],
       ),
     );
@@ -463,6 +761,18 @@ class HealthService {
       throw Exception("Failed to log metric: ${response.statusCode} - ${response.body}");
     }
     return jsonDecode(response.body);
+  }
+
+  Future<List<String>> getAvailableMetrics(int petId) async {
+    final url = Uri.parse("$baseUrl/health/metrics/$petId");
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data.map<String>((d) => d['name'] as String).toList();
+      }
+    } catch (_) {}
+    return [];
   }
 
   Future<Map<String, String>> getLatestMetricData(int petId, String metricName) async {
