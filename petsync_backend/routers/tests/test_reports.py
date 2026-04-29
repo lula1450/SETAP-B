@@ -24,13 +24,9 @@ async def test_report_data_flow(db_session):
     """
     # 1. SETUP: Create Core Dependencies
     owner = models.Owner(
-        owner_first_name="Lauren", 
-        owner_last_name="Coppin",
-        owner_email="lauren.test@example.com", 
-        owner_phone_number="07000000000",
-        owner_address1="123 Pet St", 
-        owner_postcode="PO1", 
-        owner_city="Portsmouth"
+        owner_first_name="Alex",
+        owner_last_name="Jordan",
+        owner_email="alex.test@example.com",
     )
     
     species = models.Species_config(

@@ -112,10 +112,6 @@ class _AddPetPageState extends State<AddPetPage> {
                       "Pet Registration",
                       style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                     ),
-                    const Text(
-                      "Address will be linked to your account automatically",
-                      style: TextStyle(fontSize: 12, color: Colors.grey),
-                    ),
                     const SizedBox(height: 30),
                     
                     // First Name Field
@@ -144,7 +140,7 @@ class _AddPetPageState extends State<AddPetPage> {
                     
                     // Breed Selection
                     DropdownButtonFormField<int>(
-                      value: _selectedSpeciesId,
+                      initialValue: _selectedSpeciesId,
                       decoration: InputDecoration(
                         labelText: "Select Breed",
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),

@@ -31,16 +31,10 @@ def login(details: LoginRequest, db: Session = Depends(get_db)):
         "owner_email": owner.owner_email,
         "owner_first_name": owner.owner_first_name,
         "owner_last_name": owner.owner_last_name,
-        "owner_phone_number": owner.owner_phone_number,
-        "owner_address1": owner.owner_address1,
-        "owner_address2": owner.owner_address2,
-        "owner_postcode": owner.owner_postcode,
-        "owner_city": owner.owner_city,
     }
 
 @router.post("/signup")
 def signup(owner: schemas.OwnerCreate, db: Session = Depends(get_db)):
-    # Check if the email is already registered
     existing_user = db.query(models.Owner).filter(models.Owner.owner_email == owner.owner_email).first()
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -50,10 +44,6 @@ def signup(owner: schemas.OwnerCreate, db: Session = Depends(get_db)):
         owner_last_name=owner.owner_last_name,
         owner_email=owner.owner_email,
         password=owner.password,
-        owner_phone_number=owner.owner_phone_number,
-        owner_address1=owner.owner_address1,
-        owner_postcode=owner.owner_postcode,
-        owner_city=owner.owner_city,
     )
     db.add(new_owner)
     db.commit()

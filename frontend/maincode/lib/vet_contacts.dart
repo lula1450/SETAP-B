@@ -566,8 +566,8 @@ class _VetContactsPageState extends State<VetContactsPage> {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showAddVetDialog,
         backgroundColor: const Color.fromARGB(255, 139, 174, 174),
-        label: const Text('Add Vet Contact'),
-        icon: const Icon(Icons.add),
+        label: const Text('Add Vet Contact', style: TextStyle(color: Colors.white)),
+        icon: const Icon(Icons.add, color: Colors.white),
       ),
     );
   }

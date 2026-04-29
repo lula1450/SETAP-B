@@ -618,9 +618,9 @@ class _MetricsPageState extends State<MetricsPage> {
               child: Row(
                 children: [
                   const Expanded(flex: 3, child: SizedBox()),
-                  Expanded(flex: 1, child: Text("Current", textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blueGrey[900]))),
+                  Expanded(flex: 1, child: Text("Current", textAlign: TextAlign.center, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.blueGrey[900]))),
                   const SizedBox(width: 8),
-                  Expanded(flex: 1, child: Text("Target", textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blueGrey[900]))),
+                  Expanded(flex: 1, child: Text("Target", textAlign: TextAlign.center, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.blueGrey[900]))),
                 ],
               ),
             ),
@@ -707,7 +707,7 @@ class _MetricsPageState extends State<MetricsPage> {
               child: Text(
                 text,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
               ),
             ),
           ],

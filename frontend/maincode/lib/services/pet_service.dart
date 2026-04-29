@@ -29,11 +29,7 @@ class PetService {
     required int species_id,
   }) async {
     final prefs = await SharedPreferences.getInstance();
-
     final int? ownerId = prefs.getInt('owner_id');
-    final String? ownerAddr = prefs.getString('owner_address1');
-    final String? ownerPost = prefs.getString('owner_postcode');
-    final String? ownerCity = prefs.getString('owner_city');
 
     if (ownerId == null) {
       debugPrint("Error: No owner_id found in SharedPreferences");
@@ -49,9 +45,9 @@ class PetService {
           "pet_last_name": pet_last_name,
           "species_id": species_id,
           "owner_id": ownerId,
-          "pet_address1": ownerAddr ?? "Address not set",
-          "pet_postcode": ownerPost ?? "Postcode not set",
-          "pet_city": ownerCity ?? "City not set",
+          "pet_address1": "Local",
+          "pet_postcode": "00000",
+          "pet_city": "Local",
         }),
       );
       if (response.statusCode == 200 || response.statusCode == 201) {
@@ -159,38 +155,6 @@ class PetService {
         throw Exception('Failed to load history');
       }
     }
-
-  Future<bool> updateOwnerProfile(int ownerId, Map<String, dynamic> data) async {
-    try {
-      final response = await http.put(
-        Uri.parse('$baseUrl/owners/$ownerId'),
-        headers: {"Content-Type": "application/json"},
-        body: json.encode(data),
-      );
-      debugPrint("DEBUG PetService: updateOwnerProfile response status: ${response.statusCode}");
-      debugPrint("DEBUG PetService: updateOwnerProfile response body: ${response.body}");
-      return response.statusCode == 200;
-    } catch (e) {
-      debugPrint("DEBUG PetService: updateOwnerProfile error: $e");
-      return false;
-    }
-  }
-
-  Future<Map<String, dynamic>> getOwnerProfile(int ownerId) async {
-    try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/owners/$ownerId'),
-      );
-      if (response.statusCode == 200) {
-        return json.decode(response.body);
-      } else {
-        throw Exception('Failed to load owner profile');
-      }
-    } catch (e) {
-      debugPrint('Error fetching owner profile: $e');
-      return {};
-    }
-  }
 
   // --- 6. GET REPORT HISTORY ---
   Future<List<dynamic>> getPetReportHistory(int petId) async {

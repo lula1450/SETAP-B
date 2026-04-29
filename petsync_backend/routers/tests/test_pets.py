@@ -23,13 +23,9 @@ transport = ASGITransport(app=app)
 async def test_create_and_get_pet(db_session):
     # 1. SETUP: Create Owner
     new_owner = models.Owner(
-        owner_first_name="Lauren",
-        owner_last_name="Coppin",
-        owner_email="lauren@example.com",
-        owner_phone_number="07123456789",
-        owner_address1="123 Pet Lane",
-        owner_postcode="PO1 2AB",
-        owner_city="Portsmouth"
+        owner_first_name="Alex",
+        owner_last_name="Jordan",
+        owner_email="alex@example.com",
     )
     
     # 2. SETUP: Create Species
