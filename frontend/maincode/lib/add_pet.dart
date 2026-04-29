@@ -45,7 +45,7 @@ class _AddPetPageState extends State<AddPetPage> {
     setState(() => _isLoading = true);
 
     // 2. Call the service to save to FastAPI
-    final success = await _petService.createPet(
+    final newPetId = await _petService.createPet(
       pet_first_name: _firstNameController.text.trim(),
       pet_last_name: _lastNameController.text.trim(),
       species_id: _selectedSpeciesId,
@@ -54,13 +54,12 @@ class _AddPetPageState extends State<AddPetPage> {
     if (mounted) {
       setState(() => _isLoading = false);
 
-      if (success) {
-        // 3. SUCCESS: Clear the navigation stack and go to Dashboard
-        // Using pushAndRemoveUntil ensures the user cannot "go back" to this form
+      if (newPetId != -1) {
+        // 3. SUCCESS: Clear the navigation stack and go to Dashboard, selecting the new pet
         Navigator.pushAndRemoveUntil(
           context,
-          MaterialPageRoute(builder: (context) => const DashboardPage()),
-          (route) => false, 
+          MaterialPageRoute(builder: (context) => DashboardPage(initialPetId: newPetId)),
+          (route) => false,
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -113,10 +112,6 @@ class _AddPetPageState extends State<AddPetPage> {
                       "Pet Registration",
                       style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                     ),
-                    const Text(
-                      "Address will be linked to your account automatically",
-                      style: TextStyle(fontSize: 12, color: Colors.grey),
-                    ),
                     const SizedBox(height: 30),
                     
                     // First Name Field
@@ -145,7 +140,7 @@ class _AddPetPageState extends State<AddPetPage> {
                     
                     // Breed Selection
                     DropdownButtonFormField<int>(
-                      value: _selectedSpeciesId,
+                      initialValue: _selectedSpeciesId,
                       decoration: InputDecoration(
                         labelText: "Select Breed",
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),

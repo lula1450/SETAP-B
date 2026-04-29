@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from pydantic import BaseModel
 from petsync_backend import models, database
 
@@ -9,12 +9,14 @@ router = APIRouter()
 # --- SCHEMAS ---
 class VetContactCreate(BaseModel):
     owner_id: int
+    pet_id: Optional[int] = None
     clinic_name: str
     phone: str
     email: str
     address: str
 
 class VetContactUpdate(BaseModel):
+    pet_id: Optional[int] = None
     clinic_name: str
     phone: str
     email: str
@@ -22,6 +24,7 @@ class VetContactUpdate(BaseModel):
 
 class VetContactResponse(BaseModel):
     vet_id: int
+    pet_id: Optional[int] = None
     clinic_name: str
     phone: str
     email: str
@@ -42,6 +45,7 @@ def get_owner_vet_contacts(owner_id: int, db: Session = Depends(database.get_db)
     return [
         {
             "vet_id": v.vet_id,
+            "pet_id": v.pet_id,
             "clinic_name": v.clinic_name,
             "phone": v.phone,
             "email": v.email,
@@ -72,6 +76,7 @@ def create_vet_contact(vet_data: VetContactCreate, db: Session = Depends(databas
     # Create new vet contact
     vet_contact = models.VetContact(
         owner_id=vet_data.owner_id,
+        pet_id=vet_data.pet_id,
         clinic_name=vet_data.clinic_name,
         phone=vet_data.phone,
         email=vet_data.email,
@@ -110,6 +115,7 @@ def update_vet_contact(vet_id: int, vet_data: VetContactUpdate, db: Session = De
         raise HTTPException(status_code=404, detail="Vet contact not found")
     
     # Update fields
+    vet.pet_id = vet_data.pet_id
     vet.clinic_name = vet_data.clinic_name
     vet.phone = vet_data.phone
     vet.email = vet_data.email

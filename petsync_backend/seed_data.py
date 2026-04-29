@@ -16,15 +16,13 @@ def seed_data():
     Base.metadata.create_all(bind=engine)
     db: Session = SessionLocal()
 
-    # 1. Seed Owner (Lauren)
+    # 1. Seed Owner
     print("Seeding Owner...")
     owner = db.query(Owner).filter(Owner.owner_email == "test@petsync.com").first()
     if not owner:
         owner = Owner(
-            owner_first_name="Lauren", owner_last_name="Coppin",
+            owner_first_name="Alex", owner_last_name="Jordan",
             owner_email="test@petsync.com", password="password123",
-            owner_phone_number="07123456789", owner_address1="123 Pet Lane",
-            owner_postcode="PO1 2AB", owner_city="London"
         )
         db.add(owner)
         db.commit()

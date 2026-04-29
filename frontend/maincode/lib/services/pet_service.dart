@@ -22,41 +22,42 @@ class PetService {
   }
 
   // --- 2. CREATE PET ---
-  Future<bool> createPet({
+  // Returns the new pet's ID on success, or -1 on failure.
+  Future<int> createPet({
     required String pet_first_name,
     required String pet_last_name,
     required int species_id,
   }) async {
     final prefs = await SharedPreferences.getInstance();
-    
     final int? ownerId = prefs.getInt('owner_id');
-    final String? ownerAddr = prefs.getString('owner_address1');
-    final String? ownerPost = prefs.getString('owner_postcode');
-    final String? ownerCity = prefs.getString('owner_city');
 
     if (ownerId == null) {
       debugPrint("Error: No owner_id found in SharedPreferences");
-      return false;
+      return -1;
     }
 
     try {
       final response = await http.post(
-        Uri.parse("$baseUrl/pets/create"), 
+        Uri.parse("$baseUrl/pets/create"),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
           "pet_first_name": pet_first_name,
           "pet_last_name": pet_last_name,
           "species_id": species_id,
           "owner_id": ownerId,
-          "pet_address1": ownerAddr ?? "Address not set",
-          "pet_postcode": ownerPost ?? "Postcode not set",
-          "pet_city": ownerCity ?? "City not set",
+          "pet_address1": "Local",
+          "pet_postcode": "00000",
+          "pet_city": "Local",
         }),
       );
-      return response.statusCode == 200 || response.statusCode == 201;
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final body = json.decode(response.body);
+        return body['pet_id'] as int;
+      }
+      return -1;
     } catch (e) {
       debugPrint("Connection Error: $e");
-      return false;
+      return -1;
     }
   }
 
@@ -155,38 +156,6 @@ class PetService {
       }
     }
 
-  Future<bool> updateOwnerProfile(int ownerId, Map<String, dynamic> data) async {
-    try {
-      final response = await http.put(
-        Uri.parse('$baseUrl/owners/$ownerId'),
-        headers: {"Content-Type": "application/json"},
-        body: json.encode(data),
-      );
-      debugPrint("DEBUG PetService: updateOwnerProfile response status: ${response.statusCode}");
-      debugPrint("DEBUG PetService: updateOwnerProfile response body: ${response.body}");
-      return response.statusCode == 200;
-    } catch (e) {
-      debugPrint("DEBUG PetService: updateOwnerProfile error: $e");
-      return false;
-    }
-  }
-
-  Future<Map<String, dynamic>> getOwnerProfile(int ownerId) async {
-    try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/owners/$ownerId'),
-      );
-      if (response.statusCode == 200) {
-        return json.decode(response.body);
-      } else {
-        throw Exception('Failed to load owner profile');
-      }
-    } catch (e) {
-      debugPrint('Error fetching owner profile: $e');
-      return {};
-    }
-  }
-
   // --- 6. GET REPORT HISTORY ---
   Future<List<dynamic>> getPetReportHistory(int petId) async {
     try {
@@ -269,6 +238,28 @@ class PetService {
   }
 }
 
+  Future<bool> renamePet(int petId, Map<String, dynamic> petData, String newFirstName, String newLastName) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl/pets/$petId'),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "pet_first_name": newFirstName,
+          "pet_last_name": newLastName,
+          "species_id": petData['species_id'],
+          "owner_id": petData['owner_id'],
+          "pet_address1": petData['pet_address1'] ?? "Address not set",
+          "pet_postcode": petData['pet_postcode'] ?? "Postcode not set",
+          "pet_city": petData['pet_city'] ?? "City not set",
+        }),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint("Rename pet error: $e");
+      return false;
+    }
+  }
+
   Future<bool> updatePetImage(int petId, String imagePath) async {
    final response = await http.put(
      Uri.parse('$baseUrl/pets/$petId/image?image_url=$imagePath'),
@@ -294,6 +285,7 @@ class PetService {
   // --- CREATE VET CONTACT ---
   Future<bool> createVetContact({
     required int ownerId,
+    int? petId,
     required String clinicName,
     required String phone,
     required String email,
@@ -305,6 +297,7 @@ class PetService {
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
           "owner_id": ownerId,
+          "pet_id": petId,
           "clinic_name": clinicName,
           "phone": phone,
           "email": email,
@@ -329,6 +322,7 @@ class PetService {
   Future<bool> updateVetContact({
     required int vetId,
     required int ownerId,
+    int? petId,
     required String clinicName,
     required String phone,
     required String email,
@@ -339,6 +333,7 @@ class PetService {
         Uri.parse("$baseUrl/vets/$vetId"),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
+          "pet_id": petId,
           "clinic_name": clinicName,
           "phone": phone,
           "email": email,

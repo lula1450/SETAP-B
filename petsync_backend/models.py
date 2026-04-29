@@ -16,11 +16,6 @@ class Owner(Base):
     owner_last_name = Column(String(100), nullable=False, index=True)
     owner_email = Column(String(100), unique=True, nullable=False, index=True)
     password = Column(String(255), nullable=False, default="password123")
-    owner_phone_number = Column(String(15), unique=True, nullable=False, index=True)
-    owner_address1 = Column(String(100), nullable=False)
-    owner_address2 = Column(String(100))
-    owner_postcode = Column(String(10), nullable=False)
-    owner_city = Column(String(30), nullable=False, default="London")
     
     # Relationship to pets
     pets = relationship("Pet", backref="owner", cascade="all, delete")
@@ -223,11 +218,11 @@ class VetContact(Base):
 
     vet_id = Column(Integer, primary_key=True, index=True)
     owner_id = Column(Integer, ForeignKey("owner.owner_id"), nullable=False, index=True)
+    pet_id = Column(Integer, ForeignKey("pet.pet_id"), nullable=True, index=True)
     clinic_name = Column(String(100), nullable=False)
     phone = Column(String(20), nullable=False)
     email = Column(String(100), nullable=True)
     address = Column(Text, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
-    
-    # Relationship to owner
+
     owner = relationship("Owner", backref="vet_contacts")
