@@ -163,7 +163,9 @@ def get_latest_metric(pet_id: int, metric_name: str, db: Session = Depends(get_d
     return {
         "value": float(latest_log.metric_value) if latest_log and latest_log.metric_value is not None else "---",
         "unit": metric_def.metric_unit.value,
-        "target": goal_record.target_value if goal_record else ""
+        "target": goal_record.target_value if goal_record else "",
+        "time": latest_log.metric_time.strftime("%d %b %Y, %H:%M") if latest_log and latest_log.metric_time else "",
+        "id": latest_log.health_metric_id if latest_log else None,
     }
 
 @router.post("/goal")
@@ -197,6 +199,44 @@ def set_metric_goal(pet_id: int, metric_name: str, goal: str, db: Session = Depe
 
     db.commit()
     return {"status": "success", "message": f"Goal updated for {metric_name}."}
+
+@router.delete("/all/{pet_id}/{metric_name}")
+def delete_all_entries(pet_id: int, metric_name: str, db: Session = Depends(get_db)):
+    pet = db.query(Pet).filter(Pet.pet_id == pet_id).first()
+    if not pet:
+        raise HTTPException(status_code=404, detail="Pet not found")
+    metric_def = db.query(MetricDefinition).filter(
+        MetricDefinition.species_id == pet.species_id,
+        MetricDefinition.metric_name == MetricName(metric_name)
+    ).first()
+    if not metric_def:
+        raise HTTPException(status_code=404, detail="Metric definition not found")
+    db.query(HealthMetric).filter(
+        HealthMetric.pet_id == pet_id,
+        HealthMetric.metric_def_id == metric_def.metric_def_id
+    ).delete()
+    db.commit()
+    return {"status": "deleted"}
+
+@router.delete("/goal/{pet_id}/{metric_name}")
+def delete_metric_goal(pet_id: int, metric_name: str, db: Session = Depends(get_db)):
+    pet = db.query(Pet).filter(Pet.pet_id == pet_id).first()
+    if not pet:
+        raise HTTPException(status_code=404, detail="Pet not found")
+    metric_def = db.query(MetricDefinition).filter(
+        MetricDefinition.species_id == pet.species_id,
+        MetricDefinition.metric_name == MetricName(metric_name)
+    ).first()
+    if not metric_def:
+        raise HTTPException(status_code=404, detail="Metric definition not found")
+    goal = db.query(PetGoal).filter(
+        PetGoal.pet_id == pet_id,
+        PetGoal.metric_def_id == metric_def.metric_def_id
+    ).first()
+    if goal:
+        db.delete(goal)
+        db.commit()
+    return {"status": "deleted"}
 
 @router.delete("/history/entry/{pet_id}/{metric_id}")
 def delete_health_entry(pet_id: int, metric_id: int, db: Session = Depends(get_db)):
