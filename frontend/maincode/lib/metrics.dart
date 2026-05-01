@@ -224,7 +224,7 @@ class _MetricsPageState extends State<MetricsPage> {
   }
 
 
-  void _checkAndWarnDeviation(BuildContext ctx, String title, String enteredValue, String targetValue) {
+  void _checkAndWarnDeviation(BuildContext ctx, String title, String enteredValue, String targetValue) async {
     final current = double.tryParse(enteredValue);
     final target = double.tryParse(targetValue);
     if (current == null || target == null || target == 0) return;
@@ -236,6 +236,7 @@ class _MetricsPageState extends State<MetricsPage> {
     final isAbove = current > target;
     final percent = (deviation * 100).toStringAsFixed(0);
 
+    if (!ctx.mounted) return;
     showDialog(
       context: ctx,
       builder: (dlgCtx) => AlertDialog(
@@ -427,7 +428,6 @@ class _MetricsPageState extends State<MetricsPage> {
                               'time': timeStr,
                             });
                             await prefs.setString(histKey, jsonEncode(existing));
-                            debugPrint('[Metrics] Saved history entry to $histKey');
                           }
                           if (goalController.text.isNotEmpty) {
                             await prefs.setString('custom_target_${widget.petId}_$key', goalController.text);
@@ -439,6 +439,22 @@ class _MetricsPageState extends State<MetricsPage> {
                               metricName: backendName,
                               value: valueController.text,
                             );
+                            final histKey = 'standard_history_${widget.petId}';
+                            final existing = List<Map<String, dynamic>>.from(
+                              (jsonDecode(prefs.getString(histKey) ?? '[]') as List)
+                                  .map((e) => Map<String, dynamic>.from(e as Map)),
+                            );
+                            final now = DateTime.now();
+                            const mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                            final timeStr = '${now.day.toString().padLeft(2,'0')} ${mo[now.month-1]} ${now.year}, ${now.hour.toString().padLeft(2,'0')}:${now.minute.toString().padLeft(2,'0')}';
+                            existing.insert(0, {
+                              'metric': backendName,
+                              'display': title,
+                              'value': valueController.text,
+                              'unit': _getUnitForMetric(title),
+                              'time': timeStr,
+                            });
+                            await prefs.setString(histKey, jsonEncode(existing));
                           }
                           if (goalController.text.isNotEmpty) {
                             await _healthService.syncGoalToBackend(
@@ -457,7 +473,13 @@ class _MetricsPageState extends State<MetricsPage> {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(content: Text("Updated $title successfully!"), backgroundColor: Colors.green.shade700),
                         );
-                        if (valueController.text.isNotEmpty && effectiveTarget.isNotEmpty) {
+                        if (valueController.text.isNotEmpty) {
+                          await prefs.setString(
+                            'last_logged_metric_${widget.petId}',
+                            '$title|${valueController.text}|$effectiveTarget',
+                          );
+                        }
+                        if (valueController.text.isNotEmpty && effectiveTarget.isNotEmpty && mounted) {
                           _checkAndWarnDeviation(context, title, valueController.text, effectiveTarget);
                         }
                       } catch (e) {
