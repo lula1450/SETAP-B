@@ -139,6 +139,21 @@ class _DashboardPageState extends State<DashboardPage> {
     );
 
     if (pickedTime != null && mounted) {
+      final selectedDateTime = DateTime(
+        pickedDate.year,
+        pickedDate.month,
+        pickedDate.day,
+        pickedTime.hour,
+        pickedTime.minute,
+      );
+
+      if (selectedDateTime.isBefore(DateTime.now())) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Cannot update an appointment to a past date/time.")),
+        );
+        return;
+      }
+
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
@@ -413,6 +428,21 @@ class _DashboardPageState extends State<DashboardPage> {
     );
 
     if (pickedTime != null && mounted) {
+      final selectedDateTime = DateTime(
+        _focusedDay.year,
+        _focusedDay.month,
+        day,
+        pickedTime.hour,
+        pickedTime.minute,
+      );
+
+      if (selectedDateTime.isBefore(DateTime.now())) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Cannot create an appointment in the past.")),
+        );
+        return;
+      }
+
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
@@ -735,10 +765,10 @@ class _DashboardPageState extends State<DashboardPage> {
                               .map(
                                 (color) => Container(
                                   margin: const EdgeInsets.symmetric(
-                                    horizontal: 0.5,
+                                    horizontal: 1.5,
                                   ),
-                                  width: 4,
-                                  height: 4,
+                                  width: 7,
+                                  height: 7,
                                   decoration: BoxDecoration(
                                     color: color,
                                     shape: BoxShape.circle,

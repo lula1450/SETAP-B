@@ -486,11 +486,11 @@ class _VetContactsPageState extends State<VetContactsPage> {
                           padding: const EdgeInsets.only(bottom: 12.0),
                           child: Container(
                             decoration: BoxDecoration(
-                              color: cardColor.withValues(alpha: 0.5),
+                              color: cardColor.withValues(alpha: 0.35),
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
-                                color: cardColor,
-                                width: 2,
+                                color: Colors.black12,
+                                width: 1,
                               ),
                               boxShadow: [
                                 BoxShadow(
@@ -538,7 +538,7 @@ class _VetContactsPageState extends State<VetContactsPage> {
                                       ),
                                       IconButton(
                                         icon: const Icon(Icons.edit_outlined),
-                                        color: Colors.white,
+                                        color: Colors.black,
                                         onPressed: () => _showEditVetDialog(index, vet),
                                       ),
                                       IconButton(
