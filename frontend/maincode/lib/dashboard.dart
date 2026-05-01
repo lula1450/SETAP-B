@@ -1179,7 +1179,7 @@ class _DashboardPageState extends State<DashboardPage> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _actionButton(context, "Log $currentPetName's daily\nmetrics", petColor),
+          _actionButton(context, "Log $currentPetName's metrics", petColor),
           _actionButton(context, "$currentPetName's recently\nlogged data", petColor),
           _actionButton(context, "Find out\nmore about $currentPetName", petColor),
           _upcomingAppointmentButton(context, petColor),

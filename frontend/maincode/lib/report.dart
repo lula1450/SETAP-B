@@ -142,6 +142,70 @@ class _ReportsPageState extends State<ReportsPage> {
   }
 
   Future<void> _selectDateRange() async {
+    await showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Padding(
+                padding: EdgeInsets.only(bottom: 8),
+                child: Text('Filter by Date', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              ),
+              ListTile(
+                leading: const Icon(Icons.view_week, color: Color(0xFF8BAEAE)),
+                title: const Text('This Week'),
+                onTap: () {
+                  final now = DateTime.now();
+                  final monday = now.subtract(Duration(days: now.weekday - 1));
+                  final start = DateTime(monday.year, monday.month, monday.day);
+                  Navigator.pop(ctx);
+                  setState(() => _selectedDateRange = DateTimeRange(start: start, end: now));
+                  _loadData();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.calendar_month, color: Color(0xFF8BAEAE)),
+                title: const Text('This Month'),
+                onTap: () {
+                  final now = DateTime.now();
+                  final start = DateTime(now.year, now.month, 1);
+                  Navigator.pop(ctx);
+                  setState(() => _selectedDateRange = DateTimeRange(start: start, end: now));
+                  _loadData();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.date_range, color: Color(0xFF8BAEAE)),
+                title: const Text('Custom Range'),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  await _pickCustomDateRange();
+                },
+              ),
+              if (_selectedDateRange != null)
+                ListTile(
+                  leading: const Icon(Icons.clear, color: Colors.red),
+                  title: const Text('Clear Filter', style: TextStyle(color: Colors.red)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    setState(() => _selectedDateRange = null);
+                    _loadData();
+                  },
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickCustomDateRange() async {
     final theme = Theme.of(context).copyWith(
       colorScheme: const ColorScheme.light(
         primary: Color(0xFF8BAEAE),
@@ -171,6 +235,18 @@ class _ReportsPageState extends State<ReportsPage> {
 
     setState(() => _selectedDateRange = DateTimeRange(start: start, end: end));
     _loadData();
+  }
+
+  String _dateRangeLabel() {
+    if (_selectedDateRange == null) return '';
+    final now = DateTime.now();
+    final start = _selectedDateRange!.start;
+    final monday = now.subtract(Duration(days: now.weekday - 1));
+    final weekStart = DateTime(monday.year, monday.month, monday.day);
+    final monthStart = DateTime(now.year, now.month, 1);
+    if (start == weekStart) return 'This Week';
+    if (start == monthStart) return 'This Month';
+    return "${start.day}/${start.month} - ${_selectedDateRange!.end.day}/${_selectedDateRange!.end.month}";
   }
 
   Future<void> _loadData() async {
@@ -271,7 +347,7 @@ class _ReportsPageState extends State<ReportsPage> {
                     Padding(
                       padding: const EdgeInsets.only(bottom: 10),
                       child: InputChip(
-                        label: Text("${_selectedDateRange!.start.day}/${_selectedDateRange!.start.month} - ${_selectedDateRange!.end.day}/${_selectedDateRange!.end.month}"),
+                        label: Text(_dateRangeLabel()),
                         onDeleted: () {
                           setState(() => _selectedDateRange = null);
                           _loadData();
