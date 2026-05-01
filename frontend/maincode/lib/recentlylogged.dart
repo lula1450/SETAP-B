@@ -68,30 +68,6 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
       } catch (_) {}
     }
 
-    // Standard metric history saved locally when logged
-    final standardRaw = prefs.getString('standard_history_${widget.petId}') ?? '[]';
-    try {
-      final entries = jsonDecode(standardRaw) as List;
-      for (final e in entries) {
-        final metric = e['metric'] as String? ?? '';
-        // Avoid duplicating entries already returned by the backend
-        final alreadyPresent = all.any((a) =>
-            a['isCustom'] != true &&
-            a['metric'] == metric &&
-            a['time'] == e['time']);
-        if (!alreadyPresent) {
-          all.add({
-            'metric': metric,
-            'display': e['display'] ?? metric.replaceAll('_', ' '),
-            'value': e['value'],
-            'unit': e['unit'] ?? '',
-            'time': e['time'],
-            'isCustom': false,
-          });
-        }
-      }
-    } catch (_) {}
-
     all.sort((a, b) => _parseTime(b['time']?.toString() ?? '').compareTo(
                         _parseTime(a['time']?.toString() ?? '')));
     return all;
@@ -216,7 +192,7 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
           children: [
             Text(displayName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
-            Text('Value: ${log['value']} ${log['unit']}', style: const TextStyle(fontSize: 15)),
+            Text('Value: ${log['value']} ${_formatUnit(log['unit']?.toString())}', style: const TextStyle(fontSize: 15)),
             const SizedBox(height: 4),
             Text('Logged: ${log['time']}', style: const TextStyle(color: Colors.grey)),
             const SizedBox(height: 24),
@@ -316,7 +292,7 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
                           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                         ),
                         Text(
-                          "${log['unit']}",
+                          _formatUnit(log['unit']?.toString()),
                           style: const TextStyle(fontSize: 12, color: Colors.grey),
                         ),
                       ],
@@ -330,6 +306,16 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
         },
       ),
     );
+  }
+
+  String _formatUnit(String? raw) {
+    if (raw == null || raw.isEmpty) return '';
+    switch (raw.toLowerCase()) {
+      case 'scale_1_5': return '/5';
+      case 'ml_per_day': return 'ml/day';
+      case 'kg': return 'kg';
+      default: return raw;
+    }
   }
 
   Widget _getIcon(String metric) {

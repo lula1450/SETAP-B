@@ -31,6 +31,15 @@ class _MetricsPageState extends State<MetricsPage> {
   bool _loadingMetrics = true;
   Map<String, String> _customUnits = {};
   List<String> _favorites = [];
+  String? _lastLoggedMetric;
+
+  // Metrics where setting a target doesn't make clinical sense
+  static const _noTargetMetrics = {
+    'Vomit Events',
+    'Stool Quality',
+    'Stool Pellets',
+    'Shedding Quality',
+  };
 
   @override
   void initState() {
@@ -46,6 +55,8 @@ class _MetricsPageState extends State<MetricsPage> {
     final hidden = prefs.getStringList('hidden_metrics_${widget.petId}') ?? [];
     final unitsRaw = prefs.getString('custom_units_${widget.petId}') ?? '{}';
     final unitsMap = Map<String, String>.from(jsonDecode(unitsRaw) as Map);
+    final lastLogged = prefs.getString('last_logged_metric_${widget.petId}');
+    final lastLoggedTitle = lastLogged?.split('|').first;
     if (mounted) {
       setState(() {
         _customMetricNames = List<String>.from(custom);
@@ -55,6 +66,9 @@ class _MetricsPageState extends State<MetricsPage> {
         ];
         _customUnits = unitsMap;
         _loadingMetrics = false;
+        if (lastLoggedTitle != null && lastLoggedTitle.isNotEmpty) {
+          _lastLoggedMetric = lastLoggedTitle;
+        }
       });
       _refreshAllMetrics();
     }
@@ -266,7 +280,13 @@ class _MetricsPageState extends State<MetricsPage> {
         final key = metric.toLowerCase().replaceAll(" ", "_");
         final value = prefs.getString('custom_current_${widget.petId}_$key') ?? '---';
         final target = prefs.getString('custom_target_${widget.petId}_$key') ?? '';
-        if (mounted) setState(() => _latestValues[metric] = {'value': value, 'target': target});
+        final histRaw = prefs.getString('custom_history_${widget.petId}_$key') ?? '[]';
+        String time = '';
+        try {
+          final hist = jsonDecode(histRaw) as List;
+          if (hist.isNotEmpty) time = (hist.first as Map)['time']?.toString() ?? '';
+        } catch (_) {}
+        if (mounted) setState(() => _latestValues[metric] = {'value': value, 'target': target, 'time': time});
       } else {
         final backendName = metric.toLowerCase().replaceAll(" ", "_");
         final data = await _healthService.getLatestMetricData(widget.petId, backendName);
@@ -318,6 +338,72 @@ class _MetricsPageState extends State<MetricsPage> {
     final String unit = _getUnitForMetric(title);
     final String currentVal = _latestValues[title]?['value'] ?? '---';
     final String targetVal = _latestValues[title]?['target'] ?? '';
+    final String lastTime = _latestValues[title]?['time'] ?? '';
+    final bool hasTarget = !_noTargetMetrics.contains(title);
+    final bool neverLogged = currentVal == '---' || currentVal == '...';
+    final bool isCustom = _customMetricNames.contains(title);
+    final String key = title.toLowerCase().replaceAll(' ', '_');
+
+    Future<void> clearCurrent(BuildContext dlgCtx) async {
+      final confirmed = await showDialog<bool>(
+        context: dlgCtx,
+        builder: (confirmCtx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+          title: const Text('Clear current value?'),
+          content: Text(
+            'All logged values for $title will be permanently removed, including entries on the Recently Logged page.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(confirmCtx, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(confirmCtx, true),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade400, foregroundColor: Colors.white),
+              child: const Text('Remove'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
+      if (dlgCtx.mounted) Navigator.pop(dlgCtx);
+      bool success = false;
+      if (isCustom) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('custom_current_${widget.petId}_$key');
+        await prefs.remove('custom_history_${widget.petId}_$key');
+        success = true;
+      } else {
+        success = await _healthService.deleteAllEntries(widget.petId, key);
+      }
+      if (mounted) {
+        _refreshAllMetrics();
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(success ? 'Current value cleared.' : 'Could not clear value.'),
+          backgroundColor: success ? Colors.green.shade700 : Colors.red.shade400,
+        ));
+      }
+    }
+
+    Future<void> clearTarget(BuildContext dlgCtx) async {
+      Navigator.pop(dlgCtx);
+      bool success = false;
+      if (isCustom) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('custom_target_${widget.petId}_$key');
+        success = true;
+      } else {
+        success = await _healthService.clearGoal(widget.petId, key);
+      }
+      if (mounted) {
+        _refreshAllMetrics();
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(success ? 'Target cleared.' : 'Could not clear target.'),
+          backgroundColor: success ? Colors.green.shade700 : Colors.red.shade400,
+        ));
+      }
+    }
 
     showDialog(
       context: ctx,
@@ -327,11 +413,23 @@ class _MetricsPageState extends State<MetricsPage> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _infoRow(Icons.monitor_heart_outlined, "Current",
-                (currentVal == '---' || currentVal == '...') ? 'Not yet logged' : '$currentVal $unit'),
-            const SizedBox(height: 12),
-            _infoRow(Icons.flag_outlined, "Target",
-                targetVal.isEmpty ? 'Not set' : '$targetVal $unit'),
+            _infoRow(
+              Icons.monitor_heart_outlined, "Current",
+              neverLogged ? 'Not yet logged' : '$currentVal $unit',
+              onClear: neverLogged ? null : () => clearCurrent(dlgCtx),
+            ),
+            if (!neverLogged && lastTime.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              _infoRow(Icons.access_time, "Last logged", lastTime),
+            ],
+            if (hasTarget) ...[
+              const SizedBox(height: 12),
+              _infoRow(
+                Icons.flag_outlined, "Target",
+                targetVal.isEmpty ? 'Not set' : '$targetVal $unit',
+                onClear: targetVal.isEmpty ? null : () => clearTarget(dlgCtx),
+              ),
+            ],
           ],
         ),
         actions: [
@@ -339,7 +437,7 @@ class _MetricsPageState extends State<MetricsPage> {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(dlgCtx);
-              _showEditDialog(ctx, title);
+              _showEditDialog(ctx, title, showValue: true, showTarget: false);
             },
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF8BAEAE)),
             child: const Text("Log Value", style: TextStyle(color: Colors.white)),
@@ -349,13 +447,20 @@ class _MetricsPageState extends State<MetricsPage> {
     );
   }
 
-  Widget _infoRow(IconData icon, String label, String value) {
+  Widget _infoRow(IconData icon, String label, String value, {VoidCallback? onClear}) {
     return Row(
       children: [
         Icon(icon, size: 18, color: const Color(0xFF8BAEAE)),
         const SizedBox(width: 8),
         Text('$label: ', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
         Flexible(child: Text(value, style: const TextStyle(fontSize: 14))),
+        if (onClear != null)
+          IconButton(
+            icon: const Icon(Icons.highlight_off, size: 18, color: Colors.red),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            onPressed: onClear,
+          ),
       ],
     );
   }
@@ -365,24 +470,46 @@ class _MetricsPageState extends State<MetricsPage> {
     final TextEditingController goalController = TextEditingController();
     final String unit = _getUnitForMetric(title);
     bool isLogging = false;
+    final bool isWaterIntake = title.toLowerCase() == 'water intake';
+    String waterUnit = 'ml';
 
     showDialog(
       context: outerCtx,
       builder: (dlgCtx) => StatefulBuilder(
         builder: (dlgCtx, setDialogState) {
+          final String displayUnit = isWaterIntake ? waterUnit : unit;
           return AlertDialog(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
             title: Text(showValue && showTarget ? "Log $title" : showValue ? "Log Current $title" : "Set Target for $title"),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                if (isWaterIntake) ...[
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      const Text('Unit:', style: TextStyle(fontSize: 13)),
+                      const SizedBox(width: 8),
+                      ToggleButtons(
+                        isSelected: [waterUnit == 'ml', waterUnit == 'L'],
+                        onPressed: (i) => setDialogState(() => waterUnit = i == 0 ? 'ml' : 'L'),
+                        borderRadius: BorderRadius.circular(8),
+                        selectedColor: Colors.white,
+                        fillColor: const Color(0xFF8BAEAE),
+                        constraints: const BoxConstraints(minWidth: 40, minHeight: 32),
+                        children: const [Text('ml'), Text('L')],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                ],
                 if (showValue) TextField(
                   controller: valueController,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   decoration: InputDecoration(
                     labelText: "Current $title",
-                    hintText: "e.g. 4.5",
-                    suffixText: unit,
+                    hintText: isWaterIntake ? (waterUnit == 'L' ? "e.g. 1.5" : "e.g. 1500") : "e.g. 4.5",
+                    suffixText: displayUnit,
                   ),
                 ),
                 if (showValue && showTarget) const SizedBox(height: 10),
@@ -391,8 +518,8 @@ class _MetricsPageState extends State<MetricsPage> {
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   decoration: InputDecoration(
                     labelText: "Target Goal",
-                    hintText: "e.g. 5.0",
-                    suffixText: unit,
+                    hintText: isWaterIntake ? (waterUnit == 'L' ? "e.g. 2.0" : "e.g. 2000") : "e.g. 5.0",
+                    suffixText: displayUnit,
                   ),
                 ),
               ],
@@ -406,6 +533,16 @@ class _MetricsPageState extends State<MetricsPage> {
                       if (valueController.text.isEmpty && goalController.text.isEmpty) return;
                       setDialogState(() => isLogging = true);
                       String backendName = title.toLowerCase().replaceAll(" ", "_");
+
+                      // Convert L → ml before saving so the backend always receives ml
+                      String resolvedValue = valueController.text;
+                      String resolvedGoal = goalController.text;
+                      if (isWaterIntake && waterUnit == 'L') {
+                        final v = double.tryParse(valueController.text);
+                        if (v != null) resolvedValue = (v * 1000).toStringAsFixed(0);
+                        final g = double.tryParse(goalController.text);
+                        if (g != null) resolvedGoal = (g * 1000).toStringAsFixed(0);
+                      }
 
                       try {
                         final prefs = await SharedPreferences.getInstance();
@@ -433,54 +570,39 @@ class _MetricsPageState extends State<MetricsPage> {
                             await prefs.setString('custom_target_${widget.petId}_$key', goalController.text);
                           }
                         } else {
-                          if (valueController.text.isNotEmpty) {
+                          if (resolvedValue.isNotEmpty) {
                             await _healthService.logMetric(
                               petId: widget.petId,
                               metricName: backendName,
-                              value: valueController.text,
+                              value: resolvedValue,
                             );
-                            final histKey = 'standard_history_${widget.petId}';
-                            final existing = List<Map<String, dynamic>>.from(
-                              (jsonDecode(prefs.getString(histKey) ?? '[]') as List)
-                                  .map((e) => Map<String, dynamic>.from(e as Map)),
-                            );
-                            final now = DateTime.now();
-                            const mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-                            final timeStr = '${now.day.toString().padLeft(2,'0')} ${mo[now.month-1]} ${now.year}, ${now.hour.toString().padLeft(2,'0')}:${now.minute.toString().padLeft(2,'0')}';
-                            existing.insert(0, {
-                              'metric': backendName,
-                              'display': title,
-                              'value': valueController.text,
-                              'unit': _getUnitForMetric(title),
-                              'time': timeStr,
-                            });
-                            await prefs.setString(histKey, jsonEncode(existing));
                           }
-                          if (goalController.text.isNotEmpty) {
+                          if (resolvedGoal.isNotEmpty) {
                             await _healthService.syncGoalToBackend(
                               widget.petId,
                               backendName,
-                              goalController.text,
+                              resolvedGoal,
                             );
                           }
                         }
                         if (!mounted) return;
-                        final effectiveTarget = goalController.text.isNotEmpty
-                            ? goalController.text
+                        final effectiveTarget = resolvedGoal.isNotEmpty
+                            ? resolvedGoal
                             : (_latestValues[title]?['target'] ?? '');
-                        Navigator.pop(dlgCtx);
+                        if (dlgCtx.mounted) Navigator.pop(dlgCtx);
+                        if (resolvedValue.isNotEmpty) setState(() => _lastLoggedMetric = title);
                         _refreshAllMetrics();
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(content: Text("Updated $title successfully!"), backgroundColor: Colors.green.shade700),
                         );
-                        if (valueController.text.isNotEmpty) {
+                        if (resolvedValue.isNotEmpty) {
                           await prefs.setString(
                             'last_logged_metric_${widget.petId}',
-                            '$title|${valueController.text}|$effectiveTarget',
+                            '$title|$resolvedValue|$effectiveTarget',
                           );
                         }
-                        if (valueController.text.isNotEmpty && effectiveTarget.isNotEmpty && mounted) {
-                          _checkAndWarnDeviation(context, title, valueController.text, effectiveTarget);
+                        if (resolvedValue.isNotEmpty && effectiveTarget.isNotEmpty && mounted) {
+                          _checkAndWarnDeviation(context, title, resolvedValue, effectiveTarget);
                         }
                       } catch (e) {
                         setDialogState(() => isLogging = false);
@@ -530,6 +652,8 @@ class _MetricsPageState extends State<MetricsPage> {
     List<String> filteredMetrics = _metrics.where((m) => m.toLowerCase().contains(_searchQuery)).toList();
     
     filteredMetrics.sort((a, b) {
+      if (a == _lastLoggedMetric) return -1;
+      if (b == _lastLoggedMetric) return 1;
       if (_favorites.contains(a) && !_favorites.contains(b)) return -1;
       if (!_favorites.contains(a) && _favorites.contains(b)) return 1;
       return 0;
@@ -541,12 +665,11 @@ class _MetricsPageState extends State<MetricsPage> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          FloatingActionButton.extended(
+          FloatingActionButton(
             heroTag: "delete_metric",
             onPressed: _showDeleteMetricDialog,
             backgroundColor: const Color.fromARGB(255, 139, 174, 174),
-            icon: const Icon(Icons.delete_outline, color: Colors.white, size: 18),
-            label: const Text("Delete Metric", style: TextStyle(color: Colors.white, fontSize: 12)),
+            child: const Icon(Icons.delete_outline, color: Colors.white),
           ),
           const SizedBox(height: 10),
           FloatingActionButton.extended(
@@ -666,9 +789,9 @@ class _MetricsPageState extends State<MetricsPage> {
 
   Widget _metricRow(BuildContext context, String title, String current, String target, bool isFavorite) {
     final String unit = _getUnitForMetric(title);
-    
-    // 2. Calculate Status Color
-    Color statusColor = _getStatusColor(current, target);
+    final bool hasTarget = !_noTargetMetrics.contains(title);
+
+    Color statusColor = _getStatusColor(current, hasTarget ? target : '');
 
     String displayCurrent = (current == "..." || current == "---") ? "" : "$current $unit";
     String displayGoal = target.isNotEmpty ? "$target $unit" : "";
@@ -678,11 +801,10 @@ class _MetricsPageState extends State<MetricsPage> {
       child: Row(
         children: [
           IconButton(
-            icon: Icon(isFavorite ? Icons.star : Icons.star_border, 
+            icon: Icon(isFavorite ? Icons.star : Icons.star_border,
               color: isFavorite ? Colors.amber : Colors.white.withValues(alpha: 0.7)),
             onPressed: () => _toggleFavorite(title)
           ),
-          // Main Metric Name Button
           Expanded(
             flex: 3,
             child: _metricButton(
@@ -696,7 +818,10 @@ class _MetricsPageState extends State<MetricsPage> {
           const SizedBox(width: 8),
           Expanded(flex: 1, child: _metricButton(displayCurrent, const Color.fromARGB(123, 249, 249, 249), () => _showEditDialog(context, title, showValue: true, showTarget: false))),
           const SizedBox(width: 8),
-          Expanded(flex: 1, child: _metricButton(displayGoal, const Color.fromARGB(82, 255, 255, 255), () => _showEditDialog(context, title, showValue: false, showTarget: true))),
+          if (hasTarget)
+            Expanded(flex: 1, child: _metricButton(displayGoal, const Color.fromARGB(82, 255, 255, 255), () => _showEditDialog(context, title, showValue: false, showTarget: true)))
+          else
+            Expanded(flex: 1, child: Container(height: 60)),
         ],
       ),
     );
@@ -802,10 +927,37 @@ class HealthService {
       final response = await http.get(url);
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return {"value": data['value']?.toString() ?? "---", "target": data['target']?.toString() ?? ""};
+        return {
+          "value": data['value']?.toString() ?? "---",
+          "target": data['target']?.toString() ?? "",
+          "time": data['time']?.toString() ?? data['logged_at']?.toString() ?? "",
+          "id": data['id']?.toString() ?? "",
+        };
       }
     } catch (_) {}
-    return {"value": "---", "target": ""};
+    return {"value": "---", "target": "", "time": "", "id": ""};
+  }
+
+  Future<bool> deleteAllEntries(int petId, String metricName) async {
+    try {
+      final response = await http.delete(
+        Uri.parse("$baseUrl/health/all/$petId/$metricName"),
+      );
+      return response.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> clearGoal(int petId, String metricName) async {
+    try {
+      final response = await http.delete(
+        Uri.parse("$baseUrl/health/goal/$petId/$metricName"),
+      );
+      return response.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<void> syncGoalToBackend(int petId, String metricName, String goal) async {

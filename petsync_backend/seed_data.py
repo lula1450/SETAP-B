@@ -46,54 +46,76 @@ def seed_data():
     # 3. Seed Metric Definitions
     seed_metric_definitions(db, species_objects)
 
-    # 4. Seed Bentley and Maisie
-    print("Seeding Bentley and Maisie...")
-    lab_id = db.query(Species_config).filter(Species_config.breed_name == "Labrador").first().species_id
-    coon_id = db.query(Species_config).filter(Species_config.breed_name == "Maine Coon").first().species_id
+    # 4. Seed Bentley, Maisie, Rio and Ziggy
+    print("Seeding Bailey, Luna, Rio and Ziggy...")
+    lab_id      = db.query(Species_config).filter(Species_config.breed_name == "Labrador").first().species_id
+    coon_id     = db.query(Species_config).filter(Species_config.breed_name == "Maine Coon").first().species_id
+    grey_id     = db.query(Species_config).filter(Species_config.breed_name == "African Grey").first().species_id
+    python_id   = db.query(Species_config).filter(Species_config.breed_name == "Ball Python").first().species_id
 
-    bentley = db.query(Pet).filter(Pet.pet_first_name == "Bentley").first()
-    if not bentley:
-        bentley = Pet(pet_first_name="Bentley", pet_last_name="C", species_id=lab_id, owner_id=owner_id,
+    bailey = db.query(Pet).filter(Pet.pet_first_name == "Bailey").first()
+    if not bailey:
+        bailey = Pet(pet_first_name="Bailey", pet_last_name="C", species_id=lab_id, owner_id=owner_id,
                       pet_address1="123 Pet Lane", pet_postcode="PO1 2AB", pet_city="London")
-        db.add(bentley)
-    
-    maisie = db.query(Pet).filter(Pet.pet_first_name == "Maisie").first()
-    if not maisie:
-        maisie = Pet(pet_first_name="Maisie", pet_last_name="C", species_id=coon_id, owner_id=owner_id,
+        db.add(bailey)
+
+    luna = db.query(Pet).filter(Pet.pet_first_name == "Luna").first()
+    if not luna:
+        luna = Pet(pet_first_name="Luna", pet_last_name="C", species_id=coon_id, owner_id=owner_id,
                      pet_address1="123 Pet Lane", pet_postcode="PO1 2AB", pet_city="London")
-        db.add(maisie)
+        db.add(luna)
+
+    rio = db.query(Pet).filter(Pet.pet_first_name == "Rio").first()
+    if not rio:
+        rio = Pet(pet_first_name="Rio", pet_last_name="C", species_id=grey_id, owner_id=owner_id,
+                  pet_address1="123 Pet Lane", pet_postcode="PO1 2AB", pet_city="London")
+        db.add(rio)
+
+    ziggy = db.query(Pet).filter(Pet.pet_first_name == "Ziggy").first()
+    if not ziggy:
+        ziggy = Pet(pet_first_name="Ziggy", pet_last_name="C", species_id=python_id, owner_id=owner_id,
+                    pet_address1="123 Pet Lane", pet_postcode="PO1 2AB", pet_city="London")
+        db.add(ziggy)
+
     db.commit()
 
 
-    print("Setting Health Targets for Bentley and Maisie...")
-    
-    # Define what "Healthy" looks like for these specific pets
+    print("Setting Health Targets for Bailey, Luna, Rio and Ziggy...")
+
     targets = [
-        # Bentley Targets
-        (bentley, MetricName.weight, 15.0),       # Goal: Maintain 15kg
-        (bentley, MetricName.energy_level, 4.0),  # Goal: Active (4/5)
-        (bentley, MetricName.appetite, 4.5),      # Goal: Hungry (4.5/5)
-        
-        # Maisie Targets
-        (maisie, MetricName.weight, 6.4),         # Goal: Maintain 6.4kg
-        (maisie, MetricName.water_intake, 300.0), # Goal: 300ml per day
-        (maisie, MetricName.stool_quality, 4.0),  # Goal: Firm (4/5)
+        # Bailey Targets (Labrador)
+        (bailey, MetricName.weight, 15.0),
+        (bailey, MetricName.energy_level, 4.0),
+        (bailey, MetricName.appetite, 4.5),
+
+        # Luna Targets (Maine Coon)
+        (luna, MetricName.weight, 6.4),
+        (luna, MetricName.water_intake, 300.0),
+        (luna, MetricName.stool_quality, 4.0),
+
+        # Rio Targets (African Grey)
+        (rio, MetricName.weight, 0.5),              # Goal: 500g
+        (rio, MetricName.feather_condition, 4.0),   # Goal: Healthy plumage (4/5)
+        (rio, MetricName.vocalisation_level, 3.0),  # Goal: Moderate (3/5)
+        (rio, MetricName.appetite, 4.0),            # Goal: Good appetite (4/5)
+
+        # Ziggy Targets (Ball Python)
+        (ziggy, MetricName.weight, 1.5),            # Goal: 1.5kg
+        (ziggy, MetricName.humidity_level, 60.0),   # Goal: 60% humidity
+        (ziggy, MetricName.shedding_quality, 4.0),  # Goal: Clean shed (4/5)
+        (ziggy, MetricName.appetite, 3.5),          # Goal: Regular feeding (3.5/5)
     ]
 
     for pet, m_name, target_val in targets:
-        # Find the definition ID for this species/metric combo
         m_def = db.query(MetricDefinition).filter(
-            MetricDefinition.species_id == pet.species_id, 
+            MetricDefinition.species_id == pet.species_id,
             MetricDefinition.metric_name == m_name
         ).first()
-
         if m_def:
-            # Check if target already exists
             exists = db.query(PetGoal).filter(
                 PetGoal.pet_id == pet.pet_id,
                 PetGoal.metric_def_id == m_def.metric_def_id
             ).first()
-
             if not exists:
                 db.add(PetGoal(
                     pet_id=pet.pet_id,
@@ -102,27 +124,38 @@ def seed_data():
                 ))
     db.commit()
 
-    # 5. Massive Health History Generation (60 Days / 30 Points per metric)
+    # 5. Health History Generation (60 Days / 30 Points per metric)
     print("Generating Multi-Metric Health History (60 days)...")
     scenarios = [
         # Pet, Metric, BaseValue, Variance, Trend
-        (bentley, MetricName.weight, 15.0, 0.4, "recovery"), # Bentley's weight dip
-        (bentley, MetricName.energy_level, 4.5, 0.5, "stable"),
-        (bentley, MetricName.appetite, 4.0, 1.0, "stable"),
-        (maisie, MetricName.weight, 6.5, 0.1, "stable"),
-        (maisie, MetricName.water_intake, 280.0, 40.0, "stable"),
-        (maisie, MetricName.stool_quality, 4.0, 0.5, "stable"),
+        (bailey, MetricName.weight,        15.0,  0.4,  "recovery"),
+        (bailey, MetricName.energy_level,   4.5,  0.5,  "stable"),
+        (bailey, MetricName.appetite,       4.0,  1.0,  "stable"),
+        (luna,  MetricName.weight,         6.5,  0.1,  "stable"),
+        (luna,  MetricName.water_intake,  280.0, 40.0, "stable"),
+        (luna,  MetricName.stool_quality,  4.0,  0.5,  "stable"),
+        (rio,     MetricName.weight,         0.49, 0.02, "stable"),
+        (rio,     MetricName.feather_condition, 3.5, 0.4, "recovery"),
+        (rio,     MetricName.vocalisation_level, 3.0, 0.5, "stable"),
+        (rio,     MetricName.appetite,       3.8,  0.6,  "stable"),
+        (ziggy,   MetricName.weight,         1.4,  0.05, "stable"),
+        (ziggy,   MetricName.humidity_level, 58.0, 5.0,  "stable"),
+        (ziggy,   MetricName.shedding_quality, 3.5, 0.5, "recovery"),
+        (ziggy,   MetricName.appetite,       3.0,  0.8,  "stable"),
     ]
 
-    # Realistic hour ranges (hour_min, hour_max) per metric
     METRIC_HOURS = {
-        MetricName.weight:        (7, 8),    # morning weigh-in
-        MetricName.energy_level:  (11, 13),  # midday observation
-        MetricName.appetite:      None,       # cycles through meal times below
-        MetricName.water_intake:  (18, 20),  # end-of-day measurement
-        MetricName.stool_quality: (8, 10),   # morning check
+        MetricName.weight:             (7, 8),
+        MetricName.energy_level:       (11, 13),
+        MetricName.appetite:           None,
+        MetricName.water_intake:       (18, 20),
+        MetricName.stool_quality:      (8, 10),
+        MetricName.feather_condition:  (9, 10),
+        MetricName.vocalisation_level: (10, 12),
+        MetricName.humidity_level:     (12, 14),
+        MetricName.shedding_quality:   (8, 10),
     }
-    MEAL_HOURS = [(7, 8), (12, 13), (18, 19)]  # breakfast, lunch, dinner
+    MEAL_HOURS = [(7, 8), (12, 13), (18, 19)]
 
     for pet, m_name, base, var, trend in scenarios:
         m_def = db.query(MetricDefinition).filter(
@@ -131,20 +164,16 @@ def seed_data():
         if m_def:
             for i in range(30):
                 days_back = i * 2
-                val = base
                 if trend == "recovery":
-                    if i < 10: val -= (i * 0.4)
-                    elif i < 20: val = base - 4.0 + random.uniform(-0.2, 0.2)
-                    else: val = (base - 4.0) + ((i - 20) * 0.4)
+                    if i < 10:   val = base - (i * 0.04)
+                    elif i < 20: val = base - 0.4 + random.uniform(-0.05, 0.05)
+                    else:        val = (base - 0.4) + ((i - 20) * 0.04)
                 else:
                     val = base + random.uniform(-var, var)
 
                 hour_range = METRIC_HOURS.get(m_name)
-                if hour_range is None:
-                    h_min, h_max = MEAL_HOURS[i % 3]
-                else:
-                    h_min, h_max = hour_range
-                log_hour = random.randint(h_min, h_max)
+                h_min, h_max = hour_range if hour_range else MEAL_HOURS[i % 3]
+                log_hour   = random.randint(h_min, h_max)
                 log_minute = random.randint(0, 59)
 
                 base_day = datetime.utcnow().replace(hour=log_hour, minute=log_minute, second=0, microsecond=0)
@@ -156,39 +185,56 @@ def seed_data():
     db.commit()
 
 
-    # --- 5. Seed Appointments ---
+    # 6. Seed Appointments
     print("Seeding Vet Appointments...")
     today = datetime.now()
 
     appointments = [
+        # Bentley — +2 days
         PetAppointment(
-            pet_id=bentley.pet_id,
-        # Convert to a date object
-            pet_appointment_date=(today + timedelta(days=2)).date(), 
-        # Convert to a time object
-            pet_appointment_time=time(10, 30), 
+            pet_id=bailey.pet_id,
+            pet_appointment_date=(today + timedelta(days=2)).date(),
+            pet_appointment_time=time(10, 30),
             appointment_notes="Happy Paws Veterinary - Annual Booster Vaccinations"
         ),
+        # Rio — same day as Bentley (+2 days)
         PetAppointment(
-            pet_id=maisie.pet_id,
-        # Convert to a date object
-            pet_appointment_date=(today + timedelta(days=5)).date(),
-        # Convert to a time object
-             pet_appointment_time=time(14, 15),
-             appointment_notes="Riverside Pet Clinic - Weight management follow-up and joint check"
+            pet_id=rio.pet_id,
+            pet_appointment_date=(today + timedelta(days=2)).date(),
+            pet_appointment_time=time(11, 15),
+            appointment_notes="Happy Paws Veterinary - Wing and feather health check"
         ),
+        # Maisie — +5 days
         PetAppointment(
-            pet_id=bentley.pet_id,
-        # Convert to a date object
+            pet_id=luna.pet_id,
+            pet_appointment_date=(today + timedelta(days=5)).date(),
+            pet_appointment_time=time(14, 15),
+            appointment_notes="Riverside Pet Clinic - Weight management follow-up and joint check"
+        ),
+        # Ziggy — same day as Maisie (+5 days)
+        PetAppointment(
+            pet_id=ziggy.pet_id,
+            pet_appointment_date=(today + timedelta(days=5)).date(),
+            pet_appointment_time=time(15, 30),
+            appointment_notes="Riverside Pet Clinic - Shedding assessment and humidity review"
+        ),
+        # Bentley — +12 days
+        PetAppointment(
+            pet_id=bailey.pet_id,
             pet_appointment_date=(today + timedelta(days=12)).date(),
-        # Convert to a time object
             pet_appointment_time=time(11, 0),
             appointment_notes="Happy Paws Veterinary - Flea and tick treatment"
+        ),
+        # Ziggy — +18 days
+        PetAppointment(
+            pet_id=ziggy.pet_id,
+            pet_appointment_date=(today + timedelta(days=18)).date(),
+            pet_appointment_time=time(9, 0),
+            appointment_notes="Riverside Pet Clinic - Routine weigh-in and feeding check"
         ),
     ]
 
     for appt in appointments:
-    # Check for existing to prevent duplicates
         exists = db.query(PetAppointment).filter(
             PetAppointment.pet_id == appt.pet_id,
             PetAppointment.pet_appointment_date == appt.pet_appointment_date
@@ -197,7 +243,7 @@ def seed_data():
             db.add(appt)
     db.commit()
 
-    # --- 6. Seed Vet Contacts ---
+    # 7. Seed Vet Contacts
     print("Seeding Vet Contacts...")
     vet_contacts = [
         VetContact(
@@ -224,11 +270,10 @@ def seed_data():
         if not exists:
             db.add(vet)
     db.commit()
-    
 
-    # 7. Trigger Automated Report Generation
+    # 8. Trigger Automated Report Generation
     print("Creating Automated Report History...")
-    for pet in [bentley, maisie]:
+    for pet in [bailey, luna, rio, ziggy]:
         for freq in [ReportFrequency.weekly, ReportFrequency.monthly]:
             try:
                 generate_report_for_pet(db, pet.pet_id, freq)
