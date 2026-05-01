@@ -540,7 +540,6 @@ class _MetricsPageState extends State<MetricsPage> {
         backgroundColor: const Color.fromARGB(255, 139, 174, 174),
         toolbarHeight: 120,
         centerTitle: true,
-        leading: IconButton(icon: const Icon(Icons.arrow_back_ios, color: Colors.white), onPressed: () => Navigator.pop(context)),
         title: Column(
           children: [
             CircleAvatar(radius: 30, backgroundColor: Colors.white, child: Icon(Icons.pets, size: 25, color: petThemeColor)),
