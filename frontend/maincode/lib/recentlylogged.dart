@@ -68,30 +68,6 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
       } catch (_) {}
     }
 
-    // Standard metric history saved locally when logged
-    final standardRaw = prefs.getString('standard_history_${widget.petId}') ?? '[]';
-    try {
-      final entries = jsonDecode(standardRaw) as List;
-      for (final e in entries) {
-        final metric = e['metric'] as String? ?? '';
-        // Avoid duplicating entries already returned by the backend
-        final alreadyPresent = all.any((a) =>
-            a['isCustom'] != true &&
-            a['metric'] == metric &&
-            a['time'] == e['time']);
-        if (!alreadyPresent) {
-          all.add({
-            'metric': metric,
-            'display': e['display'] ?? metric.replaceAll('_', ' '),
-            'value': e['value'],
-            'unit': e['unit'] ?? '',
-            'time': e['time'],
-            'isCustom': false,
-          });
-        }
-      }
-    } catch (_) {}
-
     all.sort((a, b) => _parseTime(b['time']?.toString() ?? '').compareTo(
                         _parseTime(a['time']?.toString() ?? '')));
     return all;
