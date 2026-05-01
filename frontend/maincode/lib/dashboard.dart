@@ -46,12 +46,24 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
-  void _updateDailyAdvice() {
+  void _updateDailyAdvice() async {
     if (_pets.isNotEmpty) {
       final currentPet = _pets[_selectedPetIndex];
-      setState(() {
-        _dailyAdvice = _adviceService.getDailyAdvice(currentPet['species_id']);
-      });
+      final petId = currentPet['pet_id'] as int;
+      final breedId = currentPet['species_id'] as int;
+      final prefs = await SharedPreferences.getInstance();
+      final lastLogged = prefs.getString('last_logged_metric_$petId');
+      String advice;
+      if (lastLogged != null) {
+        final parts = lastLogged.split('|');
+        final metricName = parts[0];
+        final value = parts.length > 1 ? parts[1] : '';
+        final target = parts.length > 2 ? parts[2] : '';
+        advice = _adviceService.getAdviceForLastMetric(breedId, metricName, value, target);
+      } else {
+        advice = _adviceService.getDailyAdvice(breedId);
+      }
+      if (mounted) setState(() => _dailyAdvice = advice);
     }
   }
 
@@ -1292,7 +1304,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 petIndex: _selectedPetIndex,
               ),
             ),
-          );
+          ).then((_) => _updateDailyAdvice());
         } else if (text.contains("recently")) {
           Navigator.push(
             context,

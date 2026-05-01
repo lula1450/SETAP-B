@@ -29,6 +29,13 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
     _historyFuture = _loadAllHistory();
   }
 
+  void _refresh() {
+    setState(() {
+      _loadedLogs.clear();
+      _historyFuture = _loadAllHistory();
+    });
+  }
+
   Future<List<Map<String, dynamic>>> _loadAllHistory() async {
     final prefs = await SharedPreferences.getInstance();
     final List<Map<String, dynamic>> all = [];
@@ -61,6 +68,30 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
       } catch (_) {}
     }
 
+    // Standard metric history saved locally when logged
+    final standardRaw = prefs.getString('standard_history_${widget.petId}') ?? '[]';
+    try {
+      final entries = jsonDecode(standardRaw) as List;
+      for (final e in entries) {
+        final metric = e['metric'] as String? ?? '';
+        // Avoid duplicating entries already returned by the backend
+        final alreadyPresent = all.any((a) =>
+            a['isCustom'] != true &&
+            a['metric'] == metric &&
+            a['time'] == e['time']);
+        if (!alreadyPresent) {
+          all.add({
+            'metric': metric,
+            'display': e['display'] ?? metric.replaceAll('_', ' '),
+            'value': e['value'],
+            'unit': e['unit'] ?? '',
+            'time': e['time'],
+            'isCustom': false,
+          });
+        }
+      }
+    } catch (_) {}
+
     all.sort((a, b) => _parseTime(b['time']?.toString() ?? '').compareTo(
                         _parseTime(a['time']?.toString() ?? '')));
     return all;
@@ -88,15 +119,43 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
     setState(() => _loadedLogs.removeAt(index));
 
     final isCustom = log['isCustom'] == true;
-    bool success = isCustom
-        ? await _deleteCustomLog(log)
-        : await _service.deleteHealthLog(widget.petId, log['id'] as int? ?? -1);
+    bool success;
+    if (isCustom) {
+      success = await _deleteCustomLog(log);
+    } else if (log['id'] != null) {
+      success = await _service.deleteHealthLog(widget.petId, log['id'] as int);
+    } else {
+      success = await _deleteLocalStandardLog(log);
+    }
 
     if (!success && mounted) {
       setState(() => _loadedLogs.insert(index, log));
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Failed to delete log entry.')),
       );
+    }
+  }
+
+  Future<bool> _deleteLocalStandardLog(Map<String, dynamic> log) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = 'standard_history_${widget.petId}';
+      final existing = List<Map<String, dynamic>>.from(
+        (jsonDecode(prefs.getString(key) ?? '[]') as List)
+            .map((e) => Map<String, dynamic>.from(e as Map)),
+      );
+      final before = existing.length;
+      existing.removeWhere((e) =>
+          e['metric'] == log['metric'] &&
+          e['time'] == log['time'] &&
+          e['value'].toString() == log['value'].toString());
+      if (existing.length < before) {
+        await prefs.setString(key, jsonEncode(existing));
+        return true;
+      }
+      return false;
+    } catch (_) {
+      return false;
     }
   }
 
@@ -217,7 +276,9 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
                 colors: [Color(0xFF8BAEAE), Color(0xFFB2D3C2), Color(0xFFE0F7F4)],
               ),
             ),
-            child: ListView.builder(
+            child: RefreshIndicator(
+              onRefresh: () async => _refresh(),
+              child: ListView.builder(
               padding: const EdgeInsets.all(16),
               itemCount: _loadedLogs.length,
               itemBuilder: (context, index) {
@@ -263,6 +324,7 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
                   ),
                 );
               },
+            ),
             ),
           );
         },

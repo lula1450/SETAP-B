@@ -26,6 +26,7 @@ class HealthMetricLogResponse(BaseModel):
 # --- 2. ANALYZE HELPER (Used by the Log route) ---
 
 async def analyze_health_metric(pet_id, metric_name, current_value, metric_def, db):
+    # Cache the unit immediately before any session issues
     unit = metric_def.metric_unit
     
     if unit == MetricUnit.text:
@@ -89,14 +90,14 @@ async def log_health_metric(log: HealthMetricLogCreate, db: Session = Depends(ge
     pet = db.query(Pet).filter(Pet.pet_id == log.pet_id).first()
     if not pet:
         raise HTTPException(status_code=404, detail="Pet not found.")
-
+    
     metric_def = db.query(MetricDefinition).filter(
         MetricDefinition.metric_name == log.metric_name,
         MetricDefinition.species_id == pet.species_id
     ).first()
     
     if not metric_def:
-        raise HTTPException(status_code=404, detail="Metric type not defined for this species.")
+        raise HTTPException(status_code=404, detail=f"Metric type '{log.metric_name}' not defined for this species.")
 
     metric_val_to_save = 0
     notes_to_save = log.notes
@@ -120,6 +121,11 @@ async def log_health_metric(log: HealthMetricLogCreate, db: Session = Depends(ge
     db.commit() 
     db.refresh(new_log)
 
+    # Re-query the metric_def to ensure it's attached to the session for analysis
+    metric_def = db.query(MetricDefinition).filter(
+        MetricDefinition.metric_def_id == metric_def.metric_def_id
+    ).first()
+
     analysis = await analyze_health_metric(
         log.pet_id, 
         log.metric_name, 
@@ -135,7 +141,7 @@ def get_latest_metric(pet_id: int, metric_name: str, db: Session = Depends(get_d
     pet = db.query(Pet).filter(Pet.pet_id == pet_id).first()
     if not pet:
         raise HTTPException(status_code=404, detail="Pet not found")
-
+    
     metric_def = db.query(MetricDefinition).filter(
         MetricDefinition.species_id == pet.species_id,
         MetricDefinition.metric_name == MetricName(metric_name)
@@ -155,7 +161,7 @@ def get_latest_metric(pet_id: int, metric_name: str, db: Session = Depends(get_d
     ).first()
 
     return {
-        "value": latest_log.metric_value if latest_log else "---",
+        "value": float(latest_log.metric_value) if latest_log and latest_log.metric_value is not None else "---",
         "unit": metric_def.metric_unit.value,
         "target": goal_record.target_value if goal_record else ""
     }
