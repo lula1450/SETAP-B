@@ -37,14 +37,13 @@ class _NotificationSettingsPageState
       _feeding = prefs.getBool('notif_feeding') ?? true;
       _advice = prefs.getBool('notif_advice') ?? true;
       _metrics = prefs.getBool('notif_metrics') ?? true;
-
       _updateMasterToggle();
     });
   }
 
   Future<void> _loadUpcomingAppointments() async {
     final prefs = await SharedPreferences.getInstance();
-    final int ownerId = prefs.getInt('owner_id') ?? 0;
+    final ownerId = prefs.getInt('owner_id') ?? 0;
 
     final data = await _petService.getAllAppointments(ownerId);
 
@@ -58,14 +57,12 @@ class _NotificationSettingsPageState
     }).toList();
 
     upcoming.sort((a, b) =>
-        a['pet_appointment_date'].compareTo(b['pet_appointment_date']));
+        a['pet_appointment_date'].compareTo(
+          b['pet_appointment_date'],
+        ));
 
     setState(() {
       _appointmentsList = upcoming;
-
-      for (var appt in _appointmentsList) {
-        appt['reminder_enabled'] = appt['reminder_enabled'] ?? true;
-      }
     });
   }
 
@@ -78,7 +75,9 @@ class _NotificationSettingsPageState
     await prefs.setBool('notif_metrics', _metrics);
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Notification settings saved")),
+      const SnackBar(
+        content: Text("Notification settings saved"),
+      ),
     );
   }
 
@@ -94,7 +93,10 @@ class _NotificationSettingsPageState
 
   void _updateMasterToggle() {
     _allNotifications =
-        _appointments && _feeding && _advice && _metrics;
+        _appointments &&
+        _feeding &&
+        _advice &&
+        _metrics;
   }
 
   Widget _buildCard({required Widget child}) {
@@ -103,8 +105,11 @@ class _NotificationSettingsPageState
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.black12),
+        borderRadius:
+            BorderRadius.circular(12),
+        border: Border.all(
+          color: Colors.black12,
+        ),
         boxShadow: const [
           BoxShadow(
             color: Colors.black12,
@@ -130,13 +135,15 @@ class _NotificationSettingsPageState
               title,
               style: const TextStyle(
                 fontSize: 14,
-                fontWeight: FontWeight.w500,
+                fontWeight:
+                    FontWeight.w500,
               ),
             ),
           ),
           Switch(
             value: value,
-            activeColor: const Color(0xFF8BAEAE),
+            activeColor:
+                const Color(0xFF8BAEAE),
             onChanged: onChanged,
           ),
         ],
@@ -147,7 +154,8 @@ class _NotificationSettingsPageState
   Widget _buildAppointmentCard() {
     return _buildCard(
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
         children: [
           Row(
             children: [
@@ -156,13 +164,16 @@ class _NotificationSettingsPageState
                   "Appointment Reminders",
                   style: TextStyle(
                     fontSize: 14,
-                    fontWeight: FontWeight.w500,
+                    fontWeight:
+                        FontWeight.w500,
                   ),
                 ),
               ),
               Switch(
                 value: _appointments,
-                activeColor: const Color(0xFF8BAEAE),
+                activeColor:
+                    const Color(
+                        0xFF8BAEAE),
                 onChanged: (val) {
                   setState(() {
                     _appointments = val;
@@ -173,47 +184,345 @@ class _NotificationSettingsPageState
             ],
           ),
 
+          const SizedBox(height: 6),
+
+          const Text(
+            "Tap an appointment to set reminder schedule",
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight:
+                  FontWeight.w600,
+              color:
+                  Color(0xFF63C5DA),
+            ),
+          ),
+
           const SizedBox(height: 10),
 
           DropdownButtonFormField<dynamic>(
             isExpanded: true,
             decoration: InputDecoration(
-              hintText: "View Upcoming Appointments",
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
+              hintText:
+                  "View Upcoming Appointments",
+              hintStyle:
+                  const TextStyle(
+                color: Color(
+                    0xFF63C5DA),
+                fontWeight:
+                    FontWeight.w600,
               ),
-              contentPadding: const EdgeInsets.symmetric(
+              border:
+                  OutlineInputBorder(
+                borderRadius:
+                    BorderRadius
+                        .circular(
+                            10),
+              ),
+              contentPadding:
+                  const EdgeInsets
+                      .symmetric(
                 horizontal: 12,
                 vertical: 10,
               ),
             ),
-            items: _appointmentsList.map((appt) {
-              return DropdownMenuItem<dynamic>(
+            items: _appointmentsList
+                .map((appt) {
+              return DropdownMenuItem<
+                  dynamic>(
                 value: appt,
                 enabled: false,
-                child: StatefulBuilder(
-                  builder: (context, menuSetState) {
-                    return Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            "${appt['pet_appointment_date']} - ${appt['appointment_notes'] ?? 'Vet Visit'}",
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 13),
-                          ),
-                        ),
-                        Switch(
-                          value: appt['reminder_enabled'],
-                          activeColor: const Color(0xFF8BAEAE),
-                          onChanged: (val) {
-                            setState(() {
-                              appt['reminder_enabled'] = val;
-                            });
+                child:
+                    StatefulBuilder(
+                  builder: (
+                    context,
+                    menuSetState,
+                  ) {
+                    bool reminderOn =
+                        appt[
+                                'reminder_enabled'] ??
+                            true;
 
-                            menuSetState(() {});
-                          },
+                    return InkWell(
+                      onTap:
+                          reminderOn
+                              ? () async {
+                                  final pickedTime =
+                                      await showTimePicker(
+                                    context:
+                                        context,
+                                    initialTime:
+                                        TimeOfDay.now(),
+                                  );
+
+                                  if (pickedTime ==
+                                      null) {
+                                    return;
+                                  }
+
+                                  final repeatType =
+                                      await showDialog<
+                                          String>(
+                                    context:
+                                        context,
+                                    builder:
+                                        (_) {
+                                      String selected =
+                                          appt['repeat_type'] ??
+                                              'None';
+
+                                      return StatefulBuilder(
+                                        builder: (
+                                          context,
+                                          setPop,
+                                        ) {
+                                          return AlertDialog(
+                                            title:
+                                                const Text(
+                                              "Reminder Schedule",
+                                            ),
+                                            content:
+                                                DropdownButtonFormField<String>(
+                                              value:
+                                                  selected,
+                                              decoration:
+                                                  const InputDecoration(
+                                                labelText:
+                                                    "Repeat",
+                                              ),
+                                              items:
+                                                  const [
+                                                DropdownMenuItem(
+                                                  value:
+                                                      "None",
+                                                  child:
+                                                      Text("Once"),
+                                                ),
+                                                DropdownMenuItem(
+                                                  value:
+                                                      "Daily",
+                                                  child:
+                                                      Text("Every Day"),
+                                                ),
+                                                DropdownMenuItem(
+                                                  value:
+                                                      "Weekly",
+                                                  child:
+                                                      Text("Every Week"),
+                                                ),
+                                              ],
+                                              onChanged:
+                                                  (val) {
+                                                setPop(() {
+                                                  selected =
+                                                      val!;
+                                                });
+                                              },
+                                            ),
+                                            actions: [
+                                              TextButton(
+                                                onPressed:
+                                                    () => Navigator.pop(
+                                                  context,
+                                                ),
+                                                child:
+                                                    const Text(
+                                                  "Cancel",
+                                                ),
+                                              ),
+                                              ElevatedButton(
+                                                onPressed:
+                                                    () => Navigator.pop(
+                                                  context,
+                                                  selected,
+                                                ),
+                                                child:
+                                                    const Text(
+                                                  "Save",
+                                                ),
+                                              ),
+                                            ],
+                                          );
+                                        },
+                                      );
+                                    },
+                                  );
+
+                                  if (repeatType ==
+                                      null) {
+                                    return;
+                                  }
+
+                                  String?
+                                      chosenDate;
+
+                                  if (repeatType ==
+                                      "None") {
+                                    final appointmentDate =
+                                        DateTime.parse(
+                                      appt[
+                                          'pet_appointment_date'],
+                                    );
+
+                                    final pickedDate =
+                                        await showDatePicker(
+                                      context:
+                                          context,
+                                      initialDate:
+                                          appointmentDate.subtract(
+                                        const Duration(
+                                            days:
+                                                1),
+                                      ),
+                                      firstDate:
+                                          DateTime.now(),
+                                      lastDate:
+                                          appointmentDate.subtract(
+                                        const Duration(
+                                            days:
+                                                1),
+                                      ),
+                                    );
+
+                                    if (pickedDate ==
+                                        null) {
+                                      return;
+                                    }
+
+                                    chosenDate =
+                                        "${pickedDate.year}-${pickedDate.month.toString().padLeft(2, '0')}-${pickedDate.day.toString().padLeft(2, '0')}";
+                                  }
+
+                                  final formatted =
+                                      "${pickedTime.hour.toString().padLeft(2, '0')}:${pickedTime.minute.toString().padLeft(2, '0')}";
+
+                                  setState(
+                                      () {
+                                    appt[
+                                            'reminder_time'] =
+                                        formatted;
+                                    appt[
+                                            'repeat_type'] =
+                                        repeatType;
+                                    appt[
+                                            'reminder_date'] =
+                                        chosenDate;
+                                  });
+
+                                  menuSetState(
+                                      () {});
+                                }
+                              : null,
+                      child: Opacity(
+                        opacity:
+                            reminderOn
+                                ? 1
+                                : 0.5,
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child:
+                                  Column(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    appt['appointment_notes'] ??
+                                        'Vet Visit',
+                                    overflow:
+                                        TextOverflow.ellipsis,
+                                    style:
+                                        const TextStyle(
+                                      fontSize:
+                                          13,
+                                      fontWeight:
+                                          FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(
+                                      height:
+                                          3),
+                                  Text(
+                                    appt['pet_appointment_date'],
+                                    style:
+                                        const TextStyle(
+                                      fontSize:
+                                          11,
+                                      color:
+                                          Colors.grey,
+                                    ),
+                                  ),
+                                  const SizedBox(
+                                      height:
+                                          6),
+                                  Container(
+                                    padding:
+                                        const EdgeInsets.symmetric(
+                                      horizontal:
+                                          10,
+                                      vertical:
+                                          5,
+                                    ),
+                                    decoration:
+                                        BoxDecoration(
+                                      color: const Color(
+                                              0xFF63C5DA)
+                                          .withOpacity(
+                                              0.18),
+                                      borderRadius:
+                                          BorderRadius.circular(
+                                              10),
+                                      border:
+                                          Border.all(
+                                        color:
+                                            const Color(0xFF63C5DA),
+                                      ),
+                                    ),
+                                    child:
+                                        Text(
+                                      reminderOn
+                                          ? (appt['reminder_time'] !=
+                                                  null
+                                              ? "${appt['reminder_time']} • ${appt['repeat_type'] == 'None' ? (appt['reminder_date'] ?? 'Once') : appt['repeat_type']}"
+                                              : "Set Reminder")
+                                          : "Reminder Off",
+                                      style:
+                                          const TextStyle(
+                                        fontSize:
+                                            11,
+                                        fontWeight:
+                                            FontWeight.w600,
+                                        color:
+                                            Color(0xFF2F9FB8),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(
+                                width:
+                                    8),
+                            Switch(
+                              value:
+                                  reminderOn,
+                              activeColor:
+                                  const Color(
+                                      0xFF8BAEAE),
+                              onChanged:
+                                  (val) {
+                                setState(
+                                    () {
+                                  appt['reminder_enabled'] =
+                                      val;
+                                });
+
+                                menuSetState(
+                                    () {});
+                              },
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     );
                   },
                 ),
@@ -227,31 +536,46 @@ class _NotificationSettingsPageState
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+      BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text(
           "Notifications",
-          style: TextStyle(fontWeight: FontWeight.bold),
+          style: TextStyle(
+            fontWeight:
+                FontWeight.bold,
+          ),
         ),
-        backgroundColor: const Color(0xFF8BAEAE),
+        backgroundColor:
+            const Color(
+                0xFF8BAEAE),
       ),
       body: Container(
         width: double.infinity,
         height: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
+        decoration:
+            const BoxDecoration(
+          gradient:
+              LinearGradient(
+            begin:
+                Alignment.topCenter,
+            end: Alignment
+                .bottomCenter,
             colors: [
-              Color(0xFF8BAEAE),
-              Color(0xFFB2D3C2),
-              Color(0xFFE0F7F4),
+              Color(
+                  0xFF8BAEAE),
+              Color(
+                  0xFFB2D3C2),
+              Color(
+                  0xFFE0F7F4),
             ],
           ),
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
+        child: SingleChildScrollView(
+          padding:
+              const EdgeInsets.all(
+                  16),
           child: Column(
             children: [
               _buildCard(
@@ -260,29 +584,36 @@ class _NotificationSettingsPageState
                     const Expanded(
                       child: Text(
                         "Enable All Notifications",
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+                        style:
+                            TextStyle(
+                          fontSize:
+                              16,
+                          fontWeight:
+                              FontWeight.bold,
                         ),
                       ),
                     ),
                     Switch(
-                      value: _allNotifications,
-                      activeColor: const Color(0xFF8BAEAE),
-                      onChanged: _toggleAll,
+                      value:
+                          _allNotifications,
+                      activeColor:
+                          const Color(
+                              0xFF8BAEAE),
+                      onChanged:
+                          _toggleAll,
                     ),
                   ],
                 ),
               ),
 
-              const SizedBox(height: 10),
-
               _buildAppointmentCard(),
 
               _buildOptionCard(
-                title: "Feeding Reminders",
+                title:
+                    "Feeding Reminders",
                 value: _feeding,
-                onChanged: (val) {
+                onChanged:
+                    (val) {
                   setState(() {
                     _feeding = val;
                     _updateMasterToggle();
@@ -291,9 +622,11 @@ class _NotificationSettingsPageState
               ),
 
               _buildOptionCard(
-                title: "Daily Advice Reminders",
+                title:
+                    "Daily Advice Reminders",
                 value: _advice,
-                onChanged: (val) {
+                onChanged:
+                    (val) {
                   setState(() {
                     _advice = val;
                     _updateMasterToggle();
@@ -302,9 +635,11 @@ class _NotificationSettingsPageState
               ),
 
               _buildOptionCard(
-                title: "Log Daily Metrics Reminders",
+                title:
+                    "Log Daily Metrics Reminders",
                 value: _metrics,
-                onChanged: (val) {
+                onChanged:
+                    (val) {
                   setState(() {
                     _metrics = val;
                     _updateMasterToggle();
@@ -312,20 +647,33 @@ class _NotificationSettingsPageState
                 },
               ),
 
-              const Spacer(),
+              const SizedBox(
+                  height: 20),
 
               ElevatedButton(
-                onPressed: _saveSettings,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF8BAEAE),
-                  padding: const EdgeInsets.symmetric(
+                onPressed:
+                    _saveSettings,
+                style:
+                    ElevatedButton
+                        .styleFrom(
+                  backgroundColor:
+                      const Color(
+                          0xFF8BAEAE),
+                  padding:
+                      const EdgeInsets.symmetric(
                     vertical: 15,
-                    horizontal: 40,
+                    horizontal:
+                        40,
                   ),
                 ),
-                child: const Text(
+                child:
+                    const Text(
                   "Save Settings",
-                  style: TextStyle(color: Colors.white),
+                  style:
+                      TextStyle(
+                    color: Colors
+                        .white,
+                  ),
                 ),
               ),
             ],
