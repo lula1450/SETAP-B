@@ -192,7 +192,7 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
           children: [
             Text(displayName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
-            Text('Value: ${log['value']} ${log['unit']}', style: const TextStyle(fontSize: 15)),
+            Text('Value: ${log['value']} ${_formatUnit(log['unit']?.toString())}', style: const TextStyle(fontSize: 15)),
             const SizedBox(height: 4),
             Text('Logged: ${log['time']}', style: const TextStyle(color: Colors.grey)),
             const SizedBox(height: 24),
@@ -292,7 +292,7 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
                           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                         ),
                         Text(
-                          "${log['unit']}",
+                          _formatUnit(log['unit']?.toString()),
                           style: const TextStyle(fontSize: 12, color: Colors.grey),
                         ),
                       ],
@@ -306,6 +306,16 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
         },
       ),
     );
+  }
+
+  String _formatUnit(String? raw) {
+    if (raw == null || raw.isEmpty) return '';
+    switch (raw.toLowerCase()) {
+      case 'scale_1_5': return '/5';
+      case 'ml_per_day': return 'ml/day';
+      case 'kg': return 'kg';
+      default: return raw;
+    }
   }
 
   Widget _getIcon(String metric) {

@@ -339,7 +339,7 @@ class _MetricsPageState extends State<MetricsPage> {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(dlgCtx);
-              _showEditDialog(ctx, title);
+              _showEditDialog(ctx, title, showValue: true, showTarget: false);
             },
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF8BAEAE)),
             child: const Text("Log Value", style: TextStyle(color: Colors.white)),
@@ -365,24 +365,46 @@ class _MetricsPageState extends State<MetricsPage> {
     final TextEditingController goalController = TextEditingController();
     final String unit = _getUnitForMetric(title);
     bool isLogging = false;
+    final bool isWaterIntake = title.toLowerCase() == 'water intake';
+    String waterUnit = 'ml';
 
     showDialog(
       context: outerCtx,
       builder: (dlgCtx) => StatefulBuilder(
         builder: (dlgCtx, setDialogState) {
+          final String displayUnit = isWaterIntake ? waterUnit : unit;
           return AlertDialog(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
             title: Text(showValue && showTarget ? "Log $title" : showValue ? "Log Current $title" : "Set Target for $title"),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                if (isWaterIntake) ...[
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      const Text('Unit:', style: TextStyle(fontSize: 13)),
+                      const SizedBox(width: 8),
+                      ToggleButtons(
+                        isSelected: [waterUnit == 'ml', waterUnit == 'L'],
+                        onPressed: (i) => setDialogState(() => waterUnit = i == 0 ? 'ml' : 'L'),
+                        borderRadius: BorderRadius.circular(8),
+                        selectedColor: Colors.white,
+                        fillColor: const Color(0xFF8BAEAE),
+                        constraints: const BoxConstraints(minWidth: 40, minHeight: 32),
+                        children: const [Text('ml'), Text('L')],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                ],
                 if (showValue) TextField(
                   controller: valueController,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   decoration: InputDecoration(
                     labelText: "Current $title",
-                    hintText: "e.g. 4.5",
-                    suffixText: unit,
+                    hintText: isWaterIntake ? (waterUnit == 'L' ? "e.g. 1.5" : "e.g. 1500") : "e.g. 4.5",
+                    suffixText: displayUnit,
                   ),
                 ),
                 if (showValue && showTarget) const SizedBox(height: 10),
@@ -391,8 +413,8 @@ class _MetricsPageState extends State<MetricsPage> {
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   decoration: InputDecoration(
                     labelText: "Target Goal",
-                    hintText: "e.g. 5.0",
-                    suffixText: unit,
+                    hintText: isWaterIntake ? (waterUnit == 'L' ? "e.g. 2.0" : "e.g. 2000") : "e.g. 5.0",
+                    suffixText: displayUnit,
                   ),
                 ),
               ],
@@ -406,6 +428,16 @@ class _MetricsPageState extends State<MetricsPage> {
                       if (valueController.text.isEmpty && goalController.text.isEmpty) return;
                       setDialogState(() => isLogging = true);
                       String backendName = title.toLowerCase().replaceAll(" ", "_");
+
+                      // Convert L → ml before saving so the backend always receives ml
+                      String resolvedValue = valueController.text;
+                      String resolvedGoal = goalController.text;
+                      if (isWaterIntake && waterUnit == 'L') {
+                        final v = double.tryParse(valueController.text);
+                        if (v != null) resolvedValue = (v * 1000).toStringAsFixed(0);
+                        final g = double.tryParse(goalController.text);
+                        if (g != null) resolvedGoal = (g * 1000).toStringAsFixed(0);
+                      }
 
                       try {
                         final prefs = await SharedPreferences.getInstance();
@@ -433,38 +465,38 @@ class _MetricsPageState extends State<MetricsPage> {
                             await prefs.setString('custom_target_${widget.petId}_$key', goalController.text);
                           }
                         } else {
-                          if (valueController.text.isNotEmpty) {
+                          if (resolvedValue.isNotEmpty) {
                             await _healthService.logMetric(
                               petId: widget.petId,
                               metricName: backendName,
-                              value: valueController.text,
+                              value: resolvedValue,
                             );
                           }
-                          if (goalController.text.isNotEmpty) {
+                          if (resolvedGoal.isNotEmpty) {
                             await _healthService.syncGoalToBackend(
                               widget.petId,
                               backendName,
-                              goalController.text,
+                              resolvedGoal,
                             );
                           }
                         }
                         if (!mounted) return;
-                        final effectiveTarget = goalController.text.isNotEmpty
-                            ? goalController.text
+                        final effectiveTarget = resolvedGoal.isNotEmpty
+                            ? resolvedGoal
                             : (_latestValues[title]?['target'] ?? '');
                         Navigator.pop(dlgCtx);
                         _refreshAllMetrics();
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(content: Text("Updated $title successfully!"), backgroundColor: Colors.green.shade700),
                         );
-                        if (valueController.text.isNotEmpty) {
+                        if (resolvedValue.isNotEmpty) {
                           await prefs.setString(
                             'last_logged_metric_${widget.petId}',
-                            '$title|${valueController.text}|$effectiveTarget',
+                            '$title|$resolvedValue|$effectiveTarget',
                           );
                         }
-                        if (valueController.text.isNotEmpty && effectiveTarget.isNotEmpty && mounted) {
-                          _checkAndWarnDeviation(context, title, valueController.text, effectiveTarget);
+                        if (resolvedValue.isNotEmpty && effectiveTarget.isNotEmpty && mounted) {
+                          _checkAndWarnDeviation(context, title, resolvedValue, effectiveTarget);
                         }
                       } catch (e) {
                         setDialogState(() => isLogging = false);
