@@ -554,7 +554,10 @@ class _DashboardPageState extends State<DashboardPage> {
               _buildDailySchedule(),
               _actionButtonsSection(context),
               _dailyInfoSection(),
-              _navigationGridSection(_getPetColor(_selectedPetIndex)),
+              _navigationGridSection(
+                _getPetColor(_selectedPetIndex),
+                _pets.isNotEmpty ? _pets[_selectedPetIndex]['pet_first_name'] as String : '',
+              ),
               const SizedBox(height: 30),
             ],
           ),
@@ -936,72 +939,26 @@ class _DashboardPageState extends State<DashboardPage> {
 
   Widget _calendarSection() {
     return SizedBox(
-      height: 420, // Total height of the calendar stack
-      child: Stack(
-        children: [
-          // --- TOP LEFT CLUSTER (Behind Calendar) ---
-          // Top Left 1 (Largest, Most Transparent)
-          Positioned(
-            top: -10,
-            left: -40,
-            child: _backgroundCircle(200, Colors.white.withOpacity(0.1)),
-          ),
-          // Top Left 2 (Medium)
-          Positioned(
-            top: 10,
-            left: -25,
-            child: _backgroundCircle(190, Colors.white.withOpacity(0.2)),
-          ),
-          // Top Left 3 (Smallest, Most Visible)
-          Positioned(
-            top: 30,
-            left: 10,
-            child: _backgroundCircle(170, Colors.white.withOpacity(0.3)),
-          ),
-
-          // --- BOTTOM RIGHT CLUSTER (Behind Calendar) ---
-          // Bottom Right 1 (Largest, Most Transparent)
-          Positioned(
-            bottom: -10,
-            right: -40,
-            child: _backgroundCircle(200, Colors.white.withOpacity(0.1)),
-          ),
-          // Bottom Right 2 (Medium)
-          Positioned(
-            bottom: 10,
-            right: -25,
-            child: _backgroundCircle(190, Colors.white.withOpacity(0.2)),
-          ),
-          // Bottom Right 3 (Smallest, Most Visible)
-          Positioned(
-            bottom: 30,
-            right: 10,
-            child: _backgroundCircle(170, Colors.white.withOpacity(0.3)),
-          ),
-
-          // --- THE MAIN CALENDAR CARD (Foreground) ---
-          Align(
-            alignment: Alignment.center,
-            child: Container(
-              height: 380,
-              width: double.infinity,
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                // The slight opacity on the white container is key to seeing the rings
-                color: Colors.white.withOpacity(0.65),
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
+      height: 420,
+      child: Align(
+        alignment: Alignment.center,
+        child: Container(
+          height: 380,
+          width: double.infinity,
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.65),
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: .05),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
               ),
-              child: _buildCalendar(),
-            ),
+            ],
           ),
-        ],
+          child: _buildCalendar(),
+        ),
       ),
     );
   }
@@ -1046,7 +1003,7 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  Widget _navigationGridSection(Color petColor) {
+  Widget _navigationGridSection(Color petColor, String petName) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
       child: GridView.count(
@@ -1057,7 +1014,7 @@ class _DashboardPageState extends State<DashboardPage> {
           crossAxisSpacing: 7,
           children: [
             _gridButton(
-              "Generate\nreport",
+              "$petName's\nReport",
               petColor,
               onTap: () {
                 if (_pets.isNotEmpty) {
@@ -1067,6 +1024,7 @@ class _DashboardPageState extends State<DashboardPage> {
                       builder: (context) => ReportsPage(
                         petId: _pets[_selectedPetIndex]['pet_id'],
                         petName: _pets[_selectedPetIndex]['pet_first_name'],
+                        petImagePath: _pets[_selectedPetIndex]['pet_image_path'] as String?,
                       ),
                     ),
                   );
@@ -1081,17 +1039,21 @@ class _DashboardPageState extends State<DashboardPage> {
               },
             ),
             _gridButton(
-              "Health\nrecords",
+              "$petName's\nHealth Records",
               petColor,
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => const HealthRecordsPage(),
+                  builder: (context) => HealthRecordsPage(
+                    petId: _pets[_selectedPetIndex]['pet_id'].toString(),
+                    petName: _pets[_selectedPetIndex]['pet_first_name'] as String,
+                    petImagePath: _pets[_selectedPetIndex]['pet_image_path'] as String?,
+                  ),
                 ),
               ),
             ),
             _gridButton(
-              "Feeding\nschedule",
+              "Household\nFeeding Schedule",
               petColor,
               onTap: () => Navigator.push(
                 context,
@@ -1153,17 +1115,6 @@ class _DashboardPageState extends State<DashboardPage> {
             style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _backgroundCircle(double size, Color color) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: color, width: 20),
       ),
     );
   }
@@ -1302,6 +1253,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 petId: currentPet['pet_id'],
                 petName: currentPet['pet_first_name'],
                 petIndex: _selectedPetIndex,
+                petImagePath: currentPet['pet_image_path'] as String?,
               ),
             ),
           ).then((_) => _updateDailyAdvice());
@@ -1312,6 +1264,7 @@ class _DashboardPageState extends State<DashboardPage> {
               builder: (context) => RecentlyLoggedDataPage(
                 petId: currentPet['pet_id'],
                 petName: currentPet['pet_first_name'],
+                petImagePath: currentPet['pet_image_path'] as String?,
               ),
             ),
           );

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:maincode/widgets/app_drawer.dart';
 import 'package:maincode/services/pet_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 
 // Entry point of the app
 void main() => runApp(const PetCareApp());
@@ -15,7 +16,7 @@ class PetCareApp extends StatelessWidget {
       home: Scaffold(
         endDrawer: const AppDrawer(),
         appBar: AppBar(
-          title: const Text('Feeding Schedule'),
+          title: const Text('Household Feeding Schedule'),
           actions: [
             Builder(
               builder: (context) => IconButton(
@@ -106,6 +107,8 @@ class PetEvent {
   final String name;
   final TimeOfDay time;
   final int petId;
+  final bool repeatDaily;     // true = every day, false = same weekday only
+  final DateTime? endDate;    // null = repeats indefinitely
 
   PetEvent({
     required this.id,
@@ -113,6 +116,8 @@ class PetEvent {
     required this.name,
     required this.time,
     required this.petId,
+    this.repeatDaily = false,
+    this.endDate,
   });
 
   PetEvent copyWith({
@@ -121,6 +126,9 @@ class PetEvent {
     String? name,
     TimeOfDay? time,
     int? petId,
+    bool? repeatDaily,
+    DateTime? endDate,
+    bool clearEndDate = false,
   }) {
     return PetEvent(
       id: id ?? this.id,
@@ -128,9 +136,46 @@ class PetEvent {
       name: name ?? this.name,
       time: time ?? this.time,
       petId: petId ?? this.petId,
+      repeatDaily: repeatDaily ?? this.repeatDaily,
+      endDate: clearEndDate ? null : (endDate ?? this.endDate),
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'type': type.index,
+    'name': name,
+    'hour': time.hour,
+    'minute': time.minute,
+    'petId': petId,
+    'repeatDaily': repeatDaily,
+    'endDate': endDate?.toIso8601String(),
+  };
+
+  // Add this fromJson factory
+  factory PetEvent.fromJson(Map<String, dynamic> json) => PetEvent(
+    id: json['id'],
+    type: EventType.values[json['type']],
+    name: json['name'],
+    time: TimeOfDay(hour: json['hour'], minute: json['minute']),
+    petId: json['petId'],
+    repeatDaily: json['repeatDaily'] ?? false,
+    endDate: json['endDate'] != null ? DateTime.parse(json['endDate']) : null,
+  );
 }
+
+// ─── Per-pet colours — same list as dashboard _getPetColor ───────────────────
+
+const _kPetColors = [
+  Color.fromARGB(255, 146, 179, 236), // Blue
+  Color.fromRGBO(212, 162, 221, 1),   // Purple
+  Color.fromARGB(255, 182, 139, 83),  // Brown/Gold
+  Color.fromRGBO(223, 128, 158, 1),   // Pink
+  Color.fromARGB(255, 126, 140, 224), // Indigo
+  Color.fromARGB(255, 255, 171, 145), // Coral
+  Color.fromARGB(255, 167, 235, 244), // Cyan
+  Color.fromARGB(255, 219, 247, 240), // Mint
+];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -163,8 +208,8 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> {
   int _weekOffset = 0;
   bool _isLoading = true;
 
-  // events[petId][dateKey] = list of PetEvent
-  final Map<int, Map<String, List<PetEvent>>> _events = {};
+  // recurring[petId][weekday 0=Mon..6=Sun] = list of PetEvent (repeats every week)
+  final Map<int, Map<int, List<PetEvent>>> _recurring = {};
 
   @override
   void initState() {
@@ -175,31 +220,90 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> {
   // ── Data loading ──────────────────────────────────────────────────────────
 
   Future<void> _loadPets() async {
-    setState(() => _isLoading = true);
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final int ownerId = prefs.getInt('owner_id') ?? 0;
-      final rawPets = await _service.getOwnerPets(ownerId);
+  setState(() => _isLoading = true);
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final int ownerId = prefs.getInt('owner_id') ?? 0;
 
-      if (!mounted) return;
+    _recurring.clear(); // Start fresh to prevent duplication
 
-      final pets = rawPets.map((j) => Pet.fromJson(j as Map<String, dynamic>)).toList();
+    final rawPets = await _service.getOwnerPets(ownerId);
+    if (!mounted) return;
+    final pets = rawPets.map((j) => Pet.fromJson(j as Map<String, dynamic>)).toList();
 
-      setState(() {
-        _pets = pets;
-        if (pets.isNotEmpty) {
-          _activePetId = pets.first.id;
-          for (final p in pets) {
-            _events.putIfAbsent(p.id, () => {});
+    // --- STEP 1: LOAD BACKEND SEEDED DATA ---
+    for (final p in pets) {
+      _recurring.putIfAbsent(p.id, () => {});
+      try {
+        final schedules = await _service.getFeedingSchedules(p.id);
+        for (final s in schedules) {
+          final raw = s['feeding_time'] as String? ?? '';
+          TimeOfDay t = const TimeOfDay(hour: 8, minute: 0);
+          int weekday = 0; 
+          
+          try {
+            // Backend often sends "YYYY-MM-DDTHH:mm:ss"
+            final dt = DateTime.parse(raw);
+            t = TimeOfDay(hour: dt.hour, minute: dt.minute);
+            weekday = dt.weekday - 1; // 1=Mon→0, 7=Sun→6
+          } catch (_) {
+            try {
+              // Fallback for "HH:mm:ss" format
+              final parts = raw.split('T').last.split(':');
+              t = TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+            } catch (_) {}
           }
-          _seedDefaultsForWeek();
+
+          final event = PetEvent(
+            id: 'backend_${s['feeding_schedule_id']}',
+            type: EventType.feeding,
+            name: s['food_name'] as String? ?? 'Feed',
+            time: t,
+            petId: p.id,
+          );
+
+          // Seeded data logic: daily vs specific weekday
+          final foodName = (s['food_name'] as String? ?? '').toLowerCase();
+          if (foodName.contains('weekly')) {
+            _recurring[p.id]!.putIfAbsent(weekday, () => []).add(event);
+          } else {
+            for (int d = 0; d < 7; d++) {
+              _recurring[p.id]!.putIfAbsent(d, () => []).add(event.copyWith(id: '${event.id}_$d'));
+            }
+          }
         }
-      });
-    } catch (e) {
-      debugPrint('Error loading pets: $e');
+      } catch (e) {
+        debugPrint('Backend fetch failed for pet ${p.id}: $e');
+      }
     }
-    setState(() => _isLoading = false);
+
+    // --- STEP 2: OVERLAY LOCAL STORAGE (USER MODIFICATIONS) ---
+    final localData = prefs.getString('offline_feeding_schedule');
+    if (localData != null) {
+      final List<dynamic> decoded = jsonDecode(localData);
+      for (var item in decoded) {
+        final int petId = item['petId'];
+        final int weekday = item['weekday'];
+        final event = PetEvent.fromJson(item['event']);
+        
+        _recurring.putIfAbsent(petId, () => {});
+        _recurring[petId]!.putIfAbsent(weekday, () => []);
+
+        // Prevent duplicates: If a local version exists, it overwrites backend duplicate
+        _recurring[petId]![weekday]!.removeWhere((e) => e.id == event.id);
+        _recurring[petId]![weekday]!.add(event);
+      }
+    }
+
+    setState(() {
+      _pets = pets;
+      if (pets.isNotEmpty) _activePetId = pets.first.id;
+    });
+  } catch (e) {
+    debugPrint('Global load error: $e');
   }
+  setState(() => _isLoading = false);
+}
 
   // ── Week helpers ──────────────────────────────────────────────────────────
 
@@ -210,45 +314,33 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> {
     return clean.add(Duration(days: _weekOffset * 7));
   }
 
-  /// Seeds sensible default feeding events for every pet for the current week.
-  void _seedDefaultsForWeek() {
-    final ws = _weekStart;
-    for (final pet in _pets) {
-      final petMap = _events[pet.id]!;
-      for (int i = 0; i < 7; i++) {
-        final d = ws.add(Duration(days: i));
-        final k = _dateKey(d);
-        petMap.putIfAbsent(k, () => [
-          PetEvent(
-            id: _uid(),
-            type: EventType.feeding,
-            name: 'Morning feed',
-            time: const TimeOfDay(hour: 7, minute: 30),
-            petId: pet.id,
-          ),
-          PetEvent(
-            id: _uid(),
-            type: EventType.feeding,
-            name: 'Evening feed',
-            time: const TimeOfDay(hour: 18, minute: 0),
-            petId: pet.id,
-          ),
-        ]);
-      }
-    }
-  }
-
   void _shiftWeek(int dir) {
     setState(() {
       _weekOffset = dir == 0 ? 0 : _weekOffset + dir;
-      _seedDefaultsForWeek();
     });
   }
 
   // ── Event CRUD ────────────────────────────────────────────────────────────
 
+  int _weekdayFromKey(String dayKey) {
+    final parts = dayKey.split('-');
+    final d = DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
+    return d.weekday - 1; // 1=Mon→0 … 7=Sun→6
+  }
+
+  DateTime _dateFromKey(String dayKey) {
+    final parts = dayKey.split('-');
+    return DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
+  }
+
   List<PetEvent> _eventsForDay(int petId, String dayKey) {
-    final list = List<PetEvent>.from(_events[petId]?[dayKey] ?? []);
+    final weekday = _weekdayFromKey(dayKey);
+    final date = _dateFromKey(dayKey);
+    final petMap = _recurring[petId];
+    final raw = petMap == null ? <PetEvent>[] : (petMap[weekday] ?? <PetEvent>[]);
+    final list = raw
+        .where((e) => e.endDate == null || !date.isAfter(e.endDate!))
+        .toList();
     list.sort((a, b) {
       final aMin = a.time.hour * 60 + a.time.minute;
       final bMin = b.time.hour * 60 + b.time.minute;
@@ -259,22 +351,47 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> {
 
   void _upsertEvent(PetEvent ev, String dayKey) {
     setState(() {
-      final petMap = _events[ev.petId] ?? {};
-      _events[ev.petId] = petMap;
-      final dayList = petMap.putIfAbsent(dayKey, () => []);
-      final idx = dayList.indexWhere((e) => e.id == ev.id);
-      if (idx >= 0) {
-        dayList[idx] = ev;
+      final petMap = _recurring[ev.petId] ??= {};
+
+      // Strip the day-index suffix (_0 … _6) to get the base ID.
+      // Uses a regex so IDs like 'backend_42_0' become 'backend_42'
+      // rather than just 'backend' (which split('_').first would give).
+      String baseId = ev.id.replaceAll(RegExp(r'_\d+$'), '');
+
+      // Remove all copies of this event from every weekday slot.
+      petMap.forEach((weekday, list) {
+        list.removeWhere((existingEvent) =>
+          existingEvent.id == baseId || existingEvent.id.startsWith('${baseId}_')
+        );
+      });
+
+      // 3. Re-insert the updated event
+      if (ev.repeatDaily) {
+        // If daily, insert into all 7 days (0-6)
+        for (int d = 0; d < 7; d++) {
+          petMap.putIfAbsent(d, () => []).add(
+            ev.copyWith(id: '${baseId}_$d')
+          );
+        }
       } else {
-        dayList.add(ev);
+        // If weekly, only insert into the current weekday
+        final weekday = _weekdayFromKey(dayKey);
+        petMap.putIfAbsent(weekday, () => []).add(ev.copyWith(id: baseId));
       }
     });
+
+    // 4. Persist changes to local storage
+    _saveToLocal();
   }
 
   void _deleteEvent(int petId, String dayKey, String eventId) {
     setState(() {
-      _events[petId]?[dayKey]?.removeWhere((e) => e.id == eventId);
+      String baseId = eventId.replaceAll(RegExp(r'_\d+$'), '');
+      _recurring[petId]?.forEach((_, list) {
+        list.removeWhere((e) => e.id == baseId || e.id.startsWith('${baseId}_'));
+      });
     });
+    _saveToLocal();
   }
 
   Future<void> _openEventDialog({
@@ -295,6 +412,27 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> {
             : () => _deleteEvent(existing.petId, dayKey, existing.id),
       ),
     );
+  }
+
+  Future<void> _saveToLocal() async {
+    final prefs = await SharedPreferences.getInstance();
+  
+  // We flatten the map for easier storage
+    final List<Map<String, dynamic>> flattened = [];
+  
+    _recurring.forEach((petId, weekdayMap) {
+     weekdayMap.forEach((weekday, events) {
+       for (var event in events) {
+          flattened.add({
+           'petId': petId,
+           'weekday': weekday,
+           'event': event.toJson(),
+          });
+        }
+      });
+    });
+
+    await prefs.setString('offline_feeding_schedule', jsonEncode(flattened));
   }
 
   // ── Build ─────────────────────────────────────────────────────────────────
@@ -351,33 +489,6 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> {
               ),
             ),
           ),
-          // Decorative circles — top-left
-          Positioned(
-            top: -40, left: -100,
-            child: _backgroundCircle(350, Colors.white.withValues(alpha: 0.1)),
-          ),
-          Positioned(
-            top: -20, left: -70,
-            child: _backgroundCircle(370, Colors.white.withValues(alpha: 0.2)),
-          ),
-          Positioned(
-            top: 10, left: -30,
-            child: _backgroundCircle(340, Colors.white.withValues(alpha: 0.3)),
-          ),
-          // Decorative circles — bottom-right
-          Positioned(
-            bottom: -40, right: -100,
-            child: _backgroundCircle(350, Colors.white.withValues(alpha: 0.1)),
-          ),
-          Positioned(
-            bottom: -20, right: -70,
-            child: _backgroundCircle(370, Colors.white.withValues(alpha: 0.2)),
-          ),
-          Positioned(
-            bottom: 10, right: -30,
-            child: _backgroundCircle(340, Colors.white.withValues(alpha: 0.3)),
-          ),
-
           // ── Main content ──
           Positioned.fill(
             child: _isLoading
@@ -386,8 +497,7 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Week nav bar
-                      Container(
-                        color: Colors.white.withValues(alpha: 0.25),
+                      Padding(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 16, vertical: 12),
                         child: Row(
@@ -406,7 +516,7 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> {
                                 label: '‹', onTap: () => _shiftWeek(-1)),
                             const SizedBox(width: 6),
                             _NavButton(
-                                label: 'Today', onTap: () => _shiftWeek(0)),
+                                label: 'This Week', onTap: () => _shiftWeek(0)),
                             const SizedBox(width: 6),
                             _NavButton(
                                 label: '›', onTap: () => _shiftWeek(1)),
@@ -416,15 +526,17 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> {
 
                       // Pet tabs
                       if (_pets.isNotEmpty)
-                        Container(
-                          color: Colors.white.withValues(alpha: 0.2),
+                        Padding(
                           padding:
                               const EdgeInsets.fromLTRB(16, 8, 16, 12),
                           child: SingleChildScrollView(
                             scrollDirection: Axis.horizontal,
                             child: Row(
-                              children: _pets.map((p) {
+                              children: _pets.asMap().entries.map((entry) {
+                                final idx = entry.key;
+                                final p = entry.value;
                                 final active = p.id == _activePetId;
+                                final petColor = _kPetColors[idx % _kPetColors.length];
                                 return Padding(
                                   padding: const EdgeInsets.only(right: 8),
                                   child: GestureDetector(
@@ -440,15 +552,14 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> {
                                       ),
                                       decoration: BoxDecoration(
                                         color: active
-                                            ? Colors.white
-                                            : Colors.white
-                                                .withValues(alpha: 0.45),
+                                            ? petColor
+                                            : petColor.withValues(alpha: 0.25),
                                         borderRadius:
                                             BorderRadius.circular(20),
                                         border: Border.all(
                                           color: active
-                                              ? const Color(0xFF8BAEAE)
-                                              : Colors.white54,
+                                              ? petColor
+                                              : petColor.withValues(alpha: 0.5),
                                           width: active ? 2 : 0.5,
                                         ),
                                       ),
@@ -456,12 +567,10 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> {
                                         p.species.isNotEmpty
                                             ? '${p.name} (${p.species})'
                                             : p.name,
-                                        style: TextStyle(
+                                        style: const TextStyle(
                                           fontSize: 12,
                                           fontWeight: FontWeight.w600,
-                                          color: active
-                                              ? const Color(0xFF8BAEAE)
-                                              : Colors.black54,
+                                          color: Colors.black87,
                                         ),
                                       ),
                                     ),
@@ -536,6 +645,7 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> {
                                   child: _CalendarGrid(
                                     weekStart: ws,
                                     activePetId: _activePetId!,
+                                    petColorIndex: _pets.indexWhere((p) => p.id == _activePetId),
                                     eventsForDay: _eventsForDay,
                                     onAddTap: (dayKey) =>
                                         _openEventDialog(dayKey: dayKey),
@@ -555,16 +665,6 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> {
     );
   }
 
-  Widget _backgroundCircle(double size, Color color) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: color, width: 30),
-      ),
-    );
-  }
 }
 
 // ─── Calendar Grid ────────────────────────────────────────────────────────────
@@ -572,6 +672,7 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> {
 class _CalendarGrid extends StatelessWidget {
   final DateTime weekStart;
   final int activePetId;
+  final int petColorIndex;
   final List<PetEvent> Function(int petId, String dayKey) eventsForDay;
   final void Function(String dayKey) onAddTap;
   final void Function(PetEvent ev, String dayKey) onEventTap;
@@ -579,6 +680,7 @@ class _CalendarGrid extends StatelessWidget {
   const _CalendarGrid({
     required this.weekStart,
     required this.activePetId,
+    required this.petColorIndex,
     required this.eventsForDay,
     required this.onAddTap,
     required this.onEventTap,
@@ -658,6 +760,7 @@ class _CalendarGrid extends StatelessWidget {
                 ...events.map(
                   (ev) => _EventChip(
                     event: ev,
+                    colorIndex: petColorIndex,
                     onTap: () => onEventTap(ev, dayKey),
                   ),
                 ),
@@ -696,12 +799,14 @@ class _CalendarGrid extends StatelessWidget {
 
 class _EventChip extends StatelessWidget {
   final PetEvent event;
+  final int colorIndex;
   final VoidCallback onTap;
 
-  const _EventChip({required this.event, required this.onTap});
+  const _EventChip({required this.event, required this.colorIndex, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
+    final base = _kPetColors[colorIndex % _kPetColors.length];
     final t = event.type;
     return GestureDetector(
       onTap: onTap,
@@ -709,32 +814,32 @@ class _EventChip extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 4),
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
         decoration: BoxDecoration(
-          color: t.backgroundColor,
+          color: base.withValues(alpha: 0.65),
           borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: t.borderColor, width: 0.5),
+          border: Border.all(color: base, width: 1),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               _fmt12(event.time),
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 10,
-                color: t.textColor.withOpacity(0.75),
+                color: Colors.black54,
               ),
             ),
             const SizedBox(height: 1),
             Row(
               children: [
-                Icon(t.icon, size: 10, color: t.textColor),
+                Icon(t.icon, size: 10, color: Colors.black87),
                 const SizedBox(width: 3),
                 Expanded(
                   child: Text(
                     event.name,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
-                      color: t.textColor,
+                      color: Colors.black87,
                     ),
                     overflow: TextOverflow.ellipsis,
                     maxLines: 1,
@@ -808,6 +913,9 @@ class _EventDialogState extends State<_EventDialog> {
   late int _petId;
   late TextEditingController _nameCtrl;
   late TimeOfDay _time;
+  bool _repeatDaily = false;
+  bool _hasEndDate = false;
+  DateTime? _endDate;
 
   @override
   void initState() {
@@ -817,6 +925,9 @@ class _EventDialogState extends State<_EventDialog> {
     _petId = ev?.petId ?? widget.activePetId;
     _nameCtrl = TextEditingController(text: ev?.name ?? '');
     _time = ev?.time ?? const TimeOfDay(hour: 8, minute: 0);
+    _repeatDaily = ev?.repeatDaily ?? false;
+    _endDate = ev?.endDate;
+    _hasEndDate = ev?.endDate != null;
   }
 
   @override
@@ -830,6 +941,17 @@ class _EventDialogState extends State<_EventDialog> {
     if (picked != null) setState(() => _time = picked);
   }
 
+  Future<void> _pickEndDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _endDate ?? now.add(const Duration(days: 7)),
+      firstDate: now,
+      lastDate: DateTime(now.year + 5),
+    );
+    if (picked != null) setState(() => _endDate = picked);
+  }
+
   void _save() {
     final name = _nameCtrl.text.trim().isNotEmpty
         ? _nameCtrl.text.trim()
@@ -841,6 +963,8 @@ class _EventDialogState extends State<_EventDialog> {
         name: name,
         time: _time,
         petId: _petId,
+        repeatDaily: _repeatDaily,
+        endDate: _hasEndDate ? _endDate : null,
       ),
     );
     Navigator.of(context).pop();
@@ -867,6 +991,33 @@ class _EventDialogState extends State<_EventDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Recurring-edit notice
+            if (widget.existing != null) ...[
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE8F5E9),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFF8BAEAE), width: 0.5),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.repeat, size: 14, color: Color(0xFF0F6E56)),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Changes will update all ${_repeatDaily ? 'daily' : 'weekly'} occurrences.',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF0F6E56),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
             // Type
             _Label('Event Type'),
             DropdownButtonFormField<EventType>(
@@ -983,9 +1134,129 @@ class _EventDialogState extends State<_EventDialog> {
                 ),
               ),
             ),
+            const SizedBox(height: 12),
+
+            // Repeat type
+            _Label('Repeats'),
+            Row(
+              children: [
+                for (final option in [
+                  (label: 'Daily',  daily: true),
+                  (label: 'Weekly', daily: false),
+                ])
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => setState(() => _repeatDaily = option.daily),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        decoration: BoxDecoration(
+                          color: _repeatDaily == option.daily
+                              ? const Color(0xFF8BAEAE)
+                              : Colors.white,
+                          border: Border.all(color: const Color(0xFF8BAEAE), width: 1),
+                          borderRadius: BorderRadius.horizontal(
+                            left: option.daily
+                                ? const Radius.circular(8)
+                                : Radius.zero,
+                            right: option.daily
+                                ? Radius.zero
+                                : const Radius.circular(8),
+                          ),
+                        ),
+                        child: Center(
+                          child: Text(option.label,
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  color: _repeatDaily == option.daily
+                                      ? Colors.white
+                                      : const Color(0xFF8BAEAE),
+                                  fontWeight: FontWeight.w500)),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // End date toggle
+            _Label('Duration'),
+            Row(
+              children: [
+                for (final option in [
+                  (label: 'Forever',      ends: false),
+                  (label: 'Ends on date', ends: true),
+                ])
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => setState(() => _hasEndDate = option.ends),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        decoration: BoxDecoration(
+                          color: _hasEndDate == option.ends
+                              ? const Color(0xFF8BAEAE)
+                              : Colors.white,
+                          border: Border.all(color: const Color(0xFF8BAEAE), width: 1),
+                          borderRadius: BorderRadius.horizontal(
+                            left: !option.ends
+                                ? const Radius.circular(8)
+                                : Radius.zero,
+                            right: option.ends
+                                ? const Radius.circular(8)
+                                : Radius.zero,
+                          ),
+                        ),
+                        child: Center(
+                          child: Text(option.label,
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  color: _hasEndDate == option.ends
+                                      ? Colors.white
+                                      : const Color(0xFF8BAEAE),
+                                  fontWeight: FontWeight.w500)),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            if (_hasEndDate) ...[
+              const SizedBox(height: 10),
+              _Label('End date'),
+              GestureDetector(
+                onTap: _pickEndDate,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: const Color(0xFFCCCCCC), width: 0.5),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.calendar_today_outlined,
+                          size: 16, color: Color(0xFF888888)),
+                      const SizedBox(width: 8),
+                      Text(
+                        _endDate == null
+                            ? 'Tap to select a date'
+                            : '${_endDate!.day} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][_endDate!.month - 1]} ${_endDate!.year}',
+                        style: TextStyle(
+                            fontSize: 14,
+                            color: _endDate == null
+                                ? const Color(0xFF888888)
+                                : Colors.black87),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),
+      actionsAlignment: widget.onDelete != null
+          ? MainAxisAlignment.spaceBetween
+          : MainAxisAlignment.end,
       actions: [
         if (widget.onDelete != null)
           TextButton(
@@ -994,7 +1265,9 @@ class _EventDialogState extends State<_EventDialog> {
                 foregroundColor: Colors.red[700]),
             child: const Text('Delete'),
           ),
-        const Spacer(),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Cancel',
@@ -1009,6 +1282,8 @@ class _EventDialogState extends State<_EventDialog> {
                 borderRadius: BorderRadius.circular(8)),
           ),
           child: const Text('Save'),
+        ),
+          ],
         ),
       ],
     );
