@@ -339,6 +339,7 @@ class _MetricsPageState extends State<MetricsPage> {
     final String currentVal = _latestValues[title]?['value'] ?? '---';
     final String targetVal = _latestValues[title]?['target'] ?? '';
     final String lastTime = _latestValues[title]?['time'] ?? '';
+    final String entryId = _latestValues[title]?['id'] ?? '';
     final bool hasTarget = !_noTargetMetrics.contains(title);
     final bool neverLogged = currentVal == '---' || currentVal == '...';
     final bool isCustom = _customMetricNames.contains(title);
@@ -349,9 +350,9 @@ class _MetricsPageState extends State<MetricsPage> {
         context: dlgCtx,
         builder: (confirmCtx) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-          title: const Text('Clear current value?'),
+          title: const Text('Remove latest entry?'),
           content: Text(
-            'All logged values for $title will be permanently removed, including entries on the Recently Logged page.',
+            'The most recent log entry for $title will be permanently removed.',
           ),
           actions: [
             TextButton(
@@ -371,11 +372,24 @@ class _MetricsPageState extends State<MetricsPage> {
       bool success = false;
       if (isCustom) {
         final prefs = await SharedPreferences.getInstance();
-        await prefs.remove('custom_current_${widget.petId}_$key');
-        await prefs.remove('custom_history_${widget.petId}_$key');
+        final histKey = 'custom_history_${widget.petId}_$key';
+        final histRaw = prefs.getString(histKey) ?? '[]';
+        final entries = List<Map<String, dynamic>>.from(
+          (jsonDecode(histRaw) as List).map((e) => Map<String, dynamic>.from(e as Map)),
+        );
+        if (entries.isNotEmpty) {
+          entries.sort((a, b) => (b['time'] ?? '').toString().compareTo((a['time'] ?? '').toString()));
+          entries.removeAt(0);
+          await prefs.setString(histKey, jsonEncode(entries));
+          if (entries.isEmpty) {
+            await prefs.remove('custom_current_${widget.petId}_$key');
+          } else {
+            await prefs.setString('custom_current_${widget.petId}_$key', jsonEncode(entries.first));
+          }
+        }
         success = true;
-      } else {
-        success = await _healthService.deleteAllEntries(widget.petId, key);
+      } else if (entryId.isNotEmpty) {
+        success = await _healthService.deleteEntry(widget.petId, int.parse(entryId));
       }
       if (mounted) {
         _refreshAllMetrics();
@@ -936,6 +950,17 @@ class HealthService {
       }
     } catch (_) {}
     return {"value": "---", "target": "", "time": "", "id": ""};
+  }
+
+  Future<bool> deleteEntry(int petId, int entryId) async {
+    try {
+      final response = await http.delete(
+        Uri.parse("$baseUrl/health/history/entry/$petId/$entryId"),
+      );
+      return response.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<bool> deleteAllEntries(int petId, String metricName) async {
