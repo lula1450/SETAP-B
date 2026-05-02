@@ -362,6 +362,18 @@ class PetService {
     }
   }
 
+  // --- GET AVAILABLE METRICS FOR PET ---
+  Future<List<String>> getAvailableMetrics(int petId) async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/health/metrics/$petId'));
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        return data.map<String>((d) => d['name'] as String).toList();
+      }
+    } catch (_) {}
+    return [];
+  }
+
   // --- DELETE VET CONTACT ---
   Future<bool> deleteVetContact(int vetId) async {
     try {

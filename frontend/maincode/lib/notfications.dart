@@ -35,8 +35,10 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
   List<dynamic> _appointmentsList = [];
   bool _appointmentsExpanded = false;
 
-  List<dynamic> _petsList = []; 
+  List<dynamic> _petsList = [];
   bool _feedingExpanded = false;
+  bool _metricsExpanded = false;
+  bool _adviceExpanded = false;
 
   @override
   void initState() {
@@ -133,6 +135,31 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
 
       pet['times'] = timeSlots;
       pet['reminder_enabled'] = prefs.getBool('feeding_notif_$id') ?? _feeding;
+
+      // --- Metrics reminders ---
+      final hidden = prefs.getStringList('hidden_metrics_$id') ?? [];
+      final custom = prefs.getStringList('custom_metrics_$id') ?? [];
+      List<String> allMetrics = [];
+      try {
+        allMetrics = await _petService.getAvailableMetrics(id);
+      } catch (_) {}
+      // Add custom metrics that aren't already in the standard list
+      for (final c in custom) {
+        if (!allMetrics.contains(c)) allMetrics.add(c);
+      }
+      // Remove hidden metrics
+      allMetrics.removeWhere((m) => hidden.contains(m));
+
+      pet['metrics'] = allMetrics.map((name) {
+        final key = 'metrics_notif_${id}_${name.toLowerCase().replaceAll(' ', '_')}';
+        return {
+          'name': name,
+          'key': key,
+          'enabled': prefs.getBool(key) ?? true,
+        };
+      }).toList();
+      pet['metrics_enabled'] = prefs.getBool('metrics_notif_$id') ?? _metrics;
+      pet['advice_enabled'] = prefs.getBool('advice_notif_$id') ?? _advice;
     }
 
     setState(() => _petsList = data);
@@ -146,12 +173,18 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
     await prefs.setBool('notif_advice', _advice);
     await prefs.setBool('notif_metrics', _metrics);
 
-    // Save individual pet feeding toggles
+    // Save individual pet feeding and metric toggles
     for (var pet in _petsList) {
-      await prefs.setBool('feeding_notif_${pet['pet_id']}', pet['reminder_enabled']);
-      for (var slot in pet['times']) {
+      final id = pet['pet_id'];
+      await prefs.setBool('feeding_notif_$id', pet['reminder_enabled']);
+      for (var slot in (pet['times'] as List)) {
         await prefs.setBool(slot['key'], slot['enabled']);
       }
+      await prefs.setBool('metrics_notif_$id', pet['metrics_enabled'] ?? true);
+      for (var m in (pet['metrics'] as List? ?? [])) {
+        await prefs.setBool(m['key'], m['enabled']);
+      }
+      await prefs.setBool('advice_notif_$id', pet['advice_enabled'] ?? true);
     }
 
     // Save appointment toggles
@@ -185,24 +218,6 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
       _metrics = val;
     });
     _saveSettings(); // Auto-save
-  }
-
-  Widget _toggle(String title, bool value, Function(bool) onChanged) {
-    return _card(
-      Row(
-        children: [
-          Expanded(child: Text(title)),
-          Switch(
-            value: value, 
-            onChanged: (v) {
-              onChanged(v);
-              _updateMaster();
-              _saveSettings();
-            }
-          ),
-        ],
-      ),
-    );
   }
 
   Widget _buildAppointmentCard() {
@@ -272,7 +287,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                 ),
               ),
             );
-          }).toList(),
+          }),
       ],
     );
 
@@ -305,12 +320,26 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
             ..._petsList.asMap().entries.map((entry) {
               final pet = entry.value;
               final petColor = _kPetColors[entry.key % _kPetColors.length];
+              final petEnabled = (pet['reminder_enabled'] as bool? ?? true) && _feeding;
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8.0),
-                    child: Text(pet['pet_first_name'], style: TextStyle(fontWeight: FontWeight.w600, color: petColor)),
+                    padding: const EdgeInsets.only(top: 8, bottom: 4),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(pet['pet_first_name'], style: TextStyle(fontWeight: FontWeight.w600, color: petColor)),
+                        ),
+                        Switch(
+                          value: petEnabled,
+                          onChanged: _feeding ? (v) {
+                            setState(() => pet['reminder_enabled'] = v);
+                            _saveSettings();
+                          } : null,
+                        ),
+                      ],
+                    ),
                   ),
                   ...pet['times'].map<Widget>((slot) {
                     return ListTile(
@@ -318,18 +347,154 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                       leading: const Icon(Icons.access_time, size: 18),
                       title: Text("${slot['label']} (${slot['time']})"),
                       trailing: Switch(
-                        value: slot['enabled'] && _feeding,
-                        onChanged: _feeding ? (v) {
+                        value: slot['enabled'] && petEnabled,
+                        onChanged: petEnabled ? (v) {
                           setState(() => slot['enabled'] = v);
                           _saveSettings();
                         } : null,
                       ),
                     );
-                  }).toList(),
+                  }),
                   const Divider(),
                 ],
               );
-            }).toList(),
+            }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMetricsCard() {
+    return _card(
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Text("Metric Logging Reminders", style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+              Switch(
+                value: _metrics,
+                onChanged: (v) {
+                  setState(() => _metrics = v);
+                  _updateMaster();
+                  _saveSettings();
+                },
+              ),
+            ],
+          ),
+          TextButton(
+            onPressed: () => setState(() => _metricsExpanded = !_metricsExpanded),
+            child: Text(_metricsExpanded ? "Hide Details" : "View Details"),
+          ),
+          if (_metricsExpanded)
+            ..._petsList.asMap().entries.map((entry) {
+              final pet = entry.value;
+              final petColor = _kPetColors[entry.key % _kPetColors.length];
+              final metrics = (pet['metrics'] as List? ?? []);
+              final petEnabled = (pet['metrics_enabled'] as bool? ?? true) && _metrics;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(top: 10, bottom: 4),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            pet['pet_first_name'],
+                            style: TextStyle(fontWeight: FontWeight.w600, color: petColor),
+                          ),
+                        ),
+                        Switch(
+                          value: petEnabled,
+                          onChanged: _metrics ? (v) {
+                            setState(() => pet['metrics_enabled'] = v);
+                            _saveSettings();
+                          } : null,
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (metrics.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.only(left: 8, bottom: 8),
+                      child: Text("No metrics tracked yet.", style: TextStyle(fontSize: 13, color: Colors.grey)),
+                    )
+                  else
+                    ...metrics.map<Widget>((m) {
+                      final enabled = (m['enabled'] as bool) && petEnabled;
+                      return ListTile(
+                        dense: true,
+                        leading: const Icon(Icons.monitor_heart_outlined, size: 18),
+                        title: Text(m['name'] as String),
+                        trailing: Switch(
+                          value: enabled,
+                          onChanged: petEnabled ? (v) {
+                            setState(() => m['enabled'] = v);
+                            _saveSettings();
+                          } : null,
+                        ),
+                      );
+                    }),
+                  const Divider(),
+                ],
+              );
+            }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAdviceCard() {
+    return _card(
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Expanded(child: Text("Advice", style: TextStyle(fontWeight: FontWeight.bold))),
+              Switch(
+                value: _advice,
+                onChanged: (v) {
+                  setState(() => _advice = v);
+                  _updateMaster();
+                  _saveSettings();
+                },
+              ),
+            ],
+          ),
+          TextButton(
+            onPressed: () => setState(() => _adviceExpanded = !_adviceExpanded),
+            child: Text(_adviceExpanded ? "Hide Details" : "View Details"),
+          ),
+          if (_adviceExpanded)
+            ..._petsList.asMap().entries.map((entry) {
+              final pet = entry.value;
+              final petColor = _kPetColors[entry.key % _kPetColors.length];
+              final petEnabled = (pet['advice_enabled'] as bool? ?? true) && _advice;
+              return Padding(
+                padding: const EdgeInsets.only(top: 4, bottom: 4),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        pet['pet_first_name'],
+                        style: TextStyle(fontWeight: FontWeight.w600, color: petColor),
+                      ),
+                    ),
+                    Switch(
+                      value: petEnabled,
+                      onChanged: _advice ? (v) {
+                        setState(() => pet['advice_enabled'] = v);
+                        _saveSettings();
+                      } : null,
+                    ),
+                  ],
+                ),
+              );
+            }),
         ],
       ),
     );
@@ -356,8 +521,8 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
             ),
             _buildAppointmentCard(),
             _buildFeedingCard(),
-            _toggle("Advice", _advice, (v) => setState(() => _advice = v)),
-            _toggle("Metrics", _metrics, (v) => setState(() => _metrics = v)),
+            _buildAdviceCard(),
+            _buildMetricsCard(),
           ],
         ),
       ),
