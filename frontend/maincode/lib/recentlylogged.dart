@@ -24,11 +24,32 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
   final PetService _service = PetService();
   late Future<List<Map<String, dynamic>>> _historyFuture;
   final List<Map<String, dynamic>> _loadedLogs = [];
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+
+  List<Map<String, dynamic>> get _filteredLogs {
+    if (_searchQuery.isEmpty) return _loadedLogs;
+    final q = _searchQuery.toLowerCase();
+    return _loadedLogs.where((log) {
+      final isCustom = log['isCustom'] == true;
+      final displayName = isCustom
+          ? (log['display'] as String? ?? (log['metric'] as String).replaceAll('_', ' '))
+          : (log['metric'] as String).replaceAll('_', ' ');
+      final time = log['time']?.toString() ?? '';
+      return displayName.toLowerCase().contains(q) || time.toLowerCase().contains(q);
+    }).toList();
+  }
 
   @override
   void initState() {
     super.initState();
     _historyFuture = _loadAllHistory();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   void _refresh() {
@@ -250,18 +271,17 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
-
           if (snapshot.hasError) {
             return Center(child: Text('Error: ${snapshot.error}'));
           }
-
           if (_loadedLogs.isEmpty && snapshot.hasData && snapshot.data != null && snapshot.data!.isNotEmpty) {
             _loadedLogs.addAll(snapshot.data!);
           }
-
           if (_loadedLogs.isEmpty) {
             return const Center(child: Text('No data logged yet.'));
           }
+
+          final filtered = _filteredLogs;
 
           return Container(
             decoration: const BoxDecoration(
@@ -271,55 +291,91 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
                 colors: [Color(0xFF8BAEAE), Color(0xFFB2D3C2), Color(0xFFE0F7F4)],
               ),
             ),
-            child: RefreshIndicator(
-              onRefresh: () async => _refresh(),
-              child: ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: _loadedLogs.length,
-              itemBuilder: (context, index) {
-                final log = _loadedLogs[index];
-                final isCustom = log['isCustom'] == true;
-                final displayName = isCustom
-                    ? (log['display'] as String? ?? (log['metric'] as String).replaceAll('_', ' '))
-                    : (log['metric'] as String).replaceAll('_', ' ').toUpperCase();
-
-                return Card(
-                  key: ValueKey('${log['metric']}_${log['time']}_$index'),
-                  margin: const EdgeInsets.only(bottom: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  child: ListTile(
-                    onTap: () => _showLogDetails(context, log, index, displayName, isCustom),
-                    leading: CircleAvatar(
-                      backgroundColor: isCustom
-                          ? Colors.purple.withValues(alpha: 0.15)
-                          : const Color(0xFF8BAEAE).withValues(alpha: 0.2),
-                      child: isCustom
-                          ? const Icon(Icons.edit_note, color: Colors.purple)
-                          : _getIcon(log['metric'] as String),
-                    ),
-                    title: Text(
-                      displayName,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                    ),
-                    subtitle: Text(log['time']?.toString() ?? ''),
-                    trailing: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          "${log['value']}",
-                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                        ),
-                        Text(
-                          _formatUnit(log['unit']?.toString()),
-                          style: const TextStyle(fontSize: 12, color: Colors.grey),
-                        ),
-                      ],
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                  child: TextField(
+                    controller: _searchController,
+                    onChanged: (v) => setState(() => _searchQuery = v.trim()),
+                    decoration: InputDecoration(
+                      hintText: 'Search by metric or date…',
+                      prefixIcon: const Icon(Icons.search),
+                      suffixIcon: _searchQuery.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                _searchController.clear();
+                                setState(() => _searchQuery = '');
+                              },
+                            )
+                          : null,
+                      filled: true,
+                      fillColor: Colors.white,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(30),
+                        borderSide: BorderSide.none,
+                      ),
                     ),
                   ),
-                );
-              },
-            ),
+                ),
+                if (filtered.isEmpty)
+                  const Expanded(child: Center(child: Text('No matching entries.')))
+                else
+                  Expanded(
+                    child: RefreshIndicator(
+                      onRefresh: () async => _refresh(),
+                      child: ListView.builder(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                        itemCount: filtered.length,
+                        itemBuilder: (context, index) {
+                          final log = filtered[index];
+                          final actualIndex = _loadedLogs.indexOf(log);
+                          final isCustom = log['isCustom'] == true;
+                          final displayName = isCustom
+                              ? (log['display'] as String? ?? (log['metric'] as String).replaceAll('_', ' '))
+                              : (log['metric'] as String).replaceAll('_', ' ').toUpperCase();
+                          return Card(
+                            key: ValueKey('${log['metric']}_${log['time']}_$index'),
+                            margin: const EdgeInsets.only(bottom: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            child: ListTile(
+                              onTap: () => _showLogDetails(context, log, actualIndex, displayName, isCustom),
+                              leading: CircleAvatar(
+                                backgroundColor: isCustom
+                                    ? Colors.purple.withValues(alpha: 0.15)
+                                    : const Color(0xFF8BAEAE).withValues(alpha: 0.2),
+                                child: isCustom
+                                    ? const Icon(Icons.edit_note, color: Colors.purple)
+                                    : _getIcon(log['metric'] as String),
+                              ),
+                              title: Text(
+                                displayName,
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                              ),
+                              subtitle: Text(log['time']?.toString() ?? ''),
+                              trailing: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    "${log['value']}",
+                                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                  ),
+                                  Text(
+                                    _formatUnit(log['unit']?.toString()),
+                                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+              ],
             ),
           );
         },
