@@ -3,3 +3,12 @@ frontend/maincode/windows/flutter/generated_plugin_registrant.cc
 frontend/maincode/macos/Flutter/GeneratedPluginRegistrant.swift
 frontend/maincode/linux/flutter/generated_plugins.cmake
 frontend/maincode/linux/flutter/generated_plugin_registrant.cc
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+petsync_backend/venv/
+
+# Database
+petsync.db

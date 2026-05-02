@@ -86,6 +86,7 @@ def create_pet(pet: schemas.PetCreate, db: Session = Depends(get_db)):
         pet_address2=db_pet.pet_address2,
         pet_postcode=db_pet.pet_postcode,
         pet_city=db_pet.pet_city,
+        pet_image_path=db_pet.pet_image_path,
     )
 
 
@@ -109,9 +110,10 @@ def get_pet(pet_id: int, db: Session = Depends(get_db)):
         pet_last_name=pet.pet_last_name,
         pet_address1=pet.pet_address1,
         pet_city=pet.pet_city,
-        species_name=species_name, # Use the safe variable here
+        species_name=species_name,
         owner_id=pet.owner_id,
         species_id=pet.species_id,
+        pet_image_path=pet.pet_image_path,
     )
 
 
@@ -139,6 +141,7 @@ def list_all_pets(owner_id: int, db: Session = Depends(get_db)):
             species_name=species_map.get(pet.species_id, "Unknown"),
             owner_id=pet.owner_id,
             species_id=pet.species_id,
+            pet_image_path=pet.pet_image_path,
         )
         for pet in pets
     ]

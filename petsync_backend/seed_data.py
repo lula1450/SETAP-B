@@ -11,6 +11,8 @@ from petsync_backend.config.species_data import SPECIES_DATA
 from petsync_backend.config.metric_definitions import seed_metric_definitions
 from petsync_backend.utils.report_generator import generate_report_for_pet
 
+BASE_URL = "http://localhost:8000"
+
 def seed_data():
     # 0. Clean start
     Base.metadata.create_all(bind=engine)
@@ -56,26 +58,38 @@ def seed_data():
     bailey = db.query(Pet).filter(Pet.pet_first_name == "Bailey").first()
     if not bailey:
         bailey = Pet(pet_first_name="Bailey", pet_last_name="C", species_id=lab_id, owner_id=owner_id,
-                      pet_address1="123 Pet Lane", pet_postcode="PO1 2AB", pet_city="London")
+                      pet_address1="123 Pet Lane", pet_postcode="PO1 2AB", pet_city="London",
+                      pet_image_path=f"{BASE_URL}/static/seed_images/bailey.jpg")
         db.add(bailey)
+    elif not bailey.pet_image_path:
+        bailey.pet_image_path = f"{BASE_URL}/static/seed_images/bailey.jpg"
 
     luna = db.query(Pet).filter(Pet.pet_first_name == "Luna").first()
     if not luna:
         luna = Pet(pet_first_name="Luna", pet_last_name="C", species_id=coon_id, owner_id=owner_id,
-                     pet_address1="123 Pet Lane", pet_postcode="PO1 2AB", pet_city="London")
+                     pet_address1="123 Pet Lane", pet_postcode="PO1 2AB", pet_city="London",
+                     pet_image_path=f"{BASE_URL}/static/seed_images/luna.jpg")
         db.add(luna)
+    elif not luna.pet_image_path:
+        luna.pet_image_path = f"{BASE_URL}/static/seed_images/luna.jpg"
 
     rio = db.query(Pet).filter(Pet.pet_first_name == "Rio").first()
     if not rio:
         rio = Pet(pet_first_name="Rio", pet_last_name="C", species_id=grey_id, owner_id=owner_id,
-                  pet_address1="123 Pet Lane", pet_postcode="PO1 2AB", pet_city="London")
+                  pet_address1="123 Pet Lane", pet_postcode="PO1 2AB", pet_city="London",
+                  pet_image_path=f"{BASE_URL}/static/seed_images/rio.jpg")
         db.add(rio)
+    elif not rio.pet_image_path:
+        rio.pet_image_path = f"{BASE_URL}/static/seed_images/rio.jpg"
 
     ziggy = db.query(Pet).filter(Pet.pet_first_name == "Ziggy").first()
     if not ziggy:
         ziggy = Pet(pet_first_name="Ziggy", pet_last_name="C", species_id=python_id, owner_id=owner_id,
-                    pet_address1="123 Pet Lane", pet_postcode="PO1 2AB", pet_city="London")
+                    pet_address1="123 Pet Lane", pet_postcode="PO1 2AB", pet_city="London",
+                    pet_image_path=f"{BASE_URL}/static/seed_images/ziggy.jpg")
         db.add(ziggy)
+    elif not ziggy.pet_image_path:
+        ziggy.pet_image_path = f"{BASE_URL}/static/seed_images/ziggy.jpg"
 
     db.commit()
 

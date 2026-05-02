@@ -40,9 +40,9 @@ class PetCreate(PetBase):
 
 class PetResponse(PetBase):
     pet_id: int
-    # species_name is helpful for the Flutter dashboard
-    species_name: Optional[str] = "Unknown" 
-    
+    species_name: Optional[str] = "Unknown"
+    pet_image_path: Optional[str] = None
+
     model_config = ConfigDict(from_attributes=True)
 
 # --- 3. HEALTH & METRIC SCHEMAS ---
