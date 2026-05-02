@@ -257,28 +257,26 @@ def seed_data():
             db.add(appt)
     db.commit()
 
-    # 7. Seed Vet Contacts
+    # 7. Seed Vet Contacts (one per pet)
     print("Seeding Vet Contacts...")
     vet_contacts = [
-        VetContact(
-            owner_id=owner_id,
-            clinic_name="Happy Paws Veterinary",
-            phone="07912345678",
-            email="contact@happypaws.com",
-            address="45 Main Street, London, SW1A 1AA"
-        ),
-        VetContact(
-            owner_id=owner_id,
-            clinic_name="Riverside Pet Clinic",
-            phone="02071234567",
-            email="info@riversidepet.com",
-            address="78 River Road, London, SE1 7TP"
-        ),
+        VetContact(owner_id=owner_id, pet_id=bailey.pet_id,
+                   clinic_name="Happy Paws Veterinary", phone="07912345678",
+                   email="contact@happypaws.com", address="45 Main Street, London, SW1A 1AA"),
+        VetContact(owner_id=owner_id, pet_id=luna.pet_id,
+                   clinic_name="Riverside Pet Clinic", phone="02071234567",
+                   email="info@riversidepet.com", address="78 River Road, London, SE1 7TP"),
+        VetContact(owner_id=owner_id, pet_id=rio.pet_id,
+                   clinic_name="Happy Paws Veterinary", phone="07912345678",
+                   email="contact@happypaws.com", address="45 Main Street, London, SW1A 1AA"),
+        VetContact(owner_id=owner_id, pet_id=ziggy.pet_id,
+                   clinic_name="Riverside Pet Clinic", phone="02071234567",
+                   email="info@riversidepet.com", address="78 River Road, London, SE1 7TP"),
     ]
 
     for vet in vet_contacts:
         exists = db.query(VetContact).filter(
-            VetContact.owner_id == owner_id,
+            VetContact.pet_id == vet.pet_id,
             VetContact.clinic_name == vet.clinic_name
         ).first()
         if not exists:
