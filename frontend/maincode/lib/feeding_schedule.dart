@@ -425,8 +425,7 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Week nav bar
-                      Container(
-                        color: Colors.white.withValues(alpha: 0.25),
+                      Padding(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 16, vertical: 12),
                         child: Row(
@@ -455,8 +454,7 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> {
 
                       // Pet tabs
                       if (_pets.isNotEmpty)
-                        Container(
-                          color: Colors.white.withValues(alpha: 0.2),
+                        Padding(
                           padding:
                               const EdgeInsets.fromLTRB(16, 8, 16, 12),
                           child: SingleChildScrollView(
