@@ -792,11 +792,16 @@ class _MetricsPageState extends State<MetricsPage> {
           ],
         ),
       ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFF8BAEAE), Color(0xFFB2D3C2), Color(0xFFE0F7F4)]),
-        ),
-        child: Column(
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFF8BAEAE), Color(0xFFB2D3C2), Color(0xFFE0F7F4)]),
+              ),
+            ),
+          ),
+          Positioned.fill(child: Column(
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
@@ -903,6 +908,7 @@ class _MetricsPageState extends State<MetricsPage> {
               child: _loadingMetrics
                   ? const Center(child: CircularProgressIndicator(color: Colors.white))
                   : ListView.builder(
+                      physics: const ClampingScrollPhysics(),
                       itemCount: filteredMetrics.length,
                       itemBuilder: (context, index) {
                         String title = filteredMetrics[index];
@@ -913,7 +919,8 @@ class _MetricsPageState extends State<MetricsPage> {
                     ),
             ),
           ],
-        ),
+        )),
+        ],
       ),
     );
   }
@@ -940,17 +947,17 @@ class _MetricsPageState extends State<MetricsPage> {
             flex: 3,
             child: _metricButton(
               title,
-              Colors.white.withValues(alpha: 0.8),
+              Colors.white,
               () => _showInfoDialog(context, title),
               borderColor: statusColor,
               showSpark: true,
             )
           ),
           const SizedBox(width: 8),
-          Expanded(flex: 1, child: _metricButton(displayCurrent, const Color.fromARGB(123, 249, 249, 249), () => _showEditDialog(context, title, showValue: true, showTarget: false))),
+          Expanded(flex: 1, child: _metricButton(displayCurrent, const Color(0xFFF0F6F5), () => _showEditDialog(context, title, showValue: true, showTarget: false))),
           const SizedBox(width: 8),
           if (hasTarget)
-            Expanded(flex: 1, child: _metricButton(displayGoal, const Color.fromARGB(82, 255, 255, 255), () => _showEditDialog(context, title, showValue: false, showTarget: true)))
+            Expanded(flex: 1, child: _metricButton(displayGoal, const Color(0xFFE2EFED), () => _showEditDialog(context, title, showValue: false, showTarget: true)))
           else
             Expanded(flex: 1, child: Container(height: 60)),
         ],
