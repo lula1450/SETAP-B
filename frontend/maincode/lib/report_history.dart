@@ -672,36 +672,6 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
               ),
             ),
           ),
-          Positioned(
-            top: -40,
-            left: -100,
-            child: _backgroundCircle(350, Colors.white.withValues(alpha: 0.1)),
-          ),
-          Positioned(
-            top: -20,
-            left: -70,
-            child: _backgroundCircle(370, Colors.white.withValues(alpha: 0.2)),
-          ),
-          Positioned(
-            top: 10,
-            left: -30,
-            child: _backgroundCircle(340, Colors.white.withValues(alpha: 0.3)),
-          ),
-          Positioned(
-            bottom: -40,
-            right: -100,
-            child: _backgroundCircle(350, Colors.white.withValues(alpha: 0.1)),
-          ),
-          Positioned(
-            bottom: -20,
-            right: -70,
-            child: _backgroundCircle(370, Colors.white.withValues(alpha: 0.2)),
-          ),
-          Positioned(
-            bottom: 10,
-            right: -30,
-            child: _backgroundCircle(340, Colors.white.withValues(alpha: 0.3)),
-          ),
           Positioned.fill(
             child: _isLoading
               ? const Center(child: CircularProgressIndicator())
@@ -1145,14 +1115,4 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
     }
   }
 
-  Widget _backgroundCircle(double size, Color color) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: color, width: 30),
-      ),
-    );
-  }
 }
