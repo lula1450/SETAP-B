@@ -967,19 +967,19 @@ class _DashboardPageState extends State<DashboardPage> {
           Positioned(
             bottom: -10,
             right: -40,
-            child: _backgroundCircle(200, Colors.white.withOpacity(0.1)),
+            child: _backgroundCircle(200, Colors.white.withValues(alpha:0.1)),
           ),
           // Bottom Right 2 (Medium)
           Positioned(
             bottom: 10,
             right: -25,
-            child: _backgroundCircle(190, Colors.white.withOpacity(0.2)),
+            child: _backgroundCircle(190, Colors.white.withValues(alpha:0.2)),
           ),
           // Bottom Right 3 (Smallest, Most Visible)
           Positioned(
             bottom: 30,
             right: 10,
-            child: _backgroundCircle(170, Colors.white.withOpacity(0.3)),
+            child: _backgroundCircle(170, Colors.white.withValues(alpha:0.3)),
           ),
 
           // --- THE MAIN CALENDAR CARD (Foreground) ---
@@ -991,11 +991,11 @@ class _DashboardPageState extends State<DashboardPage> {
               margin: const EdgeInsets.symmetric(horizontal: 16),
               decoration: BoxDecoration(
                 // The slight opacity on the white container is key to seeing the rings
-                color: Colors.white.withOpacity(0.65),
+                color: Colors.white.withValues(alpha:0.65),
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: Colors.black.withValues(alpha:.05),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),

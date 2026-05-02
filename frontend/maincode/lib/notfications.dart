@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -12,6 +11,17 @@ class NotificationSettingsPage extends StatefulWidget {
   State<NotificationSettingsPage> createState() =>
       _NotificationSettingsPageState();
 }
+
+const _kPetColors = [
+  Color.fromARGB(255, 146, 179, 236), // Blue
+  Color.fromRGBO(212, 162, 221, 1),   // Purple
+  Color.fromARGB(255, 182, 139, 83),  // Brown/Gold
+  Color.fromRGBO(223, 128, 158, 1),   // Pink
+  Color.fromARGB(255, 126, 140, 224), // Indigo
+  Color.fromARGB(255, 255, 171, 145), // Coral
+  Color.fromARGB(255, 167, 235, 244), // Cyan
+  Color.fromARGB(255, 219, 247, 240), // Mint
+];
 
 class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
   final PetService _petService = PetService();
@@ -53,23 +63,74 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
     final ownerId = prefs.getInt('owner_id') ?? 0;
     final data = await _petService.getOwnerPets(ownerId);
 
-    for (var pet in data) {
-      final id = pet['pet_id'];
-      final schedules = await _petService.getFeedingSchedules(id);
-    
-      List<Map<String, dynamic>> timeSlots = [];
-      for (var s in schedules) {
-        final timeStr = s['feeding_time'].split('T').last.substring(0, 5); 
-        final label = s['food_name'] ?? 'Feeding';
-        final key = "feeding_notif_${id}_$timeStr";
-      
-        timeSlots.add({
-          "time": timeStr,
-          "label": label,
-          "key": key,
-          "enabled": prefs.getBool(key) ?? true,
-        });
+    // Build a map of user-edited events from the feeding schedule's local storage.
+    // Structure: petId → baseId → {time, label}
+    // Deduplicating by baseId collapses daily events stored once per weekday into one slot.
+    final Map<int, Map<String, Map<String, String>>> localEvents = {};
+    final localJson = prefs.getString('offline_feeding_schedule');
+    if (localJson != null) {
+      final List<dynamic> decoded = jsonDecode(localJson);
+      for (var item in decoded) {
+        final petId = item['petId'] as int;
+        final eventMap = item['event'] as Map<String, dynamic>;
+        final String eventId = eventMap['id'] as String;
+        final String baseId = eventId.replaceAll(RegExp(r'_\d+$'), '');
+        final int hour = eventMap['hour'] as int;
+        final int minute = eventMap['minute'] as int;
+        final String timeStr =
+            '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
+        final String label = eventMap['name'] as String? ?? 'Feeding';
+
+        localEvents.putIfAbsent(petId, () => {})[baseId] = {
+          'time': timeStr,
+          'label': label,
+        };
       }
+    }
+
+    for (var pet in data) {
+      final int id = pet['pet_id'] as int;
+      List<Map<String, dynamic>> timeSlots = [];
+
+      if (localEvents.containsKey(id)) {
+        // User has opened / edited the feeding schedule — local data is ground truth.
+        final sorted = localEvents[id]!.values.toList()
+          ..sort((a, b) => a['time']!.compareTo(b['time']!));
+        for (var ev in sorted) {
+          final timeStr = ev['time']!;
+          final label = ev['label']!;
+          final key = 'feeding_notif_${id}_$timeStr';
+          timeSlots.add({
+            'time': timeStr,
+            'label': label,
+            'key': key,
+            'enabled': prefs.getBool(key) ?? true,
+          });
+        }
+      } else {
+        // No local edits yet — fall back to backend schedules.
+        try {
+          final schedules = await _petService.getFeedingSchedules(id);
+          for (var s in schedules) {
+            final raw = s['feeding_time'] as String? ?? '';
+            String timeStr = '08:00';
+            try {
+              timeStr = raw.split('T').last.substring(0, 5);
+            } catch (_) {}
+            final label = s['food_name'] as String? ?? 'Feeding';
+            final key = 'feeding_notif_${id}_$timeStr';
+            timeSlots.add({
+              'time': timeStr,
+              'label': label,
+              'key': key,
+              'enabled': prefs.getBool(key) ?? true,
+            });
+          }
+        } catch (e) {
+          debugPrint('Feeding fetch failed for pet $id: $e');
+        }
+      }
+
       pet['times'] = timeSlots;
       pet['reminder_enabled'] = prefs.getBool('feeding_notif_$id') ?? _feeding;
     }
@@ -215,21 +276,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
       ],
     );
 
-    return Stack(
-      children: [
-        _card(content),
-        if (!_appointments)
-          Positioned.fill(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-                child: Container(color: Colors.white.withOpacity(0.4)),
-              ),
-            ),
-          ),
-      ],
-    );
+    return _card(content);
   }
 
   Widget _buildFeedingCard() {
@@ -255,13 +302,15 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
             child: Text(_feedingExpanded ? "Hide Details" : "View Details"),
           ),
           if (_feedingExpanded)
-            ..._petsList.map((pet) {
+            ..._petsList.asMap().entries.map((entry) {
+              final pet = entry.value;
+              final petColor = _kPetColors[entry.key % _kPetColors.length];
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 8.0),
-                    child: Text(pet['pet_first_name'], style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.green)),
+                    child: Text(pet['pet_first_name'], style: TextStyle(fontWeight: FontWeight.w600, color: petColor)),
                   ),
                   ...pet['times'].map<Widget>((slot) {
                     return ListTile(

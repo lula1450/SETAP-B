@@ -350,27 +350,48 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> {
   }
 
   void _upsertEvent(PetEvent ev, String dayKey) {
-    final weekday = _weekdayFromKey(dayKey);
-    final days = ev.repeatDaily ? List.generate(7, (i) => i) : [weekday];
     setState(() {
       final petMap = _recurring[ev.petId] ??= {};
-      for (final slot in petMap.values) {
-        slot.removeWhere((e) => e.id == ev.id);
+
+      // Strip the day-index suffix (_0 … _6) to get the base ID.
+      // Uses a regex so IDs like 'backend_42_0' become 'backend_42'
+      // rather than just 'backend' (which split('_').first would give).
+      String baseId = ev.id.replaceAll(RegExp(r'_\d+$'), '');
+
+      // Remove all copies of this event from every weekday slot.
+      petMap.forEach((weekday, list) {
+        list.removeWhere((existingEvent) =>
+          existingEvent.id == baseId || existingEvent.id.startsWith('${baseId}_')
+        );
+      });
+
+      // 3. Re-insert the updated event
+      if (ev.repeatDaily) {
+        // If daily, insert into all 7 days (0-6)
+        for (int d = 0; d < 7; d++) {
+          petMap.putIfAbsent(d, () => []).add(
+            ev.copyWith(id: '${baseId}_$d')
+          );
+        }
+      } else {
+        // If weekly, only insert into the current weekday
+        final weekday = _weekdayFromKey(dayKey);
+        petMap.putIfAbsent(weekday, () => []).add(ev.copyWith(id: baseId));
       }
-      for (final d in days) {
-       petMap.putIfAbsent(d, () => []).add(ev.copyWith(id: ev.id));
-      }
-     });
-     _saveToLocal(); // <-- Trigger Save
+    });
+
+    // 4. Persist changes to local storage
+    _saveToLocal();
   }
 
   void _deleteEvent(int petId, String dayKey, String eventId) {
     setState(() {
+      String baseId = eventId.replaceAll(RegExp(r'_\d+$'), '');
       _recurring[petId]?.forEach((_, list) {
-        list.removeWhere((e) => e.id == eventId);
+        list.removeWhere((e) => e.id == baseId || e.id.startsWith('${baseId}_'));
       });
     });
-    _saveToLocal(); // <-- Trigger Save
+    _saveToLocal();
   }
 
   Future<void> _openEventDialog({
@@ -1007,6 +1028,33 @@ class _EventDialogState extends State<_EventDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Recurring-edit notice
+            if (widget.existing != null) ...[
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE8F5E9),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFF8BAEAE), width: 0.5),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.repeat, size: 14, color: Color(0xFF0F6E56)),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Changes will update all ${_repeatDaily ? 'daily' : 'weekly'} occurrences.',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF0F6E56),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
             // Type
             _Label('Event Type'),
             DropdownButtonFormField<EventType>(
