@@ -554,7 +554,10 @@ class _DashboardPageState extends State<DashboardPage> {
               _buildDailySchedule(),
               _actionButtonsSection(context),
               _dailyInfoSection(),
-              _navigationGridSection(_getPetColor(_selectedPetIndex)),
+              _navigationGridSection(
+                _getPetColor(_selectedPetIndex),
+                _pets.isNotEmpty ? _pets[_selectedPetIndex]['pet_first_name'] as String : '',
+              ),
               const SizedBox(height: 30),
             ],
           ),
@@ -1046,7 +1049,7 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  Widget _navigationGridSection(Color petColor) {
+  Widget _navigationGridSection(Color petColor, String petName) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
       child: GridView.count(
@@ -1057,7 +1060,7 @@ class _DashboardPageState extends State<DashboardPage> {
           crossAxisSpacing: 7,
           children: [
             _gridButton(
-              "Generate\nreport",
+              "$petName's\nReport",
               petColor,
               onTap: () {
                 if (_pets.isNotEmpty) {
@@ -1081,7 +1084,7 @@ class _DashboardPageState extends State<DashboardPage> {
               },
             ),
             _gridButton(
-              "Health\nrecords",
+              "$petName's\nHealth Records",
               petColor,
               onTap: () => Navigator.push(
                 context,
@@ -1091,7 +1094,7 @@ class _DashboardPageState extends State<DashboardPage> {
               ),
             ),
             _gridButton(
-              "Feeding\nschedule",
+              "Household\nFeeding Schedule",
               petColor,
               onTap: () => Navigator.push(
                 context,

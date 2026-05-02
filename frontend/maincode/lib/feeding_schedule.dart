@@ -15,7 +15,7 @@ class PetCareApp extends StatelessWidget {
       home: Scaffold(
         endDrawer: const AppDrawer(),
         appBar: AppBar(
-          title: const Text('Feeding Schedule'),
+          title: const Text('Household Feeding Schedule'),
           actions: [
             Builder(
               builder: (context) => IconButton(
@@ -140,6 +140,19 @@ class PetEvent {
     );
   }
 }
+
+// ─── Per-pet colours — same list as dashboard _getPetColor ───────────────────
+
+const _kPetColors = [
+  Color.fromARGB(255, 146, 179, 236), // Blue
+  Color.fromRGBO(212, 162, 221, 1),   // Purple
+  Color.fromARGB(255, 182, 139, 83),  // Brown/Gold
+  Color.fromRGBO(223, 128, 158, 1),   // Pink
+  Color.fromARGB(255, 126, 140, 224), // Indigo
+  Color.fromARGB(255, 255, 171, 145), // Coral
+  Color.fromARGB(255, 167, 235, 244), // Cyan
+  Color.fromARGB(255, 219, 247, 240), // Mint
+];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -460,8 +473,11 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> {
                           child: SingleChildScrollView(
                             scrollDirection: Axis.horizontal,
                             child: Row(
-                              children: _pets.map((p) {
+                              children: _pets.asMap().entries.map((entry) {
+                                final idx = entry.key;
+                                final p = entry.value;
                                 final active = p.id == _activePetId;
+                                final petColor = _kPetColors[idx % _kPetColors.length];
                                 return Padding(
                                   padding: const EdgeInsets.only(right: 8),
                                   child: GestureDetector(
@@ -477,15 +493,14 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> {
                                       ),
                                       decoration: BoxDecoration(
                                         color: active
-                                            ? Colors.white
-                                            : Colors.white
-                                                .withValues(alpha: 0.45),
+                                            ? petColor
+                                            : petColor.withValues(alpha: 0.25),
                                         borderRadius:
                                             BorderRadius.circular(20),
                                         border: Border.all(
                                           color: active
-                                              ? const Color(0xFF8BAEAE)
-                                              : Colors.white54,
+                                              ? petColor
+                                              : petColor.withValues(alpha: 0.5),
                                           width: active ? 2 : 0.5,
                                         ),
                                       ),
@@ -493,12 +508,10 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> {
                                         p.species.isNotEmpty
                                             ? '${p.name} (${p.species})'
                                             : p.name,
-                                        style: TextStyle(
+                                        style: const TextStyle(
                                           fontSize: 12,
                                           fontWeight: FontWeight.w600,
-                                          color: active
-                                              ? const Color(0xFF8BAEAE)
-                                              : Colors.black54,
+                                          color: Colors.black87,
                                         ),
                                       ),
                                     ),
@@ -573,6 +586,7 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> {
                                   child: _CalendarGrid(
                                     weekStart: ws,
                                     activePetId: _activePetId!,
+                                    petColorIndex: _pets.indexWhere((p) => p.id == _activePetId),
                                     eventsForDay: _eventsForDay,
                                     onAddTap: (dayKey) =>
                                         _openEventDialog(dayKey: dayKey),
@@ -609,6 +623,7 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> {
 class _CalendarGrid extends StatelessWidget {
   final DateTime weekStart;
   final int activePetId;
+  final int petColorIndex;
   final List<PetEvent> Function(int petId, String dayKey) eventsForDay;
   final void Function(String dayKey) onAddTap;
   final void Function(PetEvent ev, String dayKey) onEventTap;
@@ -616,6 +631,7 @@ class _CalendarGrid extends StatelessWidget {
   const _CalendarGrid({
     required this.weekStart,
     required this.activePetId,
+    required this.petColorIndex,
     required this.eventsForDay,
     required this.onAddTap,
     required this.onEventTap,
@@ -695,6 +711,7 @@ class _CalendarGrid extends StatelessWidget {
                 ...events.map(
                   (ev) => _EventChip(
                     event: ev,
+                    colorIndex: petColorIndex,
                     onTap: () => onEventTap(ev, dayKey),
                   ),
                 ),
@@ -733,12 +750,14 @@ class _CalendarGrid extends StatelessWidget {
 
 class _EventChip extends StatelessWidget {
   final PetEvent event;
+  final int colorIndex;
   final VoidCallback onTap;
 
-  const _EventChip({required this.event, required this.onTap});
+  const _EventChip({required this.event, required this.colorIndex, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
+    final base = _kPetColors[colorIndex % _kPetColors.length];
     final t = event.type;
     return GestureDetector(
       onTap: onTap,
@@ -746,32 +765,32 @@ class _EventChip extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 4),
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
         decoration: BoxDecoration(
-          color: t.backgroundColor,
+          color: base.withValues(alpha: 0.65),
           borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: t.borderColor, width: 0.5),
+          border: Border.all(color: base, width: 1),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               _fmt12(event.time),
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 10,
-                color: t.textColor.withValues(alpha: 0.75),
+                color: Colors.black54,
               ),
             ),
             const SizedBox(height: 1),
             Row(
               children: [
-                Icon(t.icon, size: 10, color: t.textColor),
+                Icon(t.icon, size: 10, color: Colors.black87),
                 const SizedBox(width: 3),
                 Expanded(
                   child: Text(
                     event.name,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
-                      color: t.textColor,
+                      color: Colors.black87,
                     ),
                     overflow: TextOverflow.ellipsis,
                     maxLines: 1,
