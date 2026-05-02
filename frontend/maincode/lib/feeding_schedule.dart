@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:maincode/widgets/app_drawer.dart';
 import 'package:maincode/services/pet_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 
 // Entry point of the app
 void main() => runApp(const PetCareApp());
@@ -139,6 +140,28 @@ class PetEvent {
       endDate: clearEndDate ? null : (endDate ?? this.endDate),
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'type': type.index,
+    'name': name,
+    'hour': time.hour,
+    'minute': time.minute,
+    'petId': petId,
+    'repeatDaily': repeatDaily,
+    'endDate': endDate?.toIso8601String(),
+  };
+
+  // Add this fromJson factory
+  factory PetEvent.fromJson(Map<String, dynamic> json) => PetEvent(
+    id: json['id'],
+    type: EventType.values[json['type']],
+    name: json['name'],
+    time: TimeOfDay(hour: json['hour'], minute: json['minute']),
+    petId: json['petId'],
+    repeatDaily: json['repeatDaily'] ?? false,
+    endDate: json['endDate'] != null ? DateTime.parse(json['endDate']) : null,
+  );
 }
 
 // ─── Per-pet colours — same list as dashboard _getPetColor ───────────────────
@@ -197,68 +220,90 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> {
   // ── Data loading ──────────────────────────────────────────────────────────
 
   Future<void> _loadPets() async {
-    setState(() => _isLoading = true);
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final int ownerId = prefs.getInt('owner_id') ?? 0;
-      final rawPets = await _service.getOwnerPets(ownerId);
+  setState(() => _isLoading = true);
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final int ownerId = prefs.getInt('owner_id') ?? 0;
 
-      if (!mounted) return;
+    _recurring.clear(); // Start fresh to prevent duplication
 
-      final pets = rawPets.map((j) => Pet.fromJson(j as Map<String, dynamic>)).toList();
+    final rawPets = await _service.getOwnerPets(ownerId);
+    if (!mounted) return;
+    final pets = rawPets.map((j) => Pet.fromJson(j as Map<String, dynamic>)).toList();
 
-      // Load seeded feeding schedules from backend — store as recurring by weekday
-      for (final p in pets) {
-        _recurring.putIfAbsent(p.id, () => {});
-        try {
-          final schedules = await _service.getFeedingSchedules(p.id);
-          for (final s in schedules) {
-            final raw = s['feeding_time'] as String? ?? '';
-            TimeOfDay t = const TimeOfDay(hour: 8, minute: 0);
-            int weekday = 0; // default Monday; overridden per schedule
+    // --- STEP 1: LOAD BACKEND SEEDED DATA ---
+    for (final p in pets) {
+      _recurring.putIfAbsent(p.id, () => {});
+      try {
+        final schedules = await _service.getFeedingSchedules(p.id);
+        for (final s in schedules) {
+          final raw = s['feeding_time'] as String? ?? '';
+          TimeOfDay t = const TimeOfDay(hour: 8, minute: 0);
+          int weekday = 0; 
+          
+          try {
+            // Backend often sends "YYYY-MM-DDTHH:mm:ss"
+            final dt = DateTime.parse(raw);
+            t = TimeOfDay(hour: dt.hour, minute: dt.minute);
+            weekday = dt.weekday - 1; // 1=Mon→0, 7=Sun→6
+          } catch (_) {
             try {
-              final dt = DateTime.parse(raw);
-              t = TimeOfDay(hour: dt.hour, minute: dt.minute);
-              weekday = dt.weekday - 1; // 1=Mon→0 … 7=Sun→6
-            } catch (_) {
-              try {
-                final parts = raw.split('T').last.split(':');
-                t = TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
-              } catch (_) {}
-            }
-            final event = PetEvent(
-              id: 'backend_${s['feeding_schedule_id']}',
-              type: EventType.feeding,
-              name: s['food_name'] as String? ?? 'Feed',
-              time: t,
-              petId: p.id,
-            );
-            // Add to every weekday it should recur on.
-            // Weekly schedules (Ziggy) only recur on the stored weekday;
-            // daily schedules recur every day.
-            final foodName = (s['food_name'] as String? ?? '').toLowerCase();
-            if (foodName.contains('weekly')) {
-              _recurring[p.id]!.putIfAbsent(weekday, () => []).add(event);
-            } else {
-              for (int d = 0; d < 7; d++) {
-                _recurring[p.id]!.putIfAbsent(d, () => []).add(event.copyWith(id: '${event.id}_$d'));
-              }
+              // Fallback for "HH:mm:ss" format
+              final parts = raw.split('T').last.split(':');
+              t = TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+            } catch (_) {}
+          }
+
+          final event = PetEvent(
+            id: 'backend_${s['feeding_schedule_id']}',
+            type: EventType.feeding,
+            name: s['food_name'] as String? ?? 'Feed',
+            time: t,
+            petId: p.id,
+          );
+
+          // Seeded data logic: daily vs specific weekday
+          final foodName = (s['food_name'] as String? ?? '').toLowerCase();
+          if (foodName.contains('weekly')) {
+            _recurring[p.id]!.putIfAbsent(weekday, () => []).add(event);
+          } else {
+            for (int d = 0; d < 7; d++) {
+              _recurring[p.id]!.putIfAbsent(d, () => []).add(event.copyWith(id: '${event.id}_$d'));
             }
           }
-        } catch (e) {
-          debugPrint('Error loading feeding schedules for pet ${p.id}: $e');
         }
+      } catch (e) {
+        debugPrint('Backend fetch failed for pet ${p.id}: $e');
       }
-
-      setState(() {
-        _pets = pets;
-        if (pets.isNotEmpty) _activePetId = pets.first.id;
-      });
-    } catch (e) {
-      debugPrint('Error loading pets: $e');
     }
-    setState(() => _isLoading = false);
+
+    // --- STEP 2: OVERLAY LOCAL STORAGE (USER MODIFICATIONS) ---
+    final localData = prefs.getString('offline_feeding_schedule');
+    if (localData != null) {
+      final List<dynamic> decoded = jsonDecode(localData);
+      for (var item in decoded) {
+        final int petId = item['petId'];
+        final int weekday = item['weekday'];
+        final event = PetEvent.fromJson(item['event']);
+        
+        _recurring.putIfAbsent(petId, () => {});
+        _recurring[petId]!.putIfAbsent(weekday, () => []);
+
+        // Prevent duplicates: If a local version exists, it overwrites backend duplicate
+        _recurring[petId]![weekday]!.removeWhere((e) => e.id == event.id);
+        _recurring[petId]![weekday]!.add(event);
+      }
+    }
+
+    setState(() {
+      _pets = pets;
+      if (pets.isNotEmpty) _activePetId = pets.first.id;
+    });
+  } catch (e) {
+    debugPrint('Global load error: $e');
   }
+  setState(() => _isLoading = false);
+}
 
   // ── Week helpers ──────────────────────────────────────────────────────────
 
@@ -309,24 +354,23 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> {
     final days = ev.repeatDaily ? List.generate(7, (i) => i) : [weekday];
     setState(() {
       final petMap = _recurring[ev.petId] ??= {};
-      // Remove old version of this event from all slots first
       for (final slot in petMap.values) {
         slot.removeWhere((e) => e.id == ev.id);
       }
-      // Add to the appropriate days
       for (final d in days) {
-        petMap.putIfAbsent(d, () => []).add(ev.copyWith(id: ev.id));
+       petMap.putIfAbsent(d, () => []).add(ev.copyWith(id: ev.id));
       }
-    });
+     });
+     _saveToLocal(); // <-- Trigger Save
   }
 
   void _deleteEvent(int petId, String dayKey, String eventId) {
     setState(() {
-      // Remove from all weekday slots (covers both daily and weekly events)
       _recurring[petId]?.forEach((_, list) {
         list.removeWhere((e) => e.id == eventId);
       });
     });
+    _saveToLocal(); // <-- Trigger Save
   }
 
   Future<void> _openEventDialog({
@@ -347,6 +391,27 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> {
             : () => _deleteEvent(existing.petId, dayKey, existing.id),
       ),
     );
+  }
+
+  Future<void> _saveToLocal() async {
+    final prefs = await SharedPreferences.getInstance();
+  
+  // We flatten the map for easier storage
+    final List<Map<String, dynamic>> flattened = [];
+  
+    _recurring.forEach((petId, weekdayMap) {
+     weekdayMap.forEach((weekday, events) {
+       for (var event in events) {
+          flattened.add({
+           'petId': petId,
+           'weekday': weekday,
+           'event': event.toJson(),
+          });
+        }
+      });
+    });
+
+    await prefs.setString('offline_feeding_schedule', jsonEncode(flattened));
   }
 
   // ── Build ─────────────────────────────────────────────────────────────────
