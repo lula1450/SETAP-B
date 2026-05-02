@@ -106,6 +106,8 @@ class PetEvent {
   final String name;
   final TimeOfDay time;
   final int petId;
+  final bool repeatDaily;     // true = every day, false = same weekday only
+  final DateTime? endDate;    // null = repeats indefinitely
 
   PetEvent({
     required this.id,
@@ -113,6 +115,8 @@ class PetEvent {
     required this.name,
     required this.time,
     required this.petId,
+    this.repeatDaily = false,
+    this.endDate,
   });
 
   PetEvent copyWith({
@@ -121,6 +125,9 @@ class PetEvent {
     String? name,
     TimeOfDay? time,
     int? petId,
+    bool? repeatDaily,
+    DateTime? endDate,
+    bool clearEndDate = false,
   }) {
     return PetEvent(
       id: id ?? this.id,
@@ -128,6 +135,8 @@ class PetEvent {
       name: name ?? this.name,
       time: time ?? this.time,
       petId: petId ?? this.petId,
+      repeatDaily: repeatDaily ?? this.repeatDaily,
+      endDate: clearEndDate ? null : (endDate ?? this.endDate),
     );
   }
 }
@@ -163,8 +172,8 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> {
   int _weekOffset = 0;
   bool _isLoading = true;
 
-  // events[petId][dateKey] = list of PetEvent
-  final Map<int, Map<String, List<PetEvent>>> _events = {};
+  // recurring[petId][weekday 0=Mon..6=Sun] = list of PetEvent (repeats every week)
+  final Map<int, Map<int, List<PetEvent>>> _recurring = {};
 
   @override
   void initState() {
@@ -185,15 +194,52 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> {
 
       final pets = rawPets.map((j) => Pet.fromJson(j as Map<String, dynamic>)).toList();
 
+      // Load seeded feeding schedules from backend — store as recurring by weekday
+      for (final p in pets) {
+        _recurring.putIfAbsent(p.id, () => {});
+        try {
+          final schedules = await _service.getFeedingSchedules(p.id);
+          for (final s in schedules) {
+            final raw = s['feeding_time'] as String? ?? '';
+            TimeOfDay t = const TimeOfDay(hour: 8, minute: 0);
+            int weekday = 0; // default Monday; overridden per schedule
+            try {
+              final dt = DateTime.parse(raw);
+              t = TimeOfDay(hour: dt.hour, minute: dt.minute);
+              weekday = dt.weekday - 1; // 1=Mon→0 … 7=Sun→6
+            } catch (_) {
+              try {
+                final parts = raw.split('T').last.split(':');
+                t = TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+              } catch (_) {}
+            }
+            final event = PetEvent(
+              id: 'backend_${s['feeding_schedule_id']}',
+              type: EventType.feeding,
+              name: s['food_name'] as String? ?? 'Feed',
+              time: t,
+              petId: p.id,
+            );
+            // Add to every weekday it should recur on.
+            // Weekly schedules (Ziggy) only recur on the stored weekday;
+            // daily schedules recur every day.
+            final foodName = (s['food_name'] as String? ?? '').toLowerCase();
+            if (foodName.contains('weekly')) {
+              _recurring[p.id]!.putIfAbsent(weekday, () => []).add(event);
+            } else {
+              for (int d = 0; d < 7; d++) {
+                _recurring[p.id]!.putIfAbsent(d, () => []).add(event.copyWith(id: '${event.id}_$d'));
+              }
+            }
+          }
+        } catch (e) {
+          debugPrint('Error loading feeding schedules for pet ${p.id}: $e');
+        }
+      }
+
       setState(() {
         _pets = pets;
-        if (pets.isNotEmpty) {
-          _activePetId = pets.first.id;
-          for (final p in pets) {
-            _events.putIfAbsent(p.id, () => {});
-          }
-          _seedDefaultsForWeek();
-        }
+        if (pets.isNotEmpty) _activePetId = pets.first.id;
       });
     } catch (e) {
       debugPrint('Error loading pets: $e');
@@ -210,45 +256,33 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> {
     return clean.add(Duration(days: _weekOffset * 7));
   }
 
-  /// Seeds sensible default feeding events for every pet for the current week.
-  void _seedDefaultsForWeek() {
-    final ws = _weekStart;
-    for (final pet in _pets) {
-      final petMap = _events[pet.id]!;
-      for (int i = 0; i < 7; i++) {
-        final d = ws.add(Duration(days: i));
-        final k = _dateKey(d);
-        petMap.putIfAbsent(k, () => [
-          PetEvent(
-            id: _uid(),
-            type: EventType.feeding,
-            name: 'Morning feed',
-            time: const TimeOfDay(hour: 7, minute: 30),
-            petId: pet.id,
-          ),
-          PetEvent(
-            id: _uid(),
-            type: EventType.feeding,
-            name: 'Evening feed',
-            time: const TimeOfDay(hour: 18, minute: 0),
-            petId: pet.id,
-          ),
-        ]);
-      }
-    }
-  }
-
   void _shiftWeek(int dir) {
     setState(() {
       _weekOffset = dir == 0 ? 0 : _weekOffset + dir;
-      _seedDefaultsForWeek();
     });
   }
 
   // ── Event CRUD ────────────────────────────────────────────────────────────
 
+  int _weekdayFromKey(String dayKey) {
+    final parts = dayKey.split('-');
+    final d = DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
+    return d.weekday - 1; // 1=Mon→0 … 7=Sun→6
+  }
+
+  DateTime _dateFromKey(String dayKey) {
+    final parts = dayKey.split('-');
+    return DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
+  }
+
   List<PetEvent> _eventsForDay(int petId, String dayKey) {
-    final list = List<PetEvent>.from(_events[petId]?[dayKey] ?? []);
+    final weekday = _weekdayFromKey(dayKey);
+    final date = _dateFromKey(dayKey);
+    final petMap = _recurring[petId];
+    final raw = petMap == null ? <PetEvent>[] : (petMap[weekday] ?? <PetEvent>[]);
+    final list = raw
+        .where((e) => e.endDate == null || !date.isAfter(e.endDate!))
+        .toList();
     list.sort((a, b) {
       final aMin = a.time.hour * 60 + a.time.minute;
       final bMin = b.time.hour * 60 + b.time.minute;
@@ -258,22 +292,27 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> {
   }
 
   void _upsertEvent(PetEvent ev, String dayKey) {
+    final weekday = _weekdayFromKey(dayKey);
+    final days = ev.repeatDaily ? List.generate(7, (i) => i) : [weekday];
     setState(() {
-      final petMap = _events[ev.petId] ?? {};
-      _events[ev.petId] = petMap;
-      final dayList = petMap.putIfAbsent(dayKey, () => []);
-      final idx = dayList.indexWhere((e) => e.id == ev.id);
-      if (idx >= 0) {
-        dayList[idx] = ev;
-      } else {
-        dayList.add(ev);
+      final petMap = _recurring[ev.petId] ??= {};
+      // Remove old version of this event from all slots first
+      for (final slot in petMap.values) {
+        slot.removeWhere((e) => e.id == ev.id);
+      }
+      // Add to the appropriate days
+      for (final d in days) {
+        petMap.putIfAbsent(d, () => []).add(ev.copyWith(id: ev.id));
       }
     });
   }
 
   void _deleteEvent(int petId, String dayKey, String eventId) {
     setState(() {
-      _events[petId]?[dayKey]?.removeWhere((e) => e.id == eventId);
+      // Remove from all weekday slots (covers both daily and weekly events)
+      _recurring[petId]?.forEach((_, list) {
+        list.removeWhere((e) => e.id == eventId);
+      });
     });
   }
 
@@ -406,7 +445,7 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> {
                                 label: '‹', onTap: () => _shiftWeek(-1)),
                             const SizedBox(width: 6),
                             _NavButton(
-                                label: 'Today', onTap: () => _shiftWeek(0)),
+                                label: 'This Week', onTap: () => _shiftWeek(0)),
                             const SizedBox(width: 6),
                             _NavButton(
                                 label: '›', onTap: () => _shiftWeek(1)),
@@ -720,7 +759,7 @@ class _EventChip extends StatelessWidget {
               _fmt12(event.time),
               style: TextStyle(
                 fontSize: 10,
-                color: t.textColor.withOpacity(0.75),
+                color: t.textColor.withValues(alpha: 0.75),
               ),
             ),
             const SizedBox(height: 1),
@@ -808,6 +847,9 @@ class _EventDialogState extends State<_EventDialog> {
   late int _petId;
   late TextEditingController _nameCtrl;
   late TimeOfDay _time;
+  bool _repeatDaily = false;
+  bool _hasEndDate = false;
+  DateTime? _endDate;
 
   @override
   void initState() {
@@ -817,6 +859,9 @@ class _EventDialogState extends State<_EventDialog> {
     _petId = ev?.petId ?? widget.activePetId;
     _nameCtrl = TextEditingController(text: ev?.name ?? '');
     _time = ev?.time ?? const TimeOfDay(hour: 8, minute: 0);
+    _repeatDaily = ev?.repeatDaily ?? false;
+    _endDate = ev?.endDate;
+    _hasEndDate = ev?.endDate != null;
   }
 
   @override
@@ -830,6 +875,17 @@ class _EventDialogState extends State<_EventDialog> {
     if (picked != null) setState(() => _time = picked);
   }
 
+  Future<void> _pickEndDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _endDate ?? now.add(const Duration(days: 7)),
+      firstDate: now,
+      lastDate: DateTime(now.year + 5),
+    );
+    if (picked != null) setState(() => _endDate = picked);
+  }
+
   void _save() {
     final name = _nameCtrl.text.trim().isNotEmpty
         ? _nameCtrl.text.trim()
@@ -841,6 +897,8 @@ class _EventDialogState extends State<_EventDialog> {
         name: name,
         time: _time,
         petId: _petId,
+        repeatDaily: _repeatDaily,
+        endDate: _hasEndDate ? _endDate : null,
       ),
     );
     Navigator.of(context).pop();
@@ -983,9 +1041,129 @@ class _EventDialogState extends State<_EventDialog> {
                 ),
               ),
             ),
+            const SizedBox(height: 12),
+
+            // Repeat type
+            _Label('Repeats'),
+            Row(
+              children: [
+                for (final option in [
+                  (label: 'Daily',  daily: true),
+                  (label: 'Weekly', daily: false),
+                ])
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => setState(() => _repeatDaily = option.daily),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        decoration: BoxDecoration(
+                          color: _repeatDaily == option.daily
+                              ? const Color(0xFF8BAEAE)
+                              : Colors.white,
+                          border: Border.all(color: const Color(0xFF8BAEAE), width: 1),
+                          borderRadius: BorderRadius.horizontal(
+                            left: option.daily
+                                ? const Radius.circular(8)
+                                : Radius.zero,
+                            right: option.daily
+                                ? Radius.zero
+                                : const Radius.circular(8),
+                          ),
+                        ),
+                        child: Center(
+                          child: Text(option.label,
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  color: _repeatDaily == option.daily
+                                      ? Colors.white
+                                      : const Color(0xFF8BAEAE),
+                                  fontWeight: FontWeight.w500)),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // End date toggle
+            _Label('Duration'),
+            Row(
+              children: [
+                for (final option in [
+                  (label: 'Forever',      ends: false),
+                  (label: 'Ends on date', ends: true),
+                ])
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => setState(() => _hasEndDate = option.ends),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        decoration: BoxDecoration(
+                          color: _hasEndDate == option.ends
+                              ? const Color(0xFF8BAEAE)
+                              : Colors.white,
+                          border: Border.all(color: const Color(0xFF8BAEAE), width: 1),
+                          borderRadius: BorderRadius.horizontal(
+                            left: !option.ends
+                                ? const Radius.circular(8)
+                                : Radius.zero,
+                            right: option.ends
+                                ? const Radius.circular(8)
+                                : Radius.zero,
+                          ),
+                        ),
+                        child: Center(
+                          child: Text(option.label,
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  color: _hasEndDate == option.ends
+                                      ? Colors.white
+                                      : const Color(0xFF8BAEAE),
+                                  fontWeight: FontWeight.w500)),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            if (_hasEndDate) ...[
+              const SizedBox(height: 10),
+              _Label('End date'),
+              GestureDetector(
+                onTap: _pickEndDate,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: const Color(0xFFCCCCCC), width: 0.5),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.calendar_today_outlined,
+                          size: 16, color: Color(0xFF888888)),
+                      const SizedBox(width: 8),
+                      Text(
+                        _endDate == null
+                            ? 'Tap to select a date'
+                            : '${_endDate!.day} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][_endDate!.month - 1]} ${_endDate!.year}',
+                        style: TextStyle(
+                            fontSize: 14,
+                            color: _endDate == null
+                                ? const Color(0xFF888888)
+                                : Colors.black87),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),
+      actionsAlignment: widget.onDelete != null
+          ? MainAxisAlignment.spaceBetween
+          : MainAxisAlignment.end,
       actions: [
         if (widget.onDelete != null)
           TextButton(
@@ -994,7 +1172,9 @@ class _EventDialogState extends State<_EventDialog> {
                 foregroundColor: Colors.red[700]),
             child: const Text('Delete'),
           ),
-        const Spacer(),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Cancel',
@@ -1009,6 +1189,8 @@ class _EventDialogState extends State<_EventDialog> {
                 borderRadius: BorderRadius.circular(8)),
           ),
           child: const Text('Save'),
+        ),
+          ],
         ),
       ],
     );

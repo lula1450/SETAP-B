@@ -5,7 +5,8 @@ from datetime import datetime, timedelta, time
 from petsync_backend.database import SessionLocal, engine, Base
 from petsync_backend.models import (
     PetAppointment, Species_config, MetricDefinition, MetricName,
-    SpeciesType, Owner, Pet, HealthMetric, ReportFrequency, PetGoal, VetContact
+    SpeciesType, Owner, Pet, HealthMetric, ReportFrequency, PetGoal, VetContact,
+    FeedingSchedule
 )
 from petsync_backend.config.species_data import SPECIES_DATA
 from petsync_backend.config.metric_definitions import seed_metric_definitions
@@ -283,7 +284,60 @@ def seed_data():
             db.add(vet)
     db.commit()
 
-    # 8. Trigger Automated Report Generation
+    # 8. Seed Feeding Schedules
+    print("Seeding Feeding Schedules...")
+    today = datetime.now().date()
+    year_end = today.replace(month=12, day=31)
+
+    feeding_schedules = [
+        # Bailey (Labrador) — 2 meals/day
+        FeedingSchedule(pet_id=bailey.pet_id, food_name="Morning feed",
+                        feeding_time=datetime.combine(today, time(7, 30)),
+                        feeding_schedule_start=today, feeding_schedule_end=year_end,
+                        portion_size=300),
+        FeedingSchedule(pet_id=bailey.pet_id, food_name="Evening feed",
+                        feeding_time=datetime.combine(today, time(17, 0)),
+                        feeding_schedule_start=today, feeding_schedule_end=year_end,
+                        portion_size=300),
+        # Luna (Maine Coon) — 3 meals/day
+        FeedingSchedule(pet_id=luna.pet_id, food_name="Morning feed",
+                        feeding_time=datetime.combine(today, time(8, 0)),
+                        feeding_schedule_start=today, feeding_schedule_end=year_end,
+                        portion_size=80),
+        FeedingSchedule(pet_id=luna.pet_id, food_name="Midday feed",
+                        feeding_time=datetime.combine(today, time(13, 0)),
+                        feeding_schedule_start=today, feeding_schedule_end=year_end,
+                        portion_size=60),
+        FeedingSchedule(pet_id=luna.pet_id, food_name="Evening feed",
+                        feeding_time=datetime.combine(today, time(18, 0)),
+                        feeding_schedule_start=today, feeding_schedule_end=year_end,
+                        portion_size=80),
+        # Rio (African Grey) — 2 feeds/day
+        FeedingSchedule(pet_id=rio.pet_id, food_name="Morning seed mix",
+                        feeding_time=datetime.combine(today, time(8, 0)),
+                        feeding_schedule_start=today, feeding_schedule_end=year_end,
+                        portion_size=50),
+        FeedingSchedule(pet_id=rio.pet_id, food_name="Afternoon pellets & fruit",
+                        feeding_time=datetime.combine(today, time(16, 0)),
+                        feeding_schedule_start=today, feeding_schedule_end=year_end,
+                        portion_size=40),
+        # Ziggy (Ball Python) — 1 feed/week
+        FeedingSchedule(pet_id=ziggy.pet_id, food_name="Weekly feeding",
+                        feeding_time=datetime.combine(today, time(18, 0)),
+                        feeding_schedule_start=today, feeding_schedule_end=year_end,
+                        portion_size=1),
+    ]
+
+    for schedule in feeding_schedules:
+        exists = db.query(FeedingSchedule).filter(
+            FeedingSchedule.pet_id == schedule.pet_id,
+            FeedingSchedule.food_name == schedule.food_name
+        ).first()
+        if not exists:
+            db.add(schedule)
+    db.commit()
+
+    # 9. Trigger Automated Report Generation
     print("Creating Automated Report History...")
     for pet in [bailey, luna, rio, ziggy]:
         for freq in [ReportFrequency.weekly, ReportFrequency.monthly]:

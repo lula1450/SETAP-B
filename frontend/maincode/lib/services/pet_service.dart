@@ -216,6 +216,14 @@ class PetService {
    }
  }
 
+  Future<List<dynamic>> getFeedingSchedules(int petId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/schedule/feeding-schedules/pet/$petId'),
+    );
+    if (response.statusCode == 200) return json.decode(response.body);
+    return [];
+  }
+
   Future<bool> deleteHealthLog(int petId, int metricId) async {
     try {
       final response = await http.delete(
