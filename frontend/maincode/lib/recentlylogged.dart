@@ -7,11 +7,13 @@ import 'package:maincode/widgets/app_drawer.dart';
 class RecentlyLoggedDataPage extends StatefulWidget {
   final int petId;
   final String petName;
+  final String? petImagePath;
 
   const RecentlyLoggedDataPage({
     super.key,
     required this.petId,
     required this.petName,
+    this.petImagePath,
   });
 
   @override
@@ -222,8 +224,25 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
     return Scaffold(
       endDrawer: const AppDrawer(),
       appBar: AppBar(
-        title: Text("${widget.petName}'s Logged Data"),
         backgroundColor: const Color(0xFF8BAEAE),
+        toolbarHeight: 120,
+        centerTitle: true,
+        title: Column(
+          children: [
+            CircleAvatar(
+              radius: 30,
+              backgroundColor: Colors.white,
+              backgroundImage: (widget.petImagePath != null && widget.petImagePath!.isNotEmpty)
+                  ? NetworkImage(widget.petImagePath!)
+                  : null,
+              child: (widget.petImagePath == null || widget.petImagePath!.isEmpty)
+                  ? const Icon(Icons.add_a_photo, size: 25, color: Color(0xFF8BAEAE))
+                  : null,
+            ),
+            const SizedBox(height: 8),
+            Text("${widget.petName}'s Logged Data", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black, fontSize: 18)),
+          ],
+        ),
       ),
       body: FutureBuilder<List<Map<String, dynamic>>>(
         future: _historyFuture,

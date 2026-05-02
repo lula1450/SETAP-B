@@ -155,8 +155,10 @@ class _MedicalDocument {
 
 class HealthRecordsPage extends StatefulWidget {
   final String petId;
+  final String petName;
+  final String? petImagePath;
 
-  const HealthRecordsPage({super.key, this.petId = 'default'});
+  const HealthRecordsPage({super.key, this.petId = 'default', this.petName = '', this.petImagePath});
 
   @override
   State<HealthRecordsPage> createState() => _HealthRecordsPageState();
@@ -834,13 +836,30 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
       backgroundColor: Colors.transparent,
       endDrawer: const AppDrawer(),
       appBar: AppBar(
-        title: const Text(
-          'Health Records',
-          style: TextStyle(fontWeight: FontWeight.w600),
-        ),
         backgroundColor: const Color.fromARGB(255, 139, 174, 174),
         foregroundColor: Colors.black87,
         elevation: 0,
+        toolbarHeight: 120,
+        centerTitle: true,
+        title: Column(
+          children: [
+            CircleAvatar(
+              radius: 30,
+              backgroundColor: Colors.white,
+              backgroundImage: (widget.petImagePath != null && widget.petImagePath!.isNotEmpty)
+                  ? NetworkImage(widget.petImagePath!)
+                  : null,
+              child: (widget.petImagePath == null || widget.petImagePath!.isEmpty)
+                  ? const Icon(Icons.add_a_photo, size: 25, color: Color(0xFF8BAEAE))
+                  : null,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              widget.petName.isNotEmpty ? "${widget.petName}'s Health Records" : 'Health Records',
+              style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.black, fontSize: 18),
+            ),
+          ],
+        ),
         actions: [
           Builder(
             builder: (context) => IconButton(

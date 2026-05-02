@@ -13,8 +13,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ReportsPage extends StatefulWidget {
   final int petId;
   final String petName;
+  final String? petImagePath;
 
-  const ReportsPage({super.key, required this.petId, required this.petName});
+  const ReportsPage({super.key, required this.petId, required this.petName, this.petImagePath});
 
   @override
   State<ReportsPage> createState() => _ReportsPageState();
@@ -311,9 +312,26 @@ class _ReportsPageState extends State<ReportsPage> {
     return Scaffold(
       endDrawer: const AppDrawer(),
       appBar: AppBar(
-        title: Text('Health: ${widget.petName}'),
         backgroundColor: const Color(0xFF8BAEAE),
         elevation: 0,
+        toolbarHeight: 120,
+        centerTitle: true,
+        title: Column(
+          children: [
+            CircleAvatar(
+              radius: 30,
+              backgroundColor: Colors.white,
+              backgroundImage: (widget.petImagePath != null && widget.petImagePath!.isNotEmpty)
+                  ? NetworkImage(widget.petImagePath!)
+                  : null,
+              child: (widget.petImagePath == null || widget.petImagePath!.isEmpty)
+                  ? const Icon(Icons.add_a_photo, size: 25, color: Color(0xFF8BAEAE))
+                  : null,
+            ),
+            const SizedBox(height: 8),
+            Text('${widget.petName}\'s Report', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black, fontSize: 18)),
+          ],
+        ),
         actions: [
           Builder(
             builder: (context) => IconButton(

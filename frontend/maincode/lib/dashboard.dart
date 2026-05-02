@@ -1024,6 +1024,7 @@ class _DashboardPageState extends State<DashboardPage> {
                       builder: (context) => ReportsPage(
                         petId: _pets[_selectedPetIndex]['pet_id'],
                         petName: _pets[_selectedPetIndex]['pet_first_name'],
+                        petImagePath: _pets[_selectedPetIndex]['pet_image_path'] as String?,
                       ),
                     ),
                   );
@@ -1043,7 +1044,11 @@ class _DashboardPageState extends State<DashboardPage> {
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => const HealthRecordsPage(),
+                  builder: (context) => HealthRecordsPage(
+                    petId: _pets[_selectedPetIndex]['pet_id'].toString(),
+                    petName: _pets[_selectedPetIndex]['pet_first_name'] as String,
+                    petImagePath: _pets[_selectedPetIndex]['pet_image_path'] as String?,
+                  ),
                 ),
               ),
             ),
@@ -1248,6 +1253,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 petId: currentPet['pet_id'],
                 petName: currentPet['pet_first_name'],
                 petIndex: _selectedPetIndex,
+                petImagePath: currentPet['pet_image_path'] as String?,
               ),
             ),
           ).then((_) => _updateDailyAdvice());
@@ -1258,6 +1264,7 @@ class _DashboardPageState extends State<DashboardPage> {
               builder: (context) => RecentlyLoggedDataPage(
                 petId: currentPet['pet_id'],
                 petName: currentPet['pet_first_name'],
+                petImagePath: currentPet['pet_image_path'] as String?,
               ),
             ),
           );

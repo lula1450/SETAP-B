@@ -8,12 +8,14 @@ class MetricsPage extends StatefulWidget {
   final int petId;
   final String petName;
   final int petIndex;
+  final String? petImagePath;
 
   const MetricsPage({
     super.key,
     required this.petId,
     required this.petName,
     required this.petIndex,
+    this.petImagePath,
   });
 
   @override
@@ -701,7 +703,16 @@ class _MetricsPageState extends State<MetricsPage> {
         centerTitle: true,
         title: Column(
           children: [
-            CircleAvatar(radius: 30, backgroundColor: Colors.white, child: Icon(Icons.pets, size: 25, color: petThemeColor)),
+            CircleAvatar(
+              radius: 30,
+              backgroundColor: Colors.white,
+              backgroundImage: (widget.petImagePath != null && widget.petImagePath!.isNotEmpty)
+                  ? NetworkImage(widget.petImagePath!)
+                  : null,
+              child: (widget.petImagePath == null || widget.petImagePath!.isEmpty)
+                  ? Icon(Icons.add_a_photo, size: 25, color: petThemeColor)
+                  : null,
+            ),
             const SizedBox(height: 8),
             Text("${widget.petName}'s Metrics", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black, fontSize: 18)),
           ],
