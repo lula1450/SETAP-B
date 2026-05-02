@@ -239,6 +239,24 @@ class _MetricsPageState extends State<MetricsPage> {
     }
   }
 
+  String? _getMetricDescription(String title) {
+    switch (title.toLowerCase()) {
+      case 'appetite':           return '1 = not eating  ·  5 = eating very well';
+      case 'energy level':       return '1 = very lethargic  ·  5 = very energetic';
+      case 'stool quality':      return '1 = abnormal / loose  ·  5 = firm and healthy';
+      case 'vocalisation level': return '1 = unusually silent  ·  5 = very vocal / chatty';
+      case 'perch activity':     return '1 = barely moving  ·  5 = very active on perch';
+      case 'wing strength':      return '1 = weak / drooping  ·  5 = strong, held normally';
+      case 'feather condition':  return '1 = dull / ruffled / patches missing  ·  5 = glossy and complete';
+      case 'shedding quality':   return '1 = excessive or abnormal  ·  5 = normal healthy shed';
+      case 'chewing behaviour':  return '1 = not chewing  ·  5 = chewing actively and normally';
+      case 'vomit events':       return 'Count of vomiting episodes today — 0 is ideal';
+      case 'stool pellets':      return 'Total number of droppings passed today';
+      case 'grooming frequency': return 'Number of times you groomed your pet today';
+      case 'litter box usage':   return 'Number of litter box visits today';
+      default: return null;
+    }
+  }
 
   void _checkAndWarnDeviation(BuildContext ctx, String title, String enteredValue, String targetValue) async {
     final current = double.tryParse(enteredValue);
@@ -487,7 +505,14 @@ class _MetricsPageState extends State<MetricsPage> {
     final String unit = _getUnitForMetric(title);
     bool isLogging = false;
     final bool isWaterIntake = title.toLowerCase() == 'water intake';
+    final bool isScale = unit == '/5';
     String waterUnit = 'ml';
+    double sliderVal = 3.0;
+    double goalSliderVal = 5.0;
+    if (isScale) {
+      valueController.text = sliderVal.round().toString();
+      goalController.text = goalSliderVal.round().toString();
+    }
 
     showDialog(
       context: outerCtx,
@@ -500,6 +525,21 @@ class _MetricsPageState extends State<MetricsPage> {
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                if (_getMetricDescription(title) != null) ...[
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF8BAEAE).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      _getMetricDescription(title)!,
+                      style: TextStyle(fontSize: 12, color: Colors.blueGrey[700]),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
                 if (isWaterIntake) ...[
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
@@ -519,25 +559,79 @@ class _MetricsPageState extends State<MetricsPage> {
                   ),
                   const SizedBox(height: 8),
                 ],
-                if (showValue) TextField(
-                  controller: valueController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: InputDecoration(
-                    labelText: "Current $title",
-                    hintText: isWaterIntake ? (waterUnit == 'L' ? "e.g. 1.5" : "e.g. 1500") : "e.g. 4.5",
-                    suffixText: displayUnit,
+                if (showValue) ...[
+                  if (isScale) ...[
+                    Text("Current $title", style: const TextStyle(fontSize: 13, color: Colors.grey)),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const Text('1', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                        Expanded(
+                          child: Slider(
+                            value: sliderVal,
+                            min: 1, max: 5, divisions: 4,
+                            activeColor: const Color(0xFF8BAEAE),
+                            label: sliderVal.round().toString(),
+                            onChanged: (v) => setDialogState(() {
+                              sliderVal = v;
+                              valueController.text = v.round().toString();
+                            }),
+                          ),
+                        ),
+                        const Text('5', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                      ],
+                    ),
+                    Center(
+                      child: Text('${sliderVal.round()} / 5',
+                          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                    ),
+                  ] else TextField(
+                    controller: valueController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: InputDecoration(
+                      labelText: "Current $title",
+                      hintText: isWaterIntake ? (waterUnit == 'L' ? "e.g. 1.5" : "e.g. 1500") : "e.g. 4.5",
+                      suffixText: displayUnit,
+                    ),
                   ),
-                ),
-                if (showValue && showTarget) const SizedBox(height: 10),
-                if (showTarget) TextField(
-                  controller: goalController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: InputDecoration(
-                    labelText: "Target Goal",
-                    hintText: isWaterIntake ? (waterUnit == 'L' ? "e.g. 2.0" : "e.g. 2000") : "e.g. 5.0",
-                    suffixText: displayUnit,
+                ],
+                if (showValue && showTarget) const SizedBox(height: 16),
+                if (showTarget) ...[
+                  if (isScale) ...[
+                    Text("Target $title", style: const TextStyle(fontSize: 13, color: Colors.grey)),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const Text('1', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                        Expanded(
+                          child: Slider(
+                            value: goalSliderVal,
+                            min: 1, max: 5, divisions: 4,
+                            activeColor: const Color(0xFF8BAEAE),
+                            label: goalSliderVal.round().toString(),
+                            onChanged: (v) => setDialogState(() {
+                              goalSliderVal = v;
+                              goalController.text = v.round().toString();
+                            }),
+                          ),
+                        ),
+                        const Text('5', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                      ],
+                    ),
+                    Center(
+                      child: Text('${goalSliderVal.round()} / 5',
+                          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                    ),
+                  ] else TextField(
+                    controller: goalController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: InputDecoration(
+                      labelText: "Target Goal",
+                      hintText: isWaterIntake ? (waterUnit == 'L' ? "e.g. 2.0" : "e.g. 2000") : "e.g. 5.0",
+                      suffixText: displayUnit,
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
             actions: [
