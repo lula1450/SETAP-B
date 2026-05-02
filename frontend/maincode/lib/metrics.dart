@@ -677,26 +677,6 @@ class _MetricsPageState extends State<MetricsPage> {
 
     return Scaffold(
       endDrawer: const AppDrawer(),
-      floatingActionButton: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          FloatingActionButton(
-            heroTag: "delete_metric",
-            onPressed: _showDeleteMetricDialog,
-            backgroundColor: const Color.fromARGB(255, 139, 174, 174),
-            child: const Icon(Icons.delete_outline, color: Colors.white),
-          ),
-          const SizedBox(height: 10),
-          FloatingActionButton.extended(
-            heroTag: "add_metric",
-            onPressed: _addCustomMetric,
-            backgroundColor: const Color.fromARGB(255, 139, 174, 174),
-            icon: const Icon(Icons.add, color: Colors.white, size: 18),
-            label: const Text("Custom Metric", style: TextStyle(color: Colors.white, fontSize: 12)),
-          ),
-        ],
-      ),
       appBar: AppBar(
         backgroundColor: const Color.fromARGB(255, 139, 174, 174),
         toolbarHeight: 120,
@@ -779,6 +759,38 @@ class _MetricsPageState extends State<MetricsPage> {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: _addCustomMetric,
+                          icon: const Icon(Icons.add, size: 16),
+                          label: const Text('Custom Metric', style: TextStyle(fontSize: 13)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF8BAEAE),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: _showDeleteMetricDialog,
+                          icon: const Icon(Icons.delete_outline, size: 16),
+                          label: const Text('Remove Metric', style: TextStyle(fontSize: 13)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white.withValues(alpha: 0.85),
+                            foregroundColor: Colors.blueGrey[700],
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -826,8 +838,8 @@ class _MetricsPageState extends State<MetricsPage> {
       child: Row(
         children: [
           IconButton(
-            icon: Icon(isFavorite ? Icons.star : Icons.star_border,
-              color: isFavorite ? Colors.amber : Colors.white.withValues(alpha: 0.7)),
+            icon: Icon(isFavorite ? Icons.favorite : Icons.favorite_border,
+              color: isFavorite ? Colors.red : Colors.white.withValues(alpha: 0.7)),
             onPressed: () => _toggleFavorite(title)
           ),
           Expanded(
