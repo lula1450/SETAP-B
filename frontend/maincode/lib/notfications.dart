@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:maincode/services/pet_service.dart';
+import 'package:maincode/services/notification_service.dart';
 
 class NotificationSettingsPage extends StatefulWidget {
   const NotificationSettingsPage({super.key});
@@ -25,6 +26,7 @@ const _kPetColors = [
 
 class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
   final PetService _petService = PetService();
+  final _notif = NotificationService();
 
   bool _allNotifications = true;
   bool _appointments = true;
@@ -43,14 +45,17 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
   @override
   void initState() {
     super.initState();
-    _loadSettings();
-    _loadAppointments();
-    _loadPets();
+    _initAll();
+  }
+
+  Future<void> _initAll() async {
+    await _loadSettings();
+    await Future.wait([_loadAppointments(), _loadPets()]);
+    _rescheduleAll();
   }
 
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
-
     setState(() {
       _appointments = prefs.getBool('notif_appointments') ?? true;
       _feeding = prefs.getBool('notif_feeding') ?? true;
@@ -65,9 +70,6 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
     final ownerId = prefs.getInt('owner_id') ?? 0;
     final data = await _petService.getOwnerPets(ownerId);
 
-    // Build a map of user-edited events from the feeding schedule's local storage.
-    // Structure: petId → baseId → {time, label}
-    // Deduplicating by baseId collapses daily events stored once per weekday into one slot.
     final Map<int, Map<String, Map<String, String>>> localEvents = {};
     final localJson = prefs.getString('offline_feeding_schedule');
     if (localJson != null) {
@@ -82,7 +84,6 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
         final String timeStr =
             '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
         final String label = eventMap['name'] as String? ?? 'Feeding';
-
         localEvents.putIfAbsent(petId, () => {})[baseId] = {
           'time': timeStr,
           'label': label,
@@ -95,7 +96,6 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
       List<Map<String, dynamic>> timeSlots = [];
 
       if (localEvents.containsKey(id)) {
-        // User has opened / edited the feeding schedule — local data is ground truth.
         final sorted = localEvents[id]!.values.toList()
           ..sort((a, b) => a['time']!.compareTo(b['time']!));
         for (var ev in sorted) {
@@ -110,7 +110,6 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
           });
         }
       } else {
-        // No local edits yet — fall back to backend schedules.
         try {
           final schedules = await _petService.getFeedingSchedules(id);
           for (var s in schedules) {
@@ -136,18 +135,15 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
       pet['times'] = timeSlots;
       pet['reminder_enabled'] = prefs.getBool('feeding_notif_$id') ?? _feeding;
 
-      // --- Metrics reminders ---
       final hidden = prefs.getStringList('hidden_metrics_$id') ?? [];
       final custom = prefs.getStringList('custom_metrics_$id') ?? [];
       List<String> allMetrics = [];
       try {
         allMetrics = await _petService.getAvailableMetrics(id);
       } catch (_) {}
-      // Add custom metrics that aren't already in the standard list
       for (final c in custom) {
         if (!allMetrics.contains(c)) allMetrics.add(c);
       }
-      // Remove hidden metrics
       allMetrics.removeWhere((m) => hidden.contains(m));
 
       pet['metrics'] = allMetrics.map((name) {
@@ -167,13 +163,11 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
 
   Future<void> _saveSettings() async {
     final prefs = await SharedPreferences.getInstance();
-
     await prefs.setBool('notif_appointments', _appointments);
     await prefs.setBool('notif_feeding', _feeding);
     await prefs.setBool('notif_advice', _advice);
     await prefs.setBool('notif_metrics', _metrics);
 
-    // Save individual pet feeding and metric toggles
     for (var pet in _petsList) {
       final id = pet['pet_id'];
       await prefs.setBool('feeding_notif_$id', pet['reminder_enabled']);
@@ -187,7 +181,6 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
       await prefs.setBool('advice_notif_$id', pet['advice_enabled'] ?? true);
     }
 
-    // Save appointment toggles
     for (var a in _appointmentsList) {
       final id = a['pet_appointment_id'];
       await prefs.setString(
@@ -200,8 +193,110 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
         }),
       );
     }
-    // Note: SnackBar removed for seamless auto-save experience
   }
+
+  // --- Notification scheduling helpers ---
+
+  void _scheduleFeedingSlot(dynamic pet, dynamic slot) {
+    final parts = (slot['time'] as String).split(':');
+    _notif.scheduleDailyAt(
+      id: NotificationService.feedingId(pet['pet_id'] as int, slot['time'] as String),
+      title: 'Feeding Reminder',
+      body: 'Time to feed ${pet['pet_first_name']}!',
+      hour: int.parse(parts[0]),
+      minute: int.parse(parts[1]),
+    );
+  }
+
+  void _cancelFeedingSlot(dynamic pet, dynamic slot) {
+    _notif.cancel(NotificationService.feedingId(pet['pet_id'] as int, slot['time'] as String));
+  }
+
+  void _scheduleMetricsPet(dynamic pet) {
+    _notif.scheduleDailyAt(
+      id: NotificationService.metricsId(pet['pet_id'] as int),
+      title: 'Metrics Reminder',
+      body: "Don't forget to log ${pet['pet_first_name']}'s health metrics today!",
+      hour: 20,
+      minute: 0,
+    );
+  }
+
+  void _cancelMetricsPet(dynamic pet) {
+    _notif.cancel(NotificationService.metricsId(pet['pet_id'] as int));
+  }
+
+  void _scheduleAdvicePet(dynamic pet) {
+    _notif.scheduleWeeklyMonday(
+      id: NotificationService.adviceId(pet['pet_id'] as int),
+      title: 'Pet Care Tip',
+      body: 'Check in on ${pet['pet_first_name']}\'s weekly advice in PetSync!',
+      hour: 9,
+      minute: 0,
+    );
+  }
+
+  void _cancelAdvicePet(dynamic pet) {
+    _notif.cancel(NotificationService.adviceId(pet['pet_id'] as int));
+  }
+
+  void _scheduleAppointment(dynamic appt) {
+    if (appt['reminder_time'] == null || appt['reminder_date'] == null) return;
+    final parts = (appt['reminder_time'] as String).split(':');
+    final dateParts = (appt['reminder_date'] as String).split('-');
+    final dt = DateTime(
+      int.parse(dateParts[0]),
+      int.parse(dateParts[1]),
+      int.parse(dateParts[2]),
+      int.parse(parts[0]),
+      int.parse(parts[1]),
+    );
+    _notif.scheduleOnce(
+      id: NotificationService.appointmentNotifId(appt['pet_appointment_id'] as int),
+      title: 'Appointment Reminder',
+      body: appt['appointment_notes'] ?? 'You have a vet appointment coming up!',
+      dateTime: dt,
+    );
+  }
+
+  void _cancelAppointment(dynamic appt) {
+    _notif.cancel(NotificationService.appointmentNotifId(appt['pet_appointment_id'] as int));
+  }
+
+  void _rescheduleAll() {
+    for (var pet in _petsList) {
+      final petFeedingOn = _feeding && (pet['reminder_enabled'] as bool? ?? true);
+      for (var slot in (pet['times'] as List)) {
+        if (petFeedingOn && (slot['enabled'] as bool)) {
+          _scheduleFeedingSlot(pet, slot);
+        } else {
+          _cancelFeedingSlot(pet, slot);
+        }
+      }
+
+      if (_metrics && (pet['metrics_enabled'] as bool? ?? true)) {
+        _scheduleMetricsPet(pet);
+      } else {
+        _cancelMetricsPet(pet);
+      }
+
+      if (_advice && (pet['advice_enabled'] as bool? ?? true)) {
+        _scheduleAdvicePet(pet);
+      } else {
+        _cancelAdvicePet(pet);
+      }
+    }
+
+    for (var appt in _appointmentsList) {
+      if (_appointments && (appt['reminder_enabled'] as bool? ?? false)) {
+        _scheduleAppointment(appt);
+      } else {
+        _cancelAppointment(appt);
+      }
+    }
+  }
+
+  // --- State helpers ---
 
   void _updateMaster() {
     setState(() {
@@ -217,8 +312,11 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
       _advice = val;
       _metrics = val;
     });
-    _saveSettings(); // Auto-save
+    _saveSettings();
+    _rescheduleAll();
   }
+
+  // --- Card builders ---
 
   Widget _buildAppointmentCard() {
     final content = Column(
@@ -235,6 +333,13 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                 setState(() => _appointments = v);
                 _updateMaster();
                 _saveSettings();
+                if (!v) {
+                  for (var a in _appointmentsList) { _cancelAppointment(a); }
+                } else {
+                  for (var a in _appointmentsList) {
+                    if (a['reminder_enabled'] == true) _scheduleAppointment(a);
+                  }
+                }
               },
             )
           ],
@@ -248,7 +353,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
             return GestureDetector(
               onTap: _appointments ? () async {
                 await _openReminderFlow(a);
-                _saveSettings(); // Save after dialog interaction
+                _saveSettings();
               } : null,
               child: Container(
                 margin: const EdgeInsets.only(bottom: 8),
@@ -264,14 +369,16 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(a['appointment_notes'] ?? "Vet Visit", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          Text(a['appointment_notes'] ?? "Vet Visit",
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                           Text(a['pet_appointment_date'], style: const TextStyle(fontSize: 11)),
                           const SizedBox(height: 4),
                           Text(
                             (a['reminder_enabled'] ?? false)
                                 ? "${a['repeat_type'] ?? 'Once'} • ${a['reminder_time'] ?? ''}"
-                                : "Set reminder",
-                            style: const TextStyle(fontSize: 11, color: Colors.blue, fontWeight: FontWeight.w500),
+                                : "Tap to set reminder",
+                            style: const TextStyle(
+                                fontSize: 11, color: Colors.blue, fontWeight: FontWeight.w500),
                           ),
                         ],
                       ),
@@ -281,6 +388,11 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                       onChanged: _appointments ? (v) {
                         setState(() => a['reminder_enabled'] = v);
                         _saveSettings();
+                        if (v) {
+                          _scheduleAppointment(a);
+                        } else {
+                          _cancelAppointment(a);
+                        }
                       } : null,
                     ),
                   ],
@@ -301,14 +413,24 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
         children: [
           Row(
             children: [
-              const Expanded(child: Text("Feeding Schedule", style: TextStyle(fontWeight: FontWeight.bold))),
+              const Expanded(
+                  child: Text("Feeding Schedule", style: TextStyle(fontWeight: FontWeight.bold))),
               Switch(
-                value: _feeding, 
+                value: _feeding,
                 onChanged: (v) {
                   setState(() => _feeding = v);
                   _updateMaster();
                   _saveSettings();
-                }
+                  for (var pet in _petsList) {
+                    for (var slot in (pet['times'] as List)) {
+                      if (v && (pet['reminder_enabled'] as bool? ?? true) && (slot['enabled'] as bool)) {
+                        _scheduleFeedingSlot(pet, slot);
+                      } else {
+                        _cancelFeedingSlot(pet, slot);
+                      }
+                    }
+                  }
+                },
               ),
             ],
           ),
@@ -329,13 +451,21 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                     child: Row(
                       children: [
                         Expanded(
-                          child: Text(pet['pet_first_name'], style: TextStyle(fontWeight: FontWeight.w600, color: petColor)),
+                          child: Text(pet['pet_first_name'],
+                              style: TextStyle(fontWeight: FontWeight.w600, color: petColor)),
                         ),
                         Switch(
                           value: petEnabled,
                           onChanged: _feeding ? (v) {
                             setState(() => pet['reminder_enabled'] = v);
                             _saveSettings();
+                            for (var slot in (pet['times'] as List)) {
+                              if (v && (slot['enabled'] as bool)) {
+                                _scheduleFeedingSlot(pet, slot);
+                              } else {
+                                _cancelFeedingSlot(pet, slot);
+                              }
+                            }
                           } : null,
                         ),
                       ],
@@ -347,10 +477,15 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                       leading: const Icon(Icons.access_time, size: 18),
                       title: Text("${slot['label']} (${slot['time']})"),
                       trailing: Switch(
-                        value: slot['enabled'] && petEnabled,
+                        value: (slot['enabled'] as bool) && petEnabled,
                         onChanged: petEnabled ? (v) {
                           setState(() => slot['enabled'] = v);
                           _saveSettings();
+                          if (v) {
+                            _scheduleFeedingSlot(pet, slot);
+                          } else {
+                            _cancelFeedingSlot(pet, slot);
+                          }
                         } : null,
                       ),
                     );
@@ -372,7 +507,8 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
           Row(
             children: [
               const Expanded(
-                child: Text("Metric Logging Reminders", style: TextStyle(fontWeight: FontWeight.bold)),
+                child: Text("Metric Logging Reminders",
+                    style: TextStyle(fontWeight: FontWeight.bold)),
               ),
               Switch(
                 value: _metrics,
@@ -380,6 +516,13 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                   setState(() => _metrics = v);
                   _updateMaster();
                   _saveSettings();
+                  for (var pet in _petsList) {
+                    if (v && (pet['metrics_enabled'] as bool? ?? true)) {
+                      _scheduleMetricsPet(pet);
+                    } else {
+                      _cancelMetricsPet(pet);
+                    }
+                  }
                 },
               ),
             ],
@@ -402,16 +545,19 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                     child: Row(
                       children: [
                         Expanded(
-                          child: Text(
-                            pet['pet_first_name'],
-                            style: TextStyle(fontWeight: FontWeight.w600, color: petColor),
-                          ),
+                          child: Text(pet['pet_first_name'],
+                              style: TextStyle(fontWeight: FontWeight.w600, color: petColor)),
                         ),
                         Switch(
                           value: petEnabled,
                           onChanged: _metrics ? (v) {
                             setState(() => pet['metrics_enabled'] = v);
                             _saveSettings();
+                            if (v) {
+                              _scheduleMetricsPet(pet);
+                            } else {
+                              _cancelMetricsPet(pet);
+                            }
                           } : null,
                         ),
                       ],
@@ -420,7 +566,8 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                   if (metrics.isEmpty)
                     const Padding(
                       padding: EdgeInsets.only(left: 8, bottom: 8),
-                      child: Text("No metrics tracked yet.", style: TextStyle(fontSize: 13, color: Colors.grey)),
+                      child: Text("No metrics tracked yet.",
+                          style: TextStyle(fontSize: 13, color: Colors.grey)),
                     )
                   else
                     ...metrics.map<Widget>((m) {
@@ -454,13 +601,21 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
         children: [
           Row(
             children: [
-              const Expanded(child: Text("Advice", style: TextStyle(fontWeight: FontWeight.bold))),
+              const Expanded(
+                  child: Text("Advice", style: TextStyle(fontWeight: FontWeight.bold))),
               Switch(
                 value: _advice,
                 onChanged: (v) {
                   setState(() => _advice = v);
                   _updateMaster();
                   _saveSettings();
+                  for (var pet in _petsList) {
+                    if (v && (pet['advice_enabled'] as bool? ?? true)) {
+                      _scheduleAdvicePet(pet);
+                    } else {
+                      _cancelAdvicePet(pet);
+                    }
+                  }
                 },
               ),
             ],
@@ -479,16 +634,19 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                 child: Row(
                   children: [
                     Expanded(
-                      child: Text(
-                        pet['pet_first_name'],
-                        style: TextStyle(fontWeight: FontWeight.w600, color: petColor),
-                      ),
+                      child: Text(pet['pet_first_name'],
+                          style: TextStyle(fontWeight: FontWeight.w600, color: petColor)),
                     ),
                     Switch(
                       value: petEnabled,
                       onChanged: _advice ? (v) {
                         setState(() => pet['advice_enabled'] = v);
                         _saveSettings();
+                        if (v) {
+                          _scheduleAdvicePet(pet);
+                        } else {
+                          _cancelAdvicePet(pet);
+                        }
                       } : null,
                     ),
                   ],
@@ -529,17 +687,17 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
     );
   }
 
-  // --- Placeholder helpers (Provided in original code) ---
-
   Future<void> _loadAppointments() async {
     final prefs = await SharedPreferences.getInstance();
     final ownerId = prefs.getInt('owner_id') ?? 0;
     final data = await _petService.getAllAppointments(ownerId);
     final now = DateTime.now();
-    final today = "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
+    final today =
+        "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
 
     final upcoming = data.where((a) {
-      return a['appointment_status'] == 'Scheduled' && (a['pet_appointment_date'] as String).compareTo(today) >= 0;
+      return a['appointment_status'] == 'Scheduled' &&
+          (a['pet_appointment_date'] as String).compareTo(today) >= 0;
     }).toList();
 
     for (var a in upcoming) {
@@ -559,24 +717,121 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
   }
 
   Future<void> _openReminderFlow(dynamic appt) async {
-    // Logic for dialog remains the same as in your original file
+    TimeOfDay initial = const TimeOfDay(hour: 9, minute: 0);
+    if (appt['reminder_time'] != null) {
+      final parts = (appt['reminder_time'] as String).split(':');
+      initial = TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+    }
+
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (ctx) => _ReminderDialog(
+        initialTime: initial,
+        initialRepeat: appt['repeat_type'] as String? ?? 'Once',
+        appointmentDate: appt['pet_appointment_date'] as String,
+      ),
+    );
+
+    if (result != null) {
+      setState(() {
+        appt['reminder_enabled'] = true;
+        appt['reminder_time'] = result['time'];
+        appt['reminder_date'] = result['date'];
+        appt['repeat_type'] = result['repeat'];
+      });
+      if (_appointments) _scheduleAppointment(appt);
+    }
   }
 
   Widget _card(Widget child) {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.black12)),
+      decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.black12)),
       child: child,
     );
   }
 }
 
+class _ReminderDialog extends StatefulWidget {
+  final TimeOfDay initialTime;
+  final String initialRepeat;
+  final String appointmentDate;
 
+  const _ReminderDialog({
+    required this.initialTime,
+    required this.initialRepeat,
+    required this.appointmentDate,
+  });
 
+  @override
+  State<_ReminderDialog> createState() => _ReminderDialogState();
+}
 
-  
+class _ReminderDialogState extends State<_ReminderDialog> {
+  late TimeOfDay _time;
+  late String _repeat;
 
+  @override
+  void initState() {
+    super.initState();
+    _time = widget.initialTime;
+    _repeat = widget.initialRepeat;
+  }
 
+  @override
+  Widget build(BuildContext context) {
+    final timeLabel = _time.format(context);
 
-  
+    return AlertDialog(
+      title: const Text('Set Reminder'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: const Icon(Icons.access_time),
+            title: const Text('Reminder time'),
+            trailing: Text(timeLabel, style: const TextStyle(fontWeight: FontWeight.w600)),
+            onTap: () async {
+              final picked = await showTimePicker(context: context, initialTime: _time);
+              if (picked != null) setState(() => _time = picked);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.repeat),
+            title: const Text('Repeat'),
+            trailing: DropdownButton<String>(
+              value: _repeat,
+              underline: const SizedBox(),
+              items: const [
+                DropdownMenuItem(value: 'Once', child: Text('Once')),
+                DropdownMenuItem(value: 'Daily', child: Text('Daily')),
+                DropdownMenuItem(value: 'Weekly', child: Text('Weekly')),
+              ],
+              onChanged: (v) => setState(() => _repeat = v!),
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () {
+            Navigator.pop(context, {
+              'time': '${_time.hour.toString().padLeft(2, '0')}:${_time.minute.toString().padLeft(2, '0')}',
+              'date': widget.appointmentDate,
+              'repeat': _repeat,
+            });
+          },
+          child: const Text('Save'),
+        ),
+      ],
+    );
+  }
+}
