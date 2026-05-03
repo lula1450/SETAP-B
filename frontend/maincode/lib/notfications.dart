@@ -34,6 +34,9 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
   bool _advice = true;
   bool _metrics = true;
 
+  int _adviceHour = 9;
+  int _adviceMinute = 0;
+
   List<dynamic> _appointmentsList = [];
   bool _appointmentsExpanded = false;
 
@@ -61,6 +64,8 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
       _feeding = prefs.getBool('notif_feeding') ?? true;
       _advice = prefs.getBool('notif_advice') ?? true;
       _metrics = prefs.getBool('notif_metrics') ?? true;
+      _adviceHour = prefs.getInt('advice_hour') ?? 9;
+      _adviceMinute = prefs.getInt('advice_minute') ?? 0;
       _updateMaster();
     });
   }
@@ -70,7 +75,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
     final ownerId = prefs.getInt('owner_id') ?? 0;
     final data = await _petService.getOwnerPets(ownerId);
 
-    final Map<int, Map<String, Map<String, String>>> localEvents = {};
+    final Map<int, Map<String, Map<String, dynamic>>> localEvents = {};
     final localJson = prefs.getString('offline_feeding_schedule');
     if (localJson != null) {
       final List<dynamic> decoded = jsonDecode(localJson);
@@ -78,15 +83,17 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
         final petId = item['petId'] as int;
         final eventMap = item['event'] as Map<String, dynamic>;
         final String eventId = eventMap['id'] as String;
-        final String baseId = eventId.replaceAll(RegExp(r'_\d+$'), '');
+        final String baseId = eventId.replaceAll(RegExp(r'_[0-6]$'), '');
         final int hour = eventMap['hour'] as int;
         final int minute = eventMap['minute'] as int;
         final String timeStr =
             '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
         final String label = eventMap['name'] as String? ?? 'Feeding';
+        final bool repeatDaily = eventMap['repeatDaily'] as bool? ?? true;
         localEvents.putIfAbsent(petId, () => {})[baseId] = {
           'time': timeStr,
           'label': label,
+          'repeatDaily': repeatDaily,
         };
       }
     }
@@ -96,17 +103,22 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
       List<Map<String, dynamic>> timeSlots = [];
 
       if (localEvents.containsKey(id)) {
-        final sorted = localEvents[id]!.values.toList()
-          ..sort((a, b) => a['time']!.compareTo(b['time']!));
-        for (var ev in sorted) {
-          final timeStr = ev['time']!;
-          final label = ev['label']!;
+        final sortedEntries = localEvents[id]!.entries.toList()
+          ..sort((a, b) => (a.value['time'] as String).compareTo(b.value['time'] as String));
+        for (var entry in sortedEntries) {
+          final baseId = entry.key;
+          final ev = entry.value;
+          final timeStr = ev['time'] as String;
+          final label = ev['label'] as String;
+          final repeatDaily = ev['repeatDaily'] as bool? ?? true;
           final key = 'feeding_notif_${id}_$timeStr';
           timeSlots.add({
             'time': timeStr,
             'label': label,
             'key': key,
             'enabled': prefs.getBool(key) ?? true,
+            'baseId': baseId,
+            'repeatDaily': repeatDaily,
           });
         }
       } else {
@@ -125,6 +137,8 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
               'label': label,
               'key': key,
               'enabled': prefs.getBool(key) ?? true,
+              'baseId': 'backend_${s['feeding_schedule_id']}',
+              'repeatDaily': true,
             });
           }
         } catch (e) {
@@ -167,6 +181,8 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
     await prefs.setBool('notif_feeding', _feeding);
     await prefs.setBool('notif_advice', _advice);
     await prefs.setBool('notif_metrics', _metrics);
+    await prefs.setInt('advice_hour', _adviceHour);
+    await prefs.setInt('advice_minute', _adviceMinute);
 
     for (var pet in _petsList) {
       final id = pet['pet_id'];
@@ -212,6 +228,90 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
     _notif.cancel(NotificationService.feedingId(pet['pet_id'] as int, slot['time'] as String));
   }
 
+  Future<void> _changeFeedingTime(dynamic pet, dynamic slot, TimeOfDay newTime) async {
+    final prefs = await SharedPreferences.getInstance();
+    final int petId = pet['pet_id'] as int;
+    final String oldTimeStr = slot['time'] as String;
+    final String baseId = slot['baseId'] as String? ?? '';
+    final bool repeatDaily = slot['repeatDaily'] as bool? ?? true;
+    final String newTimeStr =
+        '${newTime.hour.toString().padLeft(2, '0')}:${newTime.minute.toString().padLeft(2, '0')}';
+
+    _notif.cancel(NotificationService.feedingId(petId, oldTimeStr));
+    await prefs.remove(slot['key'] as String);
+
+    // Update offline_feeding_schedule, creating entries if none exist yet
+    final existingJson = prefs.getString('offline_feeding_schedule');
+    final List<dynamic> entries =
+        existingJson != null ? jsonDecode(existingJson) : [];
+
+    int existingWeekday = 0;
+    for (var item in entries) {
+      if (item['petId'] == petId) {
+        final eid = (item['event']['id'] as String?) ?? '';
+        if (eid.replaceAll(RegExp(r'_[0-6]$'), '') == baseId) {
+          existingWeekday = item['weekday'] as int? ?? 0;
+          break;
+        }
+      }
+    }
+    entries.removeWhere((item) {
+      if (item['petId'] != petId) return false;
+      final eid = (item['event']['id'] as String?) ?? '';
+      return eid.replaceAll(RegExp(r'_[0-6]$'), '') == baseId;
+    });
+
+    if (repeatDaily) {
+      for (int d = 0; d < 7; d++) {
+        entries.add({
+          'petId': petId,
+          'weekday': d,
+          'event': {
+            'id': '${baseId}_$d',
+            'type': 0,
+            'name': slot['label'] as String,
+            'hour': newTime.hour,
+            'minute': newTime.minute,
+            'petId': petId,
+            'repeatDaily': true,
+            'endDate': null,
+          },
+        });
+      }
+    } else {
+      entries.add({
+        'petId': petId,
+        'weekday': existingWeekday,
+        'event': {
+          'id': baseId,
+          'type': 0,
+          'name': slot['label'] as String,
+          'hour': newTime.hour,
+          'minute': newTime.minute,
+          'petId': petId,
+          'repeatDaily': false,
+          'endDate': null,
+        },
+      });
+    }
+
+    await prefs.setString('offline_feeding_schedule', jsonEncode(entries));
+
+    final newKey = 'feeding_notif_${petId}_$newTimeStr';
+    await prefs.setBool(newKey, slot['enabled'] as bool? ?? true);
+
+    setState(() {
+      slot['time'] = newTimeStr;
+      slot['key'] = newKey;
+    });
+
+    if (_feeding &&
+        (pet['reminder_enabled'] as bool? ?? true) &&
+        (slot['enabled'] as bool? ?? true)) {
+      _scheduleFeedingSlot(pet, slot);
+    }
+  }
+
   void _scheduleMetricsPet(dynamic pet) {
     _notif.scheduleDailyAt(
       id: NotificationService.metricsId(pet['pet_id'] as int),
@@ -227,12 +327,12 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
   }
 
   void _scheduleAdvicePet(dynamic pet) {
-    _notif.scheduleWeeklyMonday(
+    _notif.scheduleDailyAt(
       id: NotificationService.adviceId(pet['pet_id'] as int),
       title: 'Pet Care Tip',
-      body: 'Check in on ${pet['pet_first_name']}\'s weekly advice in PetSync!',
-      hour: 9,
-      minute: 0,
+      body: 'Check in on ${pet['pet_first_name']}\'s advice in PetSync!',
+      hour: _adviceHour,
+      minute: _adviceMinute,
     );
   }
 
@@ -350,6 +450,9 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
         ),
         if (_appointmentsExpanded)
           ..._appointmentsList.map((a) {
+            final petIndex = _petsList.indexWhere((p) => p['pet_id'] == a['pet_id']);
+            final petName = petIndex != -1 ? _petsList[petIndex]['pet_first_name'] as String : '';
+            final petColor = petIndex != -1 ? _kPetColors[petIndex % _kPetColors.length] : Colors.blueGrey;
             return GestureDetector(
               onTap: _appointments ? () async {
                 await _openReminderFlow(a);
@@ -369,6 +472,9 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          if (petName.isNotEmpty)
+                            Text(petName,
+                                style: TextStyle(fontSize: 11, color: petColor, fontWeight: FontWeight.w600)),
                           Text(a['appointment_notes'] ?? "Vet Visit",
                               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                           Text(a['pet_appointment_date'], style: const TextStyle(fontSize: 11)),
@@ -473,9 +579,23 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                   ),
                   ...pet['times'].map<Widget>((slot) {
                     return ListTile(
-                      dense: true,
                       leading: const Icon(Icons.access_time, size: 18),
-                      title: Text("${slot['label']} (${slot['time']})"),
+                      title: Text(slot['label'] as String),
+                      subtitle: OutlinedButton.icon(
+                        onPressed: petEnabled ? () async {
+                          final parts = (slot['time'] as String).split(':');
+                          final picked = await showTimePicker(
+                            context: context,
+                            initialTime: TimeOfDay(
+                              hour: int.parse(parts[0]),
+                              minute: int.parse(parts[1]),
+                            ),
+                          );
+                          if (picked != null) await _changeFeedingTime(pet, slot, picked);
+                        } : null,
+                        icon: const Icon(Icons.edit, size: 14),
+                        label: Text(slot['time'] as String),
+                      ),
                       trailing: Switch(
                         value: (slot['enabled'] as bool) && petEnabled,
                         onChanged: petEnabled ? (v) {
@@ -620,6 +740,32 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
               ),
             ],
           ),
+          const SizedBox(height: 6),
+          OutlinedButton.icon(
+            onPressed: _advice ? () async {
+              final picked = await showTimePicker(
+                context: context,
+                initialTime: TimeOfDay(hour: _adviceHour, minute: _adviceMinute),
+              );
+              if (picked != null) {
+                setState(() {
+                  _adviceHour = picked.hour;
+                  _adviceMinute = picked.minute;
+                });
+                _saveSettings();
+                for (var pet in _petsList) {
+                  if (_advice && (pet['advice_enabled'] as bool? ?? true)) {
+                    _scheduleAdvicePet(pet);
+                  }
+                }
+              }
+            } : null,
+            icon: const Icon(Icons.access_time, size: 18),
+            label: Text(
+              'Every day at ${_adviceHour.toString().padLeft(2, '0')}:${_adviceMinute.toString().padLeft(2, '0')}',
+            ),
+          ),
+          const SizedBox(height: 4),
           TextButton(
             onPressed: () => setState(() => _adviceExpanded = !_adviceExpanded),
             child: Text(_adviceExpanded ? "Hide Details" : "View Details"),
