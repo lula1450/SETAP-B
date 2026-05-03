@@ -99,52 +99,42 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
     }
 
     for (var pet in data) {
-      final int id = pet['pet_id'] as int;
-      List<Map<String, dynamic>> timeSlots = [];
+  final int id = pet['pet_id'] as int;
+  List<Map<String, dynamic>> timeSlots = [];
 
-      if (localEvents.containsKey(id)) {
-        final sortedEntries = localEvents[id]!.entries.toList()
-          ..sort((a, b) => (a.value['time'] as String).compareTo(b.value['time'] as String));
-        for (var entry in sortedEntries) {
-          final baseId = entry.key;
-          final ev = entry.value;
-          final timeStr = ev['time'] as String;
-          final label = ev['label'] as String;
-          final repeatDaily = ev['repeatDaily'] as bool? ?? true;
-          final key = 'feeding_notif_${id}_$timeStr';
-          timeSlots.add({
-            'time': timeStr,
-            'label': label,
-            'key': key,
-            'enabled': prefs.getBool(key) ?? true,
-            'baseId': baseId,
-            'repeatDaily': repeatDaily,
-          });
-        }
-      } else {
-        try {
-          final schedules = await _petService.getFeedingSchedules(id);
-          for (var s in schedules) {
-            final raw = s['feeding_time'] as String? ?? '';
-            String timeStr = '08:00';
-            try {
-              timeStr = raw.split('T').last.substring(0, 5);
-            } catch (_) {}
-            final label = s['food_name'] as String? ?? 'Feeding';
-            final key = 'feeding_notif_${id}_$timeStr';
-            timeSlots.add({
-              'time': timeStr,
-              'label': label,
-              'key': key,
-              'enabled': prefs.getBool(key) ?? true,
-              'baseId': 'backend_${s['feeding_schedule_id']}',
-              'repeatDaily': true,
-            });
-          }
-        } catch (e) {
-          debugPrint('Feeding fetch failed for pet $id: $e');
-        }
+  // Check if we have local (offline) overrides first
+  if (localEvents.containsKey(id) && localEvents[id]!.isNotEmpty) {
+    final sortedEntries = localEvents[id]!.entries.toList()
+      ..sort((a, b) => (a.value['time'] as String).compareTo(b.value['time'] as String));
+    
+    for (var entry in sortedEntries) {
+      final baseId = entry.key;
+      final ev = entry.value;
+      final timeStr = ev['time'] as String;
+      final label = ev['label'] as String;
+      final key = 'feeding_notif_${id}_$timeStr';
+      
+      timeSlots.add({
+        'time': timeStr,
+        'label': label,
+        'key': key,
+        'enabled': prefs.getBool(key) ?? true,
+        'baseId': baseId,
+        'repeatDaily': ev['repeatDaily'] ?? true,
+      });
+    }
+  } else {
+    // ONLY fetch from backend if there are no local overrides for this pet
+    // This prevents the "Old Backend Time" and "New Local Time" from showing together
+    try {
+      final schedules = await _petService.getFeedingSchedules(id);
+      for (var s in schedules) {
+        // ... (keep your existing backend parsing logic here)
       }
+    } catch (e) {
+      debugPrint('Feeding fetch failed: $e');
+    }
+  }
 
       pet['times'] = timeSlots;
       pet['reminder_enabled'] = prefs.getBool('feeding_notif_$id') ?? _feeding;
@@ -229,88 +219,92 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
   }
 
   Future<void> _changeFeedingTime(dynamic pet, dynamic slot, TimeOfDay newTime) async {
-    final prefs = await SharedPreferences.getInstance();
-    final int petId = pet['pet_id'] as int;
-    final String oldTimeStr = slot['time'] as String;
-    final String baseId = slot['baseId'] as String? ?? '';
-    final bool repeatDaily = slot['repeatDaily'] as bool? ?? true;
-    final String newTimeStr =
-        '${newTime.hour.toString().padLeft(2, '0')}:${newTime.minute.toString().padLeft(2, '0')}';
+  final prefs = await SharedPreferences.getInstance();
+  final int petId = pet['pet_id'] as int;
+  final String oldTimeStr = slot['time'] as String;
+  final String baseId = slot['baseId'] as String? ?? '';
+  final bool repeatDaily = slot['repeatDaily'] as bool? ?? true;
+  
+  final String newTimeStr =
+      '${newTime.hour.toString().padLeft(2, '0')}:${newTime.minute.toString().padLeft(2, '0')}';
 
-    _notif.cancel(NotificationService.feedingId(petId, oldTimeStr));
-    await prefs.remove(slot['key'] as String);
+  // 1. Cancel the actual notification
+  _notif.cancel(NotificationService.feedingId(petId, oldTimeStr));
+  
+  // 2. Remove the OLD preference key so it doesn't ghost back
+  await prefs.remove(slot['key'] as String);
 
-    // Update offline_feeding_schedule, creating entries if none exist yet
-    final existingJson = prefs.getString('offline_feeding_schedule');
-    final List<dynamic> entries =
-        existingJson != null ? jsonDecode(existingJson) : [];
+  final existingJson = prefs.getString('offline_feeding_schedule');
+  List<dynamic> entries = existingJson != null ? jsonDecode(existingJson) : [];
 
-    int existingWeekday = 0;
-    for (var item in entries) {
-      if (item['petId'] == petId) {
-        final eid = (item['event']['id'] as String?) ?? '';
-        if (eid.replaceAll(RegExp(r'_[0-6]$'), '') == baseId) {
-          existingWeekday = item['weekday'] as int? ?? 0;
-          break;
-        }
-      }
-    }
-    entries.removeWhere((item) {
-      if (item['petId'] != petId) return false;
-      final eid = (item['event']['id'] as String?) ?? '';
-      return eid.replaceAll(RegExp(r'_[0-6]$'), '') == baseId;
-    });
+  // 3. IMPROVED REMOVAL: Remove anything matching this pet AND this baseId 
+  // regardless of what the old time was.
+  // Inside _changeFeedingTime...
+entries.removeWhere((item) {
+  if (item['petId'] != petId) return false;
+  final event = item['event'] as Map<String, dynamic>;
+  final eid = (event['id'] as String?) ?? '';
+  
+  // Strip suffix (like _0, _1) to match the base schedule ID
+  final String itemBaseId = eid.replaceAll(RegExp(r'_[0-6]$'), '');
+  
+  // Match if it's the same schedule slot OR if the time matches exactly
+  // (This acts as a safety net for duplicates)
+  return itemBaseId == baseId || event['hour'] == int.parse(oldTimeStr.split(':')[0]);
+});
 
-    if (repeatDaily) {
-      for (int d = 0; d < 7; d++) {
-        entries.add({
-          'petId': petId,
-          'weekday': d,
-          'event': {
-            'id': '${baseId}_$d',
-            'type': 0,
-            'name': slot['label'] as String,
-            'hour': newTime.hour,
-            'minute': newTime.minute,
-            'petId': petId,
-            'repeatDaily': true,
-            'endDate': null,
-          },
-        });
-      }
-    } else {
+  // 4. Add the NEW entries
+  if (repeatDaily) {
+    for (int d = 0; d < 7; d++) {
       entries.add({
         'petId': petId,
-        'weekday': existingWeekday,
+        'weekday': d,
         'event': {
-          'id': baseId,
+          'id': '${baseId}_$d',
           'type': 0,
           'name': slot['label'] as String,
           'hour': newTime.hour,
           'minute': newTime.minute,
           'petId': petId,
-          'repeatDaily': false,
+          'repeatDaily': true,
           'endDate': null,
         },
       });
     }
-
-    await prefs.setString('offline_feeding_schedule', jsonEncode(entries));
-
-    final newKey = 'feeding_notif_${petId}_$newTimeStr';
-    await prefs.setBool(newKey, slot['enabled'] as bool? ?? true);
-
-    setState(() {
-      slot['time'] = newTimeStr;
-      slot['key'] = newKey;
+  } else {
+    entries.add({
+      'petId': petId,
+      'weekday': 0, // Or current weekday
+      'event': {
+        'id': baseId,
+        'type': 0,
+        'name': slot['label'] as String,
+        'hour': newTime.hour,
+        'minute': newTime.minute,
+        'petId': petId,
+        'repeatDaily': false,
+        'endDate': null,
+      },
     });
-
-    if (_feeding &&
-        (pet['reminder_enabled'] as bool? ?? true) &&
-        (slot['enabled'] as bool? ?? true)) {
-      _scheduleFeedingSlot(pet, slot);
-    }
   }
+
+  // 5. Save back to Prefs
+  await prefs.setString('offline_feeding_schedule', jsonEncode(entries));
+
+  final newKey = 'feeding_notif_${petId}_$newTimeStr';
+  await prefs.setBool(newKey, slot['enabled'] as bool? ?? true);
+
+  setState(() {
+    slot['time'] = newTimeStr;
+    slot['key'] = newKey;
+  });
+
+  if (_feeding &&
+      (pet['reminder_enabled'] as bool? ?? true) &&
+      (slot['enabled'] as bool? ?? true)) {
+    _scheduleFeedingSlot(pet, slot);
+  }
+}
 
   void _scheduleMetricsPet(dynamic pet) {
     _notif.scheduleDailyAt(
