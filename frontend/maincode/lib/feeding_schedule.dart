@@ -225,6 +225,12 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> {
     final prefs = await SharedPreferences.getInstance();
     final int ownerId = prefs.getInt('owner_id') ?? 0;
 
+    // One-time migration: clear stale local data written before the repeatDaily fix
+    if ((prefs.getInt('_feeding_v') ?? 0) < 1) {
+      await prefs.remove('offline_feeding_schedule');
+      await prefs.setInt('_feeding_v', 1);
+    }
+
     _recurring.clear(); // Start fresh to prevent duplication
 
     final rawPets = await _service.getOwnerPets(ownerId);
@@ -254,17 +260,19 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> {
             } catch (_) {}
           }
 
+          // Seeded data logic: daily vs specific weekday
+          final foodName = (s['food_name'] as String? ?? '').toLowerCase();
+          final isWeekly = foodName.contains('weekly');
           final event = PetEvent(
             id: 'backend_${s['feeding_schedule_id']}',
             type: EventType.feeding,
             name: s['food_name'] as String? ?? 'Feed',
             time: t,
             petId: p.id,
+            repeatDaily: !isWeekly,
           );
 
-          // Seeded data logic: daily vs specific weekday
-          final foodName = (s['food_name'] as String? ?? '').toLowerCase();
-          if (foodName.contains('weekly')) {
+          if (isWeekly) {
             _recurring[p.id]!.putIfAbsent(weekday, () => []).add(event);
           } else {
             for (int d = 0; d < 7; d++) {
@@ -353,16 +361,17 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> {
     setState(() {
       final petMap = _recurring[ev.petId] ??= {};
 
-      // Strip the day-index suffix (_0 … _6) to get the base ID.
-      // Uses a regex so IDs like 'backend_42_0' become 'backend_42'
-      // rather than just 'backend' (which split('_').first would give).
-      String baseId = ev.id.replaceAll(RegExp(r'_\d+$'), '');
+      // Strip the weekday suffix (_0 … _6) to get the base ID.
+      // Only strip a single digit 0-6, so 'backend_42_3' → 'backend_42'
+      // without accidentally stripping the schedule ID from 'backend_42'.
+      String baseId = ev.id.replaceAll(RegExp(r'_[0-6]$'), '');
 
       // Remove all copies of this event from every weekday slot.
       petMap.forEach((weekday, list) {
-        list.removeWhere((existingEvent) =>
-          existingEvent.id == baseId || existingEvent.id.startsWith('${baseId}_')
-        );
+        list.removeWhere((existingEvent) {
+          final existingBase = existingEvent.id.replaceAll(RegExp(r'_[0-6]$'), '');
+          return existingBase == baseId;
+        });
       });
 
       // 3. Re-insert the updated event
@@ -386,9 +395,12 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> {
 
   void _deleteEvent(int petId, String dayKey, String eventId) {
     setState(() {
-      String baseId = eventId.replaceAll(RegExp(r'_\d+$'), '');
+      String baseId = eventId.replaceAll(RegExp(r'_[0-6]$'), '');
       _recurring[petId]?.forEach((_, list) {
-        list.removeWhere((e) => e.id == baseId || e.id.startsWith('${baseId}_'));
+        list.removeWhere((e) {
+          final existingBase = e.id.replaceAll(RegExp(r'_[0-6]$'), '');
+          return existingBase == baseId;
+        });
       });
     });
     _saveToLocal();
