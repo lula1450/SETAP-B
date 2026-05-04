@@ -26,6 +26,7 @@ class MyApp extends StatelessWidget {
       ],
       supportedLocales: const [Locale('en', 'GB')],
       locale: const Locale('en', 'GB'),
+      scrollBehavior: const MaterialScrollBehavior().copyWith(overscroll: false),
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: const Color.fromARGB(255, 139, 174, 174)),
         useMaterial3: true,

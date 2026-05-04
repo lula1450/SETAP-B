@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:maincode/services/pet_service.dart';
 import 'package:maincode/services/notification_service.dart';
+import 'package:maincode/services/advice_service.dart';
 
 class NotificationSettingsPage extends StatefulWidget {
   const NotificationSettingsPage({super.key});
@@ -27,6 +28,7 @@ const _kPetColors = [
 class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
   final PetService _petService = PetService();
   final _notif = NotificationService();
+  final _adviceService = AdviceService();
 
   bool _allNotifications = true;
   bool _appointments = true;
@@ -321,10 +323,12 @@ entries.removeWhere((item) {
   }
 
   void _scheduleAdvicePet(dynamic pet) {
+    final breedId = pet['species_id'] as int? ?? 0;
+    final advice = _adviceService.getDailyAdvice(breedId);
     _notif.scheduleDailyAt(
       id: NotificationService.adviceId(pet['pet_id'] as int),
-      title: 'Pet Care Tip',
-      body: 'Check in on ${pet['pet_first_name']}\'s advice in PetSync!',
+      title: '${pet['pet_first_name']} — Pet Care Tip',
+      body: advice,
       hour: _adviceHour,
       minute: _adviceMinute,
     );
