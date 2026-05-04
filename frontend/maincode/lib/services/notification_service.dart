@@ -137,6 +137,34 @@ class NotificationService {
     );
   }
 
+  /// Schedule a notification that repeats every [intervalMinutes] minutes starting at [hour]:[minute].
+  Future<void> scheduleRepeatingAt({
+    required int id,
+    required String title,
+    required String body,
+    required int hour,
+    required int minute,
+    required int intervalMinutes,
+  }) async {
+    if (kIsWeb) return;
+    final now = tz.TZDateTime.now(tz.local);
+    var scheduled = tz.TZDateTime(tz.local, now.year, now.month, now.day, hour, minute);
+    if (scheduled.isBefore(now)) {
+      scheduled = scheduled.add(const Duration(days: 1));
+    }
+
+    await _plugin.zonedSchedule(
+      id,
+      title,
+      body,
+      scheduled,
+      NotificationDetails(android: _channelDaily, iOS: const DarwinNotificationDetails()),
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+      matchDateTimeComponents: DateTimeComponents.time,
+    );
+  }
+
   Future<void> cancel(int id) async { if (!kIsWeb) await _plugin.cancel(id); }
   Future<void> cancelAll() async { if (!kIsWeb) await _plugin.cancelAll(); }
 

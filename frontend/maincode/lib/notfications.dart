@@ -46,6 +46,8 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
   bool _feedingExpanded = false;
   bool _metricsExpanded = false;
   bool _adviceExpanded = false;
+  
+  final Map<int, bool> _petMetricsExpanded = {};
 
   @override
   void initState() {
@@ -177,10 +179,14 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
 
       pet['metrics'] = allMetrics.map((name) {
         final key = 'metrics_notif_${id}_${name.toLowerCase().replaceAll(' ', '_')}';
+        final metricKey = 'metric_${id}_${name.toLowerCase().replaceAll(' ', '_')}';
         return {
           'name': name,
           'key': key,
-          'enabled': prefs.getBool(key) ?? true,
+          'enabled': prefs.getBool(key) ?? false,
+          'hour': prefs.getInt('${metricKey}_hour') ?? 20,
+          'minute': prefs.getInt('${metricKey}_minute') ?? 0,
+          'repeatHours': prefs.getInt('${metricKey}_repeat') ?? 0,
         };
       }).toList();
       pet['metrics_enabled'] = prefs.getBool('metrics_notif_$id') ?? _metrics;
@@ -208,6 +214,10 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
       await prefs.setBool('metrics_notif_$id', pet['metrics_enabled'] ?? true);
       for (var m in (pet['metrics'] as List? ?? [])) {
         await prefs.setBool(m['key'], m['enabled']);
+        final metricKey = 'metric_${id}_${(m['name'] as String).toLowerCase().replaceAll(' ', '_')}';
+        await prefs.setInt('${metricKey}_hour', m['hour'] as int? ?? 20);
+        await prefs.setInt('${metricKey}_minute', m['minute'] as int? ?? 0);
+        await prefs.setInt('${metricKey}_repeat', m['repeatHours'] as int? ?? 0);
       }
       await prefs.setBool('advice_notif_$id', pet['advice_enabled'] ?? true);
     }
@@ -326,13 +336,43 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
 }
 
   void _scheduleMetricsPet(dynamic pet) {
-    _notif.scheduleDailyAt(
-      id: NotificationService.metricsId(pet['pet_id'] as int),
-      title: 'Metrics Reminder',
-      body: "Don't forget to log ${pet['pet_first_name']}'s health metrics today!",
-      hour: 20,
-      minute: 0,
-    );
+    final metrics = (pet['metrics'] as List? ?? []);
+    
+    for (var metric in metrics) {
+      final enabled = metric['enabled'] as bool;
+      if (!enabled) continue;
+      
+      final metricName = metric['name'] as String;
+      final hour = metric['hour'] as int? ?? 20;
+      final minute = metric['minute'] as int? ?? 0;
+      final repeatHours = metric['repeatHours'] as int? ?? 0;
+      final petId = pet['pet_id'] as int;
+      
+      // Cancel any existing notification for this metric
+      final notifId = NotificationService.metricsId(petId) + metricName.hashCode;
+      _notif.cancel(notifId);
+      
+      if (repeatHours > 0) {
+        // Schedule repeating notification every N hours
+        _notif.scheduleRepeatingAt(
+          id: notifId,
+          title: 'Metrics Reminder',
+          body: "Don't forget to log ${pet['pet_first_name']}'s $metricName!",
+          hour: hour,
+          minute: minute,
+          intervalMinutes: repeatHours * 60,
+        );
+      } else {
+        // Schedule daily notification
+        _notif.scheduleDailyAt(
+          id: notifId,
+          title: 'Metrics Reminder',
+          body: "Don't forget to log ${pet['pet_first_name']}'s $metricName!",
+          hour: hour,
+          minute: minute,
+        );
+      }
+    }
   }
 
   void _cancelMetricsPet(dynamic pet) {
@@ -392,7 +432,14 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
       if (_metrics && (pet['metrics_enabled'] as bool? ?? true)) {
         _scheduleMetricsPet(pet);
       } else {
-        _cancelMetricsPet(pet);
+        // Cancel all metric notifications for this pet
+        final metrics = (pet['metrics'] as List? ?? []);
+        for (var metric in metrics) {
+          final metricName = metric['name'] as String;
+          final petId = pet['pet_id'] as int;
+          final notifId = NotificationService.metricsId(petId) + metricName.hashCode;
+          _notif.cancel(notifId);
+        }
       }
 
       if (_advice && (pet['advice_enabled'] as bool? ?? true)) {
@@ -688,9 +735,12 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
           if (_metricsExpanded)
             ..._petsList.asMap().entries.map((entry) {
               final pet = entry.value;
+              final petId = pet['pet_id'] as int;
               final petColor = _kPetColors[entry.key % _kPetColors.length];
               final metrics = (pet['metrics'] as List? ?? []);
               final petEnabled = (pet['metrics_enabled'] as bool? ?? true) && _metrics;
+              final petMetricsVisible = _petMetricsExpanded[petId] ?? false;
+              
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -717,28 +767,167 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                       ],
                     ),
                   ),
-                  if (metrics.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.only(left: 8, bottom: 8),
-                      child: Text("No metrics tracked yet.",
-                          style: TextStyle(fontSize: 13, color: Colors.grey)),
-                    )
-                  else
-                    ...metrics.map<Widget>((m) {
-                      final enabled = (m['enabled'] as bool) && petEnabled;
-                      return ListTile(
-                        dense: true,
-                        leading: const Icon(Icons.monitor_heart_outlined, size: 18),
-                        title: Text(m['name'] as String),
-                        trailing: Switch(
-                          value: enabled,
-                          onChanged: petEnabled ? (v) {
-                            setState(() => m['enabled'] = v);
-                            _saveSettings();
-                          } : null,
-                        ),
+                  TextButton(
+                    onPressed: () => setState(() => _petMetricsExpanded[petId] = !petMetricsVisible),
+                    child: Text(petMetricsVisible ? "Hide Metrics" : "View Metrics"),
+                  ),
+                  if (petMetricsVisible)
+                    if (petMetricsVisible)
+                    if (metrics.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.only(left: 8, bottom: 8),
+                        child: Text("No metrics tracked yet.",
+                            style: TextStyle(fontSize: 13, color: Colors.grey)),
+                      )
+                    else
+                      ...metrics.map<Widget>((m) {
+                      final metricEnabled = (m['enabled'] as bool) && petEnabled;
+                      final hour = m['hour'] as int? ?? 20;
+                      final minute = m['minute'] as int? ?? 0;
+                      final repeatHours = m['repeatHours'] as int? ?? 0;
+                      final timeLabel = '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
+                      final repeatLabel = repeatHours == 0 ? 'Daily' : 'Every ${repeatHours}h';
+                      
+                      return Column(
+                        children: [
+                          ListTile(
+                            dense: true,
+                            leading: const Icon(Icons.monitor_heart_outlined, size: 18),
+                            title: Text(m['name'] as String),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Switch(
+                                  value: metricEnabled,
+                                  onChanged: petEnabled ? (v) {
+                                    setState(() => m['enabled'] = v);
+                                    _saveSettings();
+                                    if (v && _metrics) {
+                                      _scheduleMetricsPet(pet);
+                                    } else {
+                                      _cancelMetricsPet(pet);
+                                    }
+                                  } : null,
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.close, size: 18),
+                                  onPressed: () async {
+                                    final prefs = await SharedPreferences.getInstance();
+                                    showDialog(
+                                      context: context,
+                                      builder: (ctx) => AlertDialog(
+                                        title: const Text('Hide Metric'),
+                                        content: Text("Hide '${m['name']}' from notifications?"),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () => Navigator.pop(ctx),
+                                            child: const Text('Cancel'),
+                                          ),
+                                          FilledButton(
+                                            onPressed: () async {
+                                              final hidden = prefs.getStringList('hidden_metrics_${pet['pet_id']}') ?? [];
+                                              hidden.add(m['name'] as String);
+                                              await prefs.setStringList('hidden_metrics_${pet['pet_id']}', hidden);
+                                              
+                                              // Cancel notification if it's enabled
+                                              if (metricEnabled) {
+                                                final metricName = m['name'] as String;
+                                                final petId = pet['pet_id'] as int;
+                                                final notifId = NotificationService.metricsId(petId) + metricName.hashCode;
+                                                _notif.cancel(notifId);
+                                              }
+                                              
+                                              setState(() {
+                                                metrics.removeWhere((metric) => metric['name'] == m['name']);
+                                              });
+                                              Navigator.pop(ctx);
+                                            },
+                                            child: const Text('Hide'),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                  tooltip: 'Hide metric',
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (metricEnabled)
+                            Padding(
+                              padding: const EdgeInsets.only(left: 16, right: 16, bottom: 8),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: OutlinedButton.icon(
+                                      onPressed: () async {
+                                        final picked = await showTimePicker(
+                                          context: context,
+                                          initialTime: TimeOfDay(hour: hour, minute: minute),
+                                        );
+                                        if (picked != null) {
+                                          setState(() {
+                                            m['hour'] = picked.hour;
+                                            m['minute'] = picked.minute;
+                                          });
+                                          _saveSettings();
+                                          if (_metrics && petEnabled) {
+                                            _scheduleMetricsPet(pet);
+                                          }
+                                        }
+                                      },
+                                      icon: const Icon(Icons.access_time, size: 14),
+                                      label: Text(timeLabel),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: OutlinedButton(
+                                      onPressed: () {
+                                        final options = [
+                                          (label: 'Daily', value: 0),
+                                          (label: 'Every 2 hours', value: 2),
+                                          (label: 'Every 4 hours', value: 4),
+                                          (label: 'Every 6 hours', value: 6),
+                                          (label: 'Every 8 hours', value: 8),
+                                          (label: 'Every 12 hours', value: 12),
+                                        ];
+                                        
+                                        showDialog(
+                                          context: context,
+                                          builder: (ctx) => AlertDialog(
+                                            title: const Text('Repeat Frequency'),
+                                            content: Column(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: options.map((opt) => RadioListTile(
+                                                title: Text(opt.label),
+                                                value: opt.value,
+                                                groupValue: m['repeatHours'] as int,
+                                                onChanged: (v) {
+                                                  setState(() => m['repeatHours'] = v!);
+                                                  _saveSettings();
+                                                  if (_metrics && petEnabled) {
+                                                    _scheduleMetricsPet(pet);
+                                                  }
+                                                  Navigator.pop(ctx);
+                                                },
+                                              )).toList(),
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                      child: Text(repeatLabel, style: const TextStyle(fontSize: 12)),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
                       );
                     }),
+                  const Divider(),
                   const Divider(),
                 ],
               );
