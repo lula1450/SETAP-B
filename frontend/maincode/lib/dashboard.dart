@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:maincode/petinfo.dart';
 import 'package:maincode/recentlylogged.dart';
@@ -1077,7 +1078,9 @@ class _DashboardPageState extends State<DashboardPage> {
             radius: 30,
             backgroundColor: Colors.white,
             backgroundImage: (imagePath != null && imagePath.isNotEmpty)
-                ? NetworkImage(imagePath)
+                ? (imagePath.startsWith('http')
+                    ? NetworkImage(imagePath.replaceFirst('http://localhost', 'http://10.0.2.2')) as ImageProvider
+                    : FileImage(File(imagePath)))
                 : null,
             child: (imagePath == null || imagePath.isEmpty)
                 ? Icon(

@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class PetService {
-  final String baseUrl = "http://localhost:8000"; 
+  final String baseUrl = "http://10.0.2.2:8000";
 
   // --- 1. GET OWNER PETS ---
   Future<List<dynamic>> getOwnerPets(int ownerId) async {

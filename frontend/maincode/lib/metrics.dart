@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
@@ -781,7 +782,9 @@ class _MetricsPageState extends State<MetricsPage> {
               radius: 30,
               backgroundColor: Colors.white,
               backgroundImage: (widget.petImagePath != null && widget.petImagePath!.isNotEmpty)
-                  ? NetworkImage(widget.petImagePath!)
+                  ? (widget.petImagePath!.startsWith('http')
+                      ? NetworkImage(widget.petImagePath!.replaceFirst('http://localhost', 'http://10.0.2.2')) as ImageProvider
+                      : FileImage(File(widget.petImagePath!)))
                   : null,
               child: (widget.petImagePath == null || widget.petImagePath!.isEmpty)
                   ? Icon(Icons.add_a_photo, size: 25, color: petThemeColor)
@@ -1031,7 +1034,7 @@ class _SparklinePainter extends CustomPainter {
 }
 
 class HealthService {
-  static const String baseUrl = "http://127.0.0.1:8000"; 
+  static const String baseUrl = "http://10.0.2.2:8000";
 
   Future<Map<String, dynamic>> logMetric({required int petId, required String metricName, required dynamic value}) async {
     final url = Uri.parse("$baseUrl/health/log");

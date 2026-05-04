@@ -847,7 +847,9 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
               radius: 30,
               backgroundColor: Colors.white,
               backgroundImage: (widget.petImagePath != null && widget.petImagePath!.isNotEmpty)
-                  ? NetworkImage(widget.petImagePath!)
+                  ? (widget.petImagePath!.startsWith('http')
+                      ? NetworkImage(widget.petImagePath!.replaceFirst('http://localhost', 'http://10.0.2.2')) as ImageProvider
+                      : FileImage(File(widget.petImagePath!)))
                   : null,
               child: (widget.petImagePath == null || widget.petImagePath!.isEmpty)
                   ? const Icon(Icons.add_a_photo, size: 25, color: Color(0xFF8BAEAE))
