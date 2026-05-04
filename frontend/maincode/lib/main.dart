@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:maincode/login_page.dart';
+import 'package:maincode/route_observer.dart';
+import 'package:maincode/services/notification_service.dart';
 
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await NotificationService().init();
+  await NotificationService().requestPermissions();
   runApp(const MyApp());
 }
 
@@ -22,6 +27,8 @@ class MyApp extends StatelessWidget {
       ],
       supportedLocales: const [Locale('en', 'GB')],
       locale: const Locale('en', 'GB'),
+      navigatorObservers: [routeObserver],
+      scrollBehavior: const MaterialScrollBehavior().copyWith(overscroll: false),
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: const Color.fromARGB(255, 139, 174, 174)),
         useMaterial3: true,

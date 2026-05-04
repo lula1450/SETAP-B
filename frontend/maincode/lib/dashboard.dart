@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:maincode/petinfo.dart';
 import 'package:maincode/recentlylogged.dart';
@@ -11,6 +12,7 @@ import 'package:maincode/services/fun_fact_service.dart';
 import 'package:maincode/feeding_schedule.dart';
 import 'package:maincode/vet_contacts.dart';
 import 'package:maincode/services/advice_service.dart';
+import 'package:maincode/services/notification_service.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:maincode/widgets/app_drawer.dart';
 
@@ -27,6 +29,7 @@ class _DashboardPageState extends State<DashboardPage> {
   final PetService _petService = PetService();
   List<dynamic> _pets = [];
   List<dynamic> _appointments = [];
+  List<dynamic> _vetContacts = [];
   bool _isLoading = true;
   DateTime _focusedDay = DateTime.now();
   int? _selectedDay;
@@ -220,6 +223,95 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
+  Future<void> _setAppointmentReminder(dynamic appt) async {
+    TimeOfDay initial = const TimeOfDay(hour: 9, minute: 0);
+    if (appt['reminder_time'] != null) {
+      final parts = (appt['reminder_time'] as String).split(':');
+      initial = TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+    }
+
+    int initialLeadDays = 1; // default: 1 day before
+    if (appt['lead_days'] != null) {
+      initialLeadDays = appt['lead_days'] as int;
+    } else if (appt['repeat_type'] == 'Once') {
+      initialLeadDays = 0;
+    }
+
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (ctx) => _ReminderDialog(
+        initialTime: initial,
+        initialLeadDays: initialLeadDays,
+        appointmentDate: appt['pet_appointment_date'] as String,
+      ),
+    );
+
+    if (result != null && mounted) {
+      setState(() {
+        appt['reminder_enabled'] = true;
+        appt['reminder_time'] = result['time'];
+        appt['reminder_date'] = result['date'];
+        appt['repeat_type'] = result['repeat'];
+        appt['lead_days'] = result['lead_days'];
+      });
+
+      // Save reminder to SharedPreferences for sync with notifications page
+      final prefs = await SharedPreferences.getInstance();
+      final appointmentId = appt['pet_appointment_id'];
+      await prefs.setString(
+        "reminder_$appointmentId",
+        jsonEncode({
+          "enabled": true,
+          "time": result['time'],
+          "date": result['date'],
+          "repeat": result['repeat'],
+          "lead_days": result['lead_days'],
+        }),
+      );
+
+      // Schedule notifications for both reminder and actual appointment time
+      final notifService = NotificationService();
+      
+      // Schedule reminder notification
+      final reminderParts = (result['time'] as String).split(':');
+      final reminderDateParts = (result['date'] as String).split('-');
+      final reminderDateTime = DateTime(
+        int.parse(reminderDateParts[0]),
+        int.parse(reminderDateParts[1]),
+        int.parse(reminderDateParts[2]),
+        int.parse(reminderParts[0]),
+        int.parse(reminderParts[1]),
+      );
+      notifService.scheduleOnce(
+        id: NotificationService.appointmentNotifId(appointmentId),
+        title: 'Appointment Reminder',
+        body: appt['appointment_notes'] ?? 'You have a vet appointment coming up!',
+        dateTime: reminderDateTime,
+      );
+
+      // Schedule actual appointment notification
+      final apptTimeParts = (appt['pet_appointment_time'] as String).split(':');
+      final apptDateParts = (appt['pet_appointment_date'] as String).split('-');
+      final apptDateTime = DateTime(
+        int.parse(apptDateParts[0]),
+        int.parse(apptDateParts[1]),
+        int.parse(apptDateParts[2]),
+        int.parse(apptTimeParts[0]),
+        int.parse(apptTimeParts[1]),
+      );
+      notifService.scheduleOnce(
+        id: NotificationService.appointmentNotifId(appointmentId) + 1000,
+        title: 'Appointment Time',
+        body: '${appt['appointment_notes'] ?? "Vet appointment"} is now!',
+        dateTime: apptDateTime,
+      );
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Reminder updated!")),
+      );
+    }
+  }
+
   void _deletePet(int petId, String petName) async {
     bool? confirm = await showDialog<bool>(
       context: context,
@@ -364,7 +456,8 @@ class _DashboardPageState extends State<DashboardPage> {
               _updateDailyAdvice();
             }
           });
-          _fetchAppointments(); // Fetch unified household schedule
+          _fetchAppointments();
+          _fetchVetContacts();
         }
       }
     } catch (e) {
@@ -397,12 +490,26 @@ class _DashboardPageState extends State<DashboardPage> {
   Future<void> _fetchAppointments() async {
     final prefs = await SharedPreferences.getInstance();
     final int ownerId = prefs.getInt('owner_id') ?? 0;
-    // Note: Ensure PetService has getAllAppointments(ownerId) implemented
     final appts = await _petService.getAllAppointments(ownerId);
     if (mounted) {
       setState(() {
         _appointments = appts;
       });
+    }
+  }
+
+  Future<void> _fetchVetContacts() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final int ownerId = prefs.getInt('owner_id') ?? 0;
+      final vets = await _petService.getOwnerVetContacts(ownerId);
+      if (mounted) {
+        setState(() {
+          _vetContacts = vets;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error loading vet contacts: $e");
     }
   }
 
@@ -455,50 +562,131 @@ class _DashboardPageState extends State<DashboardPage> {
         return;
       }
 
+      int? selectedPetId = _pets.isNotEmpty ? _pets[_selectedPetIndex]['pet_id'] : null;
+      String? selectedVetName;
+
       showDialog(
         context: context,
-        builder: (context) => AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15),
-          ),
-          title: Text("Vet Notes for $day/${_focusedDay.month}"),
-          content: TextField(
-            controller: notesController,
-            decoration: const InputDecoration(
-              hintText: "e.g. Dr. Smith - Vaccinations",
+        builder: (context) => StatefulBuilder(
+          builder: (context, setDialogState) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+            title: Text("New Appointment: $day/${_focusedDay.month}"),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Pet Selector
+                if (_pets.length > 1) ...[
+                  InputDecorator(
+                    decoration: InputDecoration(
+                      labelText: "Pet",
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    ),
+                    child: DropdownButton<int>(
+                      value: selectedPetId,
+                      isExpanded: true,
+                      underline: const SizedBox(),
+                      hint: const Text("Select pet"),
+                      items: _pets.map<DropdownMenuItem<int>>((pet) {
+                        return DropdownMenuItem<int>(
+                          value: pet['pet_id'] as int,
+                          child: Text(pet['pet_first_name'] as String),
+                        );
+                      }).toList(),
+                      onChanged: (val) => setDialogState(() {
+                        selectedPetId = val;
+                        selectedVetName = null; // Reset vet selection when pet changes
+                      }),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                // Vet Selector (filtered by selected pet)
+                if (_vetContacts.isNotEmpty && selectedPetId != null) ...[
+                  InputDecorator(
+                    decoration: InputDecoration(
+                      labelText: "Vet Clinic",
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    ),
+                    child: DropdownButton<String>(
+                      value: selectedVetName,
+                      isExpanded: true,
+                      underline: const SizedBox(),
+                      hint: const Text("Select vet (optional)"),
+                      items: () {
+                        // Filter vet contacts by selected pet and deduplicate by clinic name
+                        final Map<String, Map<String, dynamic>> uniqueVets = {};
+                        for (var vet in _vetContacts) {
+                          if (vet['pet_id'] == selectedPetId) {
+                            final clinicName = (vet['clinic_name'] ?? vet['name'] ?? '') as String;
+                            if (!uniqueVets.containsKey(clinicName)) {
+                              uniqueVets[clinicName] = vet;
+                            }
+                          }
+                        }
+                        
+                        return uniqueVets.entries.map<DropdownMenuItem<String>>((entry) {
+                          final clinicName = entry.key;
+                          final vet = entry.value;
+                          final phone = (vet['phone'] ?? '') as String;
+                          final displayText = phone.isNotEmpty ? '$clinicName - $phone' : clinicName;
+                          return DropdownMenuItem<String>(value: clinicName, child: Text(displayText));
+                        }).toList();
+                      }(),
+                      onChanged: (val) => setDialogState(() => selectedVetName = val),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                TextField(
+                  controller: notesController,
+                  decoration: const InputDecoration(hintText: "Notes (optional)"),
+                ),
+              ],
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Cancel"),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF8BAEAE),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text("Cancel"),
               ),
-              onPressed: () async {
-                String dateStr =
-                    "${_focusedDay.year}-${_focusedDay.month.toString().padLeft(2, '0')}-${day.toString().padLeft(2, '0')}";
-                String timeStr =
-                    "${pickedTime.hour.toString().padLeft(2, '0')}:${pickedTime.minute.toString().padLeft(2, '0')}:00";
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF8BAEAE)),
+                onPressed: () async {
+                  if (selectedPetId == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Please select a pet")),
+                    );
+                    return;
+                  }
 
-                await _petService.createAppointment(
-                  petId: _pets[_selectedPetIndex]['pet_id'],
-                  date: dateStr,
-                  time: timeStr,
-                  notes: notesController.text,
-                );
+                  final note = notesController.text.trim();
+                  final String formattedNotes;
+                  if (selectedVetName != null && note.isNotEmpty) {
+                    formattedNotes = "$selectedVetName - $note";
+                  } else if (selectedVetName != null) {
+                    formattedNotes = selectedVetName!;
+                  } else {
+                    formattedNotes = note;
+                  }
 
-                Navigator.pop(context);
-                _fetchAppointments();
-              },
-              child: const Text(
-                "Confirm",
-                style: TextStyle(color: Colors.white),
+                  String dateStr = "${_focusedDay.year}-${_focusedDay.month.toString().padLeft(2, '0')}-${day.toString().padLeft(2, '0')}";
+                  String timeStr = "${pickedTime.hour.toString().padLeft(2, '0')}:${pickedTime.minute.toString().padLeft(2, '0')}:00";
+
+                  await _petService.createAppointment(
+                    petId: selectedPetId!,
+                    date: dateStr,
+                    time: timeStr,
+                    notes: formattedNotes,
+                  );
+
+                  Navigator.pop(context);
+                  _fetchAppointments();
+                },
+                child: const Text("Confirm", style: TextStyle(color: Colors.white)),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       );
     }
@@ -647,6 +835,14 @@ class _DashboardPageState extends State<DashboardPage> {
                           size: 18,
                         ),
                         onPressed: () => _editAppointment(appt),
+                      ),
+                      IconButton(
+                        icon: const Icon(
+                          Icons.notifications_outlined,
+                          color: Colors.orange,
+                          size: 18,
+                        ),
+                        onPressed: () => _setAppointmentReminder(appt),
                       ),
                       IconButton(
                         icon: const Icon(
@@ -1293,6 +1489,102 @@ class _DashboardPageState extends State<DashboardPage> {
           style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
         ),
       ),
+    );
+  }
+}
+
+class _ReminderDialog extends StatefulWidget {
+  final TimeOfDay initialTime;
+  final int initialLeadDays;
+  final String appointmentDate;
+
+  const _ReminderDialog({
+    required this.initialTime,
+    required this.initialLeadDays,
+    required this.appointmentDate,
+  });
+
+  @override
+  State<_ReminderDialog> createState() => _ReminderDialogState();
+}
+
+class _ReminderDialogState extends State<_ReminderDialog> {
+  late TimeOfDay _time;
+  late int _leadDays;
+
+  static const _leadOptions = [
+    (label: 'On the day', days: 0),
+    (label: '1 day before', days: 1),
+    (label: '2 days before', days: 2),
+    (label: '1 week before', days: 7),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _time = widget.initialTime;
+    _leadDays = widget.initialLeadDays;
+  }
+
+  String _reminderDateStr() {
+    final parts = widget.appointmentDate.split('-');
+    final apptDate = DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
+    final reminderDate = apptDate.subtract(Duration(days: _leadDays));
+    return '${reminderDate.year}-${reminderDate.month.toString().padLeft(2, '0')}-${reminderDate.day.toString().padLeft(2, '0')}';
+  }
+
+  String get _currentLabel =>
+      _leadOptions.firstWhere((o) => o.days == _leadDays, orElse: () => _leadOptions[1]).label;
+
+  @override
+  Widget build(BuildContext context) {
+    final timeLabel = _time.format(context);
+
+    return AlertDialog(
+      title: const Text('Set Reminder'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: const Icon(Icons.access_time),
+            title: const Text('Reminder time'),
+            trailing: Text(timeLabel, style: const TextStyle(fontWeight: FontWeight.w600)),
+            onTap: () async {
+              final picked = await showTimePicker(context: context, initialTime: _time);
+              if (picked != null) setState(() => _time = picked);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.event_available),
+            title: const Text('Remind me'),
+            trailing: DropdownButton<int>(
+              value: _leadDays,
+              underline: const SizedBox(),
+              items: _leadOptions
+                  .map((o) => DropdownMenuItem(value: o.days, child: Text(o.label)))
+                  .toList(),
+              onChanged: (v) => setState(() => _leadDays = v!),
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () {
+            Navigator.pop(context, {
+              'time': '${_time.hour.toString().padLeft(2, '0')}:${_time.minute.toString().padLeft(2, '0')}',
+              'date': _reminderDateStr(),
+              'repeat': _currentLabel,
+              'lead_days': _leadDays,
+            });
+          },
+          child: const Text('Save'),
+        ),
+      ],
     );
   }
 }
