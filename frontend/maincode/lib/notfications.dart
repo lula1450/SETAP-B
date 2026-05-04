@@ -104,38 +104,61 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
   final int id = pet['pet_id'] as int;
   List<Map<String, dynamic>> timeSlots = [];
 
-  // Check if we have local (offline) overrides first
-  if (localEvents.containsKey(id) && localEvents[id]!.isNotEmpty) {
-    final sortedEntries = localEvents[id]!.entries.toList()
-      ..sort((a, b) => (a.value['time'] as String).compareTo(b.value['time'] as String));
-    
-    for (var entry in sortedEntries) {
-      final baseId = entry.key;
-      final ev = entry.value;
-      final timeStr = ev['time'] as String;
-      final label = ev['label'] as String;
-      final key = 'feeding_notif_${id}_$timeStr';
-      
-      timeSlots.add({
+  // Step 1: load backend schedules as base
+  final Map<String, Map<String, dynamic>> merged = {};
+  try {
+    final schedules = await _petService.getFeedingSchedules(id);
+    for (var s in schedules) {
+      final scheduleId = 'backend_${s['feeding_schedule_id']}';
+      final raw = s['feeding_time'] as String? ?? '';
+      TimeOfDay t = const TimeOfDay(hour: 8, minute: 0);
+      try {
+        final dt = DateTime.parse(raw);
+        t = TimeOfDay(hour: dt.hour, minute: dt.minute);
+      } catch (_) {
+        try {
+          final parts = raw.split('T').last.split(':');
+          t = TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+        } catch (_) {}
+      }
+      final label = s['food_name'] as String? ?? 'Feeding';
+      final isWeekly = label.toLowerCase().contains('weekly');
+      final timeStr = '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+      merged[scheduleId] = {
         'time': timeStr,
         'label': label,
-        'key': key,
-        'enabled': prefs.getBool(key) ?? true,
-        'baseId': baseId,
-        'repeatDaily': ev['repeatDaily'] ?? true,
-      });
+        'repeatDaily': !isWeekly,
+      };
     }
-  } else {
-    // ONLY fetch from backend if there are no local overrides for this pet
-    // This prevents the "Old Backend Time" and "New Local Time" from showing together
-    try {
-      final schedules = await _petService.getFeedingSchedules(id);
-      for (var s in schedules) {
-        // ... (keep your existing backend parsing logic here)
-      }
-    } catch (e) {
-      debugPrint('Feeding fetch failed: $e');
+  } catch (e) {
+    debugPrint('Feeding fetch failed: $e');
+  }
+
+  // Step 2: overlay local edits — local time wins for same baseId, new local-only entries added
+  if (localEvents.containsKey(id)) {
+    for (var entry in localEvents[id]!.entries) {
+      merged[entry.key] = {
+        'time': entry.value['time'] as String,
+        'label': entry.value['label'] as String,
+        'repeatDaily': entry.value['repeatDaily'] as bool? ?? true,
+      };
     }
+  }
+
+  // Build sorted time slots
+  final sortedEntries = merged.entries.toList()
+    ..sort((a, b) => (a.value['time'] as String).compareTo(b.value['time'] as String));
+  for (var entry in sortedEntries) {
+    final timeStr = entry.value['time'] as String;
+    final key = 'feeding_notif_${id}_$timeStr';
+    timeSlots.add({
+      'time': timeStr,
+      'label': entry.value['label'] as String,
+      'key': key,
+      'enabled': prefs.getBool(key) ?? true,
+      'baseId': entry.key,
+      'repeatDaily': entry.value['repeatDaily'] as bool? ?? true,
+    });
   }
 
       pet['times'] = timeSlots;
@@ -239,21 +262,14 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
   final existingJson = prefs.getString('offline_feeding_schedule');
   List<dynamic> entries = existingJson != null ? jsonDecode(existingJson) : [];
 
-  // 3. IMPROVED REMOVAL: Remove anything matching this pet AND this baseId 
-  // regardless of what the old time was.
-  // Inside _changeFeedingTime...
-entries.removeWhere((item) {
-  if (item['petId'] != petId) return false;
-  final event = item['event'] as Map<String, dynamic>;
-  final eid = (event['id'] as String?) ?? '';
-  
-  // Strip suffix (like _0, _1) to match the base schedule ID
-  final String itemBaseId = eid.replaceAll(RegExp(r'_[0-6]$'), '');
-  
-  // Match if it's the same schedule slot OR if the time matches exactly
-  // (This acts as a safety net for duplicates)
-  return itemBaseId == baseId || event['hour'] == int.parse(oldTimeStr.split(':')[0]);
-});
+  // 3. Remove all local entries for this pet's baseId
+  entries.removeWhere((item) {
+    if (item['petId'] != petId) return false;
+    final event = item['event'] as Map<String, dynamic>;
+    final eid = (event['id'] as String?) ?? '';
+    final String itemBaseId = eid.replaceAll(RegExp(r'_[0-6]$'), '');
+    return itemBaseId == baseId;
+  });
 
   // 4. Add the NEW entries
   if (repeatDaily) {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:maincode/route_observer.dart';
 import 'package:maincode/widgets/app_drawer.dart';
 import 'package:maincode/services/pet_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -200,7 +201,7 @@ class FeedingSchedulePage extends StatefulWidget {
   State<FeedingSchedulePage> createState() => _FeedingSchedulePageState();
 }
 
-class _FeedingSchedulePageState extends State<FeedingSchedulePage> {
+class _FeedingSchedulePageState extends State<FeedingSchedulePage> with RouteAware {
   final PetService _service = PetService();
 
   List<Pet> _pets = [];
@@ -217,6 +218,23 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> {
     _loadPets();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    routeObserver.subscribe(this, ModalRoute.of(context)!);
+  }
+
+  @override
+  void dispose() {
+    routeObserver.unsubscribe(this);
+    super.dispose();
+  }
+
+  @override
+  void didPopNext() {
+    _loadPets();
+  }
+
   // ── Data loading ──────────────────────────────────────────────────────────
 
   Future<void> _loadPets() async {
@@ -224,12 +242,6 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> {
   try {
     final prefs = await SharedPreferences.getInstance();
     final int ownerId = prefs.getInt('owner_id') ?? 0;
-
-    // One-time migration: clear stale local data written before the repeatDaily fix
-    if ((prefs.getInt('_feeding_v') ?? 0) < 1) {
-      await prefs.remove('offline_feeding_schedule');
-      await prefs.setInt('_feeding_v', 1);
-    }
 
     _recurring.clear(); // Start fresh to prevent duplication
 
