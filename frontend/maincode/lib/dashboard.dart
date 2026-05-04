@@ -1204,75 +1204,70 @@ class _DashboardPageState extends State<DashboardPage> {
 
   Widget _navigationGridSection(Color petColor, String petName) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
-      child: GridView.count(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: 4,
-          mainAxisSpacing: 10,
-          crossAxisSpacing: 7,
-          children: [
-            _gridButton(
-              "$petName's\nReport",
-              petColor,
-              onTap: () {
-                if (_pets.isNotEmpty) {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => ReportsPage(
-                        petId: _pets[_selectedPetIndex]['pet_id'],
-                        petName: _pets[_selectedPetIndex]['pet_first_name'],
-                        petImagePath: _pets[_selectedPetIndex]['pet_image_path'] as String?,
-                      ),
+      padding: const EdgeInsets.symmetric(vertical: 10.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          _gridButton(
+            "$petName's\nReport",
+            petColor,
+            onTap: () {
+              if (_pets.isNotEmpty) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ReportsPage(
+                      petId: _pets[_selectedPetIndex]['pet_id'],
+                      petName: _pets[_selectedPetIndex]['pet_first_name'],
+                      petImagePath: _pets[_selectedPetIndex]['pet_image_path'] as String?,
                     ),
-                  );
-                } else {
-                  // No pet selected/available - send user to add a pet then refresh
-                  Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const AddPetPage()),
-                  ).then((_) => _fetchPets());
-                }
-              },
-            ),
-            _gridButton(
-              "$petName's\nHealth Records",
-              petColor,
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => HealthRecordsPage(
-                    petId: _pets[_selectedPetIndex]['pet_id'].toString(),
-                    petName: _pets[_selectedPetIndex]['pet_first_name'] as String,
-                    petImagePath: _pets[_selectedPetIndex]['pet_image_path'] as String?,
                   ),
+                );
+              } else {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const AddPetPage()),
+                ).then((_) => _fetchPets());
+              }
+            },
+          ),
+          _gridButton(
+            "$petName's\nHealth Records",
+            petColor,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => HealthRecordsPage(
+                  petId: _pets[_selectedPetIndex]['pet_id'].toString(),
+                  petName: _pets[_selectedPetIndex]['pet_first_name'] as String,
+                  petImagePath: _pets[_selectedPetIndex]['pet_image_path'] as String?,
                 ),
               ),
             ),
-            _gridButton(
-              "Household\nFeeding Schedule",
-              petColor,
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const FeedingSchedulePage(),
-                ),
+          ),
+          _gridButton(
+            "Household\nFeeding Schedule",
+            petColor,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const FeedingSchedulePage(),
               ),
             ),
-            _gridButton(
-              "Household\nvet contacts",
-              petColor,
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => VetContactsPage(pets: _pets, selectedPetIndex: _selectedPetIndex),
-                ),
+          ),
+          _gridButton(
+            "Household\nVet Contacts",
+            petColor,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => VetContactsPage(pets: _pets, selectedPetIndex: _selectedPetIndex),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1302,17 +1297,18 @@ class _DashboardPageState extends State<DashboardPage> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
+        width: 100,
+        height: 90,
+        alignment: Alignment.center,
         decoration: BoxDecoration(
           color: petColor.withValues(alpha: 0.35),
           borderRadius: BorderRadius.circular(15),
           border: Border.all(color: Colors.black12),
         ),
-        child: Center(
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-          ),
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
         ),
       ),
     );
