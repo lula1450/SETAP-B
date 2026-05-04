@@ -492,7 +492,21 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                                 style: TextStyle(fontSize: 11, color: petColor, fontWeight: FontWeight.w600)),
                           Text(a['appointment_notes'] ?? "Vet Visit",
                               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                          Text(a['pet_appointment_date'], style: const TextStyle(fontSize: 11)),
+                          // Display appointment date and time
+                          () {
+                            final dateStr = a['pet_appointment_date'] as String? ?? '';
+                            final timeStr = a['pet_appointment_time'] as String? ?? '';
+                            if (timeStr.isNotEmpty) {
+                              final timeParts = timeStr.split(':');
+                              final hour = int.parse(timeParts[0]);
+                              final min = timeParts[1];
+                              final period = hour >= 12 ? 'pm' : 'am';
+                              final displayHour = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
+                              return Text('$dateStr at $displayHour:$min$period',
+                                  style: const TextStyle(fontSize: 11, color: Colors.grey));
+                            }
+                            return Text(dateStr, style: const TextStyle(fontSize: 11, color: Colors.grey));
+                          }(),
                           const SizedBox(height: 4),
                           Text(
                             (a['reminder_enabled'] ?? false)
