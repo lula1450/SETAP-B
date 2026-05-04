@@ -59,16 +59,18 @@ class PetInfoPage extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              const SizedBox(height: 24),
               ClipRRect(
                 borderRadius: BorderRadius.circular(16),
                 child: Image.network(
                   petInfo["image"],
                   height: 250,
                   width: double.infinity,
-                  fit: BoxFit.cover,
+                  fit: BoxFit.fitWidth,
+                  alignment: Alignment.topCenter,
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 20),
               Center(
                 child: Column(
                   children: [
@@ -103,41 +105,16 @@ class PetInfoPage extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 16),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
                 children: [
-                  Expanded(
-                      child: _buildCard(
-                          "Breed Info", petInfo["breedInfo"], cardIcons)),
-                  const SizedBox(width: 16),
-                  Expanded(
-                      child: _buildCard(
-                          "Care Tips", petInfo["careTips"], cardIcons)),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                      child: _buildCard(
-                          "Personality", petInfo["personality"], cardIcons)),
-                  const SizedBox(width: 16),
-                  Expanded(
-                      child: _buildCard("Diet", petInfo["diet"], cardIcons)),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                      child: _buildCard("Potential Health Issues",
-                          petInfo["health"] ?? [], cardIcons)),
-                  const SizedBox(width: 16),
-                  Expanded(
-                      child: _buildCard("Preferred Environment",
-                          petInfo["environment"] ?? [], cardIcons)),
+                  _buildInfoButton("Breed Info", petInfo["breedInfo"], cardIcons, context),
+                  _buildInfoButton("Care Tips", petInfo["careTips"], cardIcons, context),
+                  _buildInfoButton("Personality", petInfo["personality"], cardIcons, context),
+                  _buildInfoButton("Diet", petInfo["diet"], cardIcons, context),
+                  _buildInfoButton("Potential Health Issues", petInfo["health"] ?? [], cardIcons, context),
+                  _buildInfoButton("Preferred Environment", petInfo["environment"] ?? [], cardIcons, context),
                 ],
               ),
             ],
@@ -147,40 +124,43 @@ class PetInfoPage extends StatelessWidget {
     );
   }
 
-  Widget _buildCard(String title, List items, Map<String, IconData> icons) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white, // Solid white cards
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.black12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 4,
-            offset: const Offset(2, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icons[title], color: Colors.blue[800]),
-              const SizedBox(width: 8),
-              Text(title,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.bold, fontSize: 16)),
+  Widget _buildInfoButton(String title, List items, Map<String, IconData> icons, BuildContext context) {
+    return FilledButton.icon(
+      onPressed: () {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: Row(
+              children: [
+                Icon(icons[title], color: Colors.blue[800]),
+                const SizedBox(width: 8),
+                Text(title),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: items.map<Widget>((item) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Text(
+                    "• $item",
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                )).toList(),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Close'),
+              ),
             ],
           ),
-          const SizedBox(height: 8),
-          ...items.map<Widget>((item) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 2),
-                child: Text(item),
-              )),
-        ],
-      ),
+        );
+      },
+      icon: Icon(icons[title]),
+      label: Text(title),
     );
   }
 }
