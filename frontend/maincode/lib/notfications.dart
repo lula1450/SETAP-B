@@ -221,6 +221,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
           "time": a['reminder_time'],
           "date": a['reminder_date'],
           "repeat": a['repeat_type'],
+          "lead_days": a['lead_days'],
         }),
       );
     }
@@ -505,13 +506,18 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                     ),
                     Switch(
                       value: a['reminder_enabled'] ?? false,
-                      onChanged: _appointments ? (v) {
-                        setState(() => a['reminder_enabled'] = v);
-                        _saveSettings();
-                        if (v) {
-                          _scheduleAppointment(a);
+                      onChanged: _appointments ? (v) async {
+                        if (v && a['reminder_time'] == null) {
+                          await _openReminderFlow(a);
+                          await _saveSettings();
                         } else {
-                          _cancelAppointment(a);
+                          setState(() => a['reminder_enabled'] = v);
+                          _saveSettings();
+                          if (v) {
+                            _scheduleAppointment(a);
+                          } else {
+                            _cancelAppointment(a);
+                          }
                         }
                       } : null,
                     ),
@@ -869,6 +875,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
         a['reminder_time'] = decoded['time'];
         a['reminder_date'] = decoded['date'];
         a['repeat_type'] = decoded['repeat'];
+        a['lead_days'] = decoded['lead_days'];
       } else {
         a['reminder_enabled'] = false;
       }
@@ -883,11 +890,19 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
       initial = TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
     }
 
+    // Determine saved lead days, with backward compat for old "Once" value
+    int initialLeadDays = 1; // default: 1 day before
+    if (appt['lead_days'] != null) {
+      initialLeadDays = appt['lead_days'] as int;
+    } else if (appt['repeat_type'] == 'Once') {
+      initialLeadDays = 0;
+    }
+
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (ctx) => _ReminderDialog(
         initialTime: initial,
-        initialRepeat: appt['repeat_type'] as String? ?? 'Once',
+        initialLeadDays: initialLeadDays,
         appointmentDate: appt['pet_appointment_date'] as String,
       ),
     );
@@ -898,6 +913,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
         appt['reminder_time'] = result['time'];
         appt['reminder_date'] = result['date'];
         appt['repeat_type'] = result['repeat'];
+        appt['lead_days'] = result['lead_days'];
       });
       if (_appointments) _scheduleAppointment(appt);
     }
@@ -918,12 +934,12 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
 
 class _ReminderDialog extends StatefulWidget {
   final TimeOfDay initialTime;
-  final String initialRepeat;
+  final int initialLeadDays;
   final String appointmentDate;
 
   const _ReminderDialog({
     required this.initialTime,
-    required this.initialRepeat,
+    required this.initialLeadDays,
     required this.appointmentDate,
   });
 
@@ -933,14 +949,31 @@ class _ReminderDialog extends StatefulWidget {
 
 class _ReminderDialogState extends State<_ReminderDialog> {
   late TimeOfDay _time;
-  late String _repeat;
+  late int _leadDays;
+
+  static const _leadOptions = [
+    (label: 'On the day', days: 0),
+    (label: '1 day before', days: 1),
+    (label: '2 days before', days: 2),
+    (label: '1 week before', days: 7),
+  ];
 
   @override
   void initState() {
     super.initState();
     _time = widget.initialTime;
-    _repeat = widget.initialRepeat;
+    _leadDays = widget.initialLeadDays;
   }
+
+  String _reminderDateStr() {
+    final parts = widget.appointmentDate.split('-');
+    final apptDate = DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
+    final reminderDate = apptDate.subtract(Duration(days: _leadDays));
+    return '${reminderDate.year}-${reminderDate.month.toString().padLeft(2, '0')}-${reminderDate.day.toString().padLeft(2, '0')}';
+  }
+
+  String get _currentLabel =>
+      _leadOptions.firstWhere((o) => o.days == _leadDays, orElse: () => _leadOptions[1]).label;
 
   @override
   Widget build(BuildContext context) {
@@ -961,17 +994,15 @@ class _ReminderDialogState extends State<_ReminderDialog> {
             },
           ),
           ListTile(
-            leading: const Icon(Icons.repeat),
-            title: const Text('Repeat'),
-            trailing: DropdownButton<String>(
-              value: _repeat,
+            leading: const Icon(Icons.event_available),
+            title: const Text('Remind me'),
+            trailing: DropdownButton<int>(
+              value: _leadDays,
               underline: const SizedBox(),
-              items: const [
-                DropdownMenuItem(value: 'Once', child: Text('Once')),
-                DropdownMenuItem(value: 'Daily', child: Text('Daily')),
-                DropdownMenuItem(value: 'Weekly', child: Text('Weekly')),
-              ],
-              onChanged: (v) => setState(() => _repeat = v!),
+              items: _leadOptions
+                  .map((o) => DropdownMenuItem(value: o.days, child: Text(o.label)))
+                  .toList(),
+              onChanged: (v) => setState(() => _leadDays = v!),
             ),
           ),
         ],
@@ -985,8 +1016,9 @@ class _ReminderDialogState extends State<_ReminderDialog> {
           onPressed: () {
             Navigator.pop(context, {
               'time': '${_time.hour.toString().padLeft(2, '0')}:${_time.minute.toString().padLeft(2, '0')}',
-              'date': widget.appointmentDate,
-              'repeat': _repeat,
+              'date': _reminderDateStr(),
+              'repeat': _currentLabel,
+              'lead_days': _leadDays,
             });
           },
           child: const Text('Save'),
