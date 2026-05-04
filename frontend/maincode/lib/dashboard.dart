@@ -96,7 +96,7 @@ class _DashboardPageState extends State<DashboardPage> {
         await _petService.deleteAppointment(appointmentId);
 
         // 2. Refresh the UI by fetching the list again
-        _fetchAppointments();
+        await _fetchAppointments();
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(

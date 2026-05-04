@@ -127,6 +127,12 @@ def delete_pet_appointment(appointment_id: int, db: Session = Depends(get_db)):
     if not appointment:
         raise HTTPException(status_code=404, detail="Appointment not found")
     
+    # Delete all reminders associated with this appointment first
+    db.query(models.Reminder).filter(
+        models.Reminder.pet_appointment_id == appointment_id
+    ).delete()
+    
+    # Now delete the appointment
     db.delete(appointment)
     db.commit()
     return None
