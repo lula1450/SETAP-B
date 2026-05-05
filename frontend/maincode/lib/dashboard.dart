@@ -502,11 +502,10 @@ class _DashboardPageState extends State<DashboardPage> {
   Future<void> _fetchVetContacts() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final int ownerId = prefs.getInt('owner_id') ?? 0;
-      final vets = await _petService.getOwnerVetContacts(ownerId);
-      if (mounted) {
+      final jsonStr = prefs.getString('vet_contacts');
+      if (jsonStr != null && mounted) {
         setState(() {
-          _vetContacts = vets;
+          _vetContacts = jsonDecode(jsonStr) as List<dynamic>;
         });
       }
     } catch (e) {
@@ -616,10 +615,10 @@ class _DashboardPageState extends State<DashboardPage> {
                       underline: const SizedBox(),
                       hint: const Text("Select vet (optional)"),
                       items: () {
-                        // Filter vet contacts by selected pet and deduplicate by clinic name
+                        // Show vets assigned to selected pet, or with no pet assigned
                         final Map<String, Map<String, dynamic>> uniqueVets = {};
                         for (var vet in _vetContacts) {
-                          if (vet['pet_id'] == selectedPetId) {
+                          if (vet['pet_id'] == selectedPetId || vet['pet_id'] == null) {
                             final clinicName = (vet['clinic_name'] ?? vet['name'] ?? '') as String;
                             if (!uniqueVets.containsKey(clinicName)) {
                               uniqueVets[clinicName] = vet;
@@ -1254,7 +1253,7 @@ class _DashboardPageState extends State<DashboardPage> {
               MaterialPageRoute(
                 builder: (context) => VetContactsPage(pets: _pets, selectedPetIndex: _selectedPetIndex),
               ),
-            ),
+            ).then((_) => _fetchVetContacts()),
           ),
         ],
       ),

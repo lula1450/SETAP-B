@@ -25,15 +25,10 @@ class OwnerResponse(OwnerBase):
 
 # --- 2. PET SCHEMAS ---
 class PetBase(BaseModel):
-    species_id: int 
-    owner_id: int 
+    species_id: int
+    owner_id: int
     pet_first_name: str = Field(..., min_length=1, max_length=50)
-    # FIXED: Optional last name with empty string default for UI compatibility
-    pet_last_name: Optional[str] = "" 
-    pet_address1: Optional[str] = None
-    pet_address2: Optional[str] = None
-    pet_postcode: Optional[str] = None
-    pet_city: Optional[str] = None
+    pet_last_name: Optional[str] = ""
 
 class PetCreate(PetBase):
     pass

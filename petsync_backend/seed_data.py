@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, time
 from petsync_backend.database import SessionLocal, engine, Base
 from petsync_backend.models import (
     PetAppointment, Species_config, MetricDefinition, MetricName,
-    SpeciesType, Owner, Pet, HealthMetric, ReportFrequency, PetGoal, VetContact,
+    SpeciesType, Owner, Pet, HealthMetric, ReportFrequency, PetGoal,
     FeedingSchedule
 )
 from petsync_backend.config.species_data import SPECIES_DATA
@@ -59,7 +59,6 @@ def seed_data():
     bailey = db.query(Pet).filter(Pet.pet_first_name == "Bailey").first()
     if not bailey:
         bailey = Pet(pet_first_name="Bailey", pet_last_name="C", species_id=lab_id, owner_id=owner_id,
-                      pet_address1="123 Pet Lane", pet_postcode="PO1 2AB", pet_city="London",
                       pet_image_path=f"{BASE_URL}/static/seed_images/bailey.jpg")
         db.add(bailey)
     elif not bailey.pet_image_path:
@@ -68,7 +67,6 @@ def seed_data():
     luna = db.query(Pet).filter(Pet.pet_first_name == "Luna").first()
     if not luna:
         luna = Pet(pet_first_name="Luna", pet_last_name="C", species_id=coon_id, owner_id=owner_id,
-                     pet_address1="123 Pet Lane", pet_postcode="PO1 2AB", pet_city="London",
                      pet_image_path=f"{BASE_URL}/static/seed_images/luna.jpg")
         db.add(luna)
     elif not luna.pet_image_path:
@@ -77,7 +75,6 @@ def seed_data():
     rio = db.query(Pet).filter(Pet.pet_first_name == "Rio").first()
     if not rio:
         rio = Pet(pet_first_name="Rio", pet_last_name="C", species_id=grey_id, owner_id=owner_id,
-                  pet_address1="123 Pet Lane", pet_postcode="PO1 2AB", pet_city="London",
                   pet_image_path=f"{BASE_URL}/static/seed_images/rio.jpg")
         db.add(rio)
     elif not rio.pet_image_path:
@@ -86,7 +83,6 @@ def seed_data():
     ziggy = db.query(Pet).filter(Pet.pet_first_name == "Ziggy").first()
     if not ziggy:
         ziggy = Pet(pet_first_name="Ziggy", pet_last_name="C", species_id=python_id, owner_id=owner_id,
-                    pet_address1="123 Pet Lane", pet_postcode="PO1 2AB", pet_city="London",
                     pet_image_path=f"{BASE_URL}/static/seed_images/ziggy.jpg")
         db.add(ziggy)
     elif not ziggy.pet_image_path:
@@ -258,33 +254,7 @@ def seed_data():
             db.add(appt)
     db.commit()
 
-    # 7. Seed Vet Contacts (one per pet)
-    print("Seeding Vet Contacts...")
-    vet_contacts = [
-        VetContact(owner_id=owner_id, pet_id=bailey.pet_id,
-                   clinic_name="Happy Paws Veterinary", phone="07912345678",
-                   email="contact@happypaws.com", address="45 Main Street, London, SW1A 1AA"),
-        VetContact(owner_id=owner_id, pet_id=luna.pet_id,
-                   clinic_name="Riverside Pet Clinic", phone="02071234567",
-                   email="info@riversidepet.com", address="78 River Road, London, SE1 7TP"),
-        VetContact(owner_id=owner_id, pet_id=rio.pet_id,
-                   clinic_name="Happy Paws Veterinary", phone="07912345678",
-                   email="contact@happypaws.com", address="45 Main Street, London, SW1A 1AA"),
-        VetContact(owner_id=owner_id, pet_id=ziggy.pet_id,
-                   clinic_name="Riverside Pet Clinic", phone="02071234567",
-                   email="info@riversidepet.com", address="78 River Road, London, SE1 7TP"),
-    ]
-
-    for vet in vet_contacts:
-        exists = db.query(VetContact).filter(
-            VetContact.pet_id == vet.pet_id,
-            VetContact.clinic_name == vet.clinic_name
-        ).first()
-        if not exists:
-            db.add(vet)
-    db.commit()
-
-    # 8. Seed Feeding Schedules
+    # 7. Seed Feeding Schedules
     print("Seeding Feeding Schedules...")
     today = datetime.now().date()
     year_end = today.replace(month=12, day=31)
@@ -337,7 +307,7 @@ def seed_data():
             db.add(schedule)
     db.commit()
 
-    # 9. Trigger Automated Report Generation
+    # 8. Trigger Automated Report Generation
     print("Creating Automated Report History...")
     for pet in [bailey, luna, rio, ziggy]:
         for freq in [ReportFrequency.weekly, ReportFrequency.monthly]:

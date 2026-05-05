@@ -63,29 +63,19 @@ def create_pet(pet: schemas.PetCreate, db: Session = Depends(get_db)):
         species_id=pet.species_id,
         owner_id=pet.owner_id,
         pet_first_name=pet.pet_first_name,
-        # If the frontend sends an empty string or null, this stays clean
-        pet_last_name=pet.pet_last_name or "", 
-        pet_address1=pet.pet_address1,
-        pet_address2=pet.pet_address2,
-        pet_postcode=pet.pet_postcode,
-        pet_city=pet.pet_city,
+        pet_last_name=pet.pet_last_name or "",
     )
 
     db.add(db_pet)
     db.commit()
     db.refresh(db_pet)
-    
-    # Rest of the return logic stays the same...
+
     return schemas.PetResponse(
         pet_id=db_pet.pet_id,
         species_id=db_pet.species_id,
         owner_id=db_pet.owner_id,
         pet_first_name=db_pet.pet_first_name,
         pet_last_name=db_pet.pet_last_name,
-        pet_address1=db_pet.pet_address1,
-        pet_address2=db_pet.pet_address2,
-        pet_postcode=db_pet.pet_postcode,
-        pet_city=db_pet.pet_city,
         pet_image_path=db_pet.pet_image_path,
     )
 
@@ -108,8 +98,6 @@ def get_pet(pet_id: int, db: Session = Depends(get_db)):
         pet_id=pet.pet_id,
         pet_first_name=pet.pet_first_name,
         pet_last_name=pet.pet_last_name,
-        pet_address1=pet.pet_address1,
-        pet_city=pet.pet_city,
         species_name=species_name,
         owner_id=pet.owner_id,
         species_id=pet.species_id,
@@ -135,9 +123,6 @@ def list_all_pets(owner_id: int, db: Session = Depends(get_db)):
             pet_id=pet.pet_id,
             pet_first_name=pet.pet_first_name,
             pet_last_name=pet.pet_last_name,
-            pet_address1=pet.pet_address1,
-            pet_address2=pet.pet_address2,
-            pet_city=pet.pet_city,
             species_name=species_map.get(pet.species_id, "Unknown"),
             owner_id=pet.owner_id,
             species_id=pet.species_id,
@@ -153,12 +138,8 @@ def update_pet(pet_id: int, pet_update: schemas.PetCreate, db: Session = Depends
     if not db_pet:
         raise HTTPException(status_code=404, detail="Pet not found")
 
-    # Update fields
     db_pet.pet_first_name = pet_update.pet_first_name
     db_pet.pet_last_name = pet_update.pet_last_name
-    db_pet.pet_address1 = pet_update.pet_address1
-    db_pet.pet_city = pet_update.pet_city
-    # Note: species_id and owner_id usually don't change, so we leave them
 
     db.commit()
     db.refresh(db_pet)

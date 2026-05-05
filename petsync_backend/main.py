@@ -1,5 +1,5 @@
 
-from petsync_backend.routers import auth, pets, health, schedule, reports, owners, vets
+from petsync_backend.routers import auth, pets, health, schedule, reports, owners
 
 from fastapi.staticfiles import StaticFiles
 import os
@@ -51,7 +51,6 @@ app.include_router(health.router, prefix="/health", tags=["health"])
 app.include_router(schedule.router, prefix="/schedule", tags=["schedule"])
 app.include_router(reports.router, prefix="/reports", tags=["reports"])
 app.include_router(owners.router, prefix="/owners", tags=["owners"])
-app.include_router(vets.router, prefix="/vets", tags=["vets"])
 
 _static_dir = os.path.join(os.path.dirname(__file__), "static")
 app.mount("/static", StaticFiles(directory=_static_dir), name="static")

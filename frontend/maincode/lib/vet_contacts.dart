@@ -1,6 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:maincode/widgets/app_drawer.dart';
-import 'package:maincode/services/pet_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class VetContactsPage extends StatefulWidget {
@@ -16,7 +16,8 @@ class VetContactsPage extends StatefulWidget {
 class _VetContactsPageState extends State<VetContactsPage> {
   List<Map<String, dynamic>> _vetContacts = [];
   bool _isLoading = true;
-  final PetService _petService = PetService();
+
+  static const String _storageKey = 'vet_contacts';
 
   static const List<Color> _petColors = [
     Color.fromARGB(255, 146, 179, 236),
@@ -54,44 +55,17 @@ class _VetContactsPageState extends State<VetContactsPage> {
   Future<void> _loadVetContacts() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final int ownerId = prefs.getInt('owner_id') ?? 0;
-      final vetList = await _petService.getOwnerVetContacts(ownerId);
-
-      final vetContacts = <Map<String, dynamic>>[];
-      for (var vet in vetList) {
-        vetContacts.add({
-          'vet_id': vet['vet_id'] ?? 0,
-          'pet_id': vet['pet_id'],
-          'name': vet['clinic_name'] ?? '',
-          'phone': vet['phone'] ?? '',
-          'email': vet['email'] ?? '',
-          'address': vet['address'] ?? '',
-        });
-      }
-
-      // Auto-assign unassigned contacts to pets by position
-      if (widget.pets.isNotEmpty) {
-        for (int i = 0; i < vetContacts.length; i++) {
-          if (vetContacts[i]['pet_id'] == null) {
-            final pet = widget.pets[i % widget.pets.length];
-            final petId = pet['pet_id'] as int;
-            vetContacts[i]['pet_id'] = petId;
-            await _petService.updateVetContact(
-              vetId: vetContacts[i]['vet_id'],
-              ownerId: ownerId,
-              petId: petId,
-              clinicName: vetContacts[i]['name'],
-              phone: vetContacts[i]['phone'],
-              email: vetContacts[i]['email'],
-              address: vetContacts[i]['address'],
-            );
-          }
+      final jsonStr = prefs.getString(_storageKey);
+      final contacts = <Map<String, dynamic>>[];
+      if (jsonStr != null) {
+        final list = jsonDecode(jsonStr) as List<dynamic>;
+        for (final item in list) {
+          contacts.add(Map<String, dynamic>.from(item as Map));
         }
       }
-
       if (mounted) {
         setState(() {
-          _vetContacts = vetContacts;
+          _vetContacts = contacts;
           _isLoading = false;
         });
       }
@@ -101,36 +75,27 @@ class _VetContactsPageState extends State<VetContactsPage> {
     }
   }
 
-  Future<void> _saveVetContact(Map<String, dynamic> contact) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final int ownerId = prefs.getInt('owner_id') ?? 0;
+  Future<void> _persistContacts() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_storageKey, jsonEncode(_vetContacts));
+  }
 
-      final success = await _petService.createVetContact(
-        ownerId: ownerId,
-        petId: contact['pet_id'] as int?,
-        clinicName: contact['name'] ?? '',
-        phone: contact['phone'] ?? '',
-        email: contact['email'] ?? '',
-        address: contact['address'] ?? '',
+  Future<void> _addVetContact(Map<String, dynamic> contact) async {
+    setState(() {
+      _vetContacts.add({
+        'vet_id': DateTime.now().millisecondsSinceEpoch,
+        'pet_id': contact['pet_id'],
+        'name': contact['name'] ?? '',
+        'phone': contact['phone'] ?? '',
+        'email': contact['email'] ?? '',
+        'address': contact['address'] ?? '',
+      });
+    });
+    await _persistContacts();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vet contact added successfully!')),
       );
-
-      if (success) {
-        await _loadVetContacts();
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Vet contact added successfully!')),
-          );
-        }
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Failed to add vet contact')),
-          );
-        }
-      }
-    } catch (e) {
-      debugPrint("Error saving vet contact: $e");
     }
   }
 
@@ -158,36 +123,24 @@ class _VetContactsPageState extends State<VetContactsPage> {
                 const SizedBox(height: 12),
                 TextField(
                   controller: nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Vet Clinic Name',
-                    border: OutlineInputBorder(),
-                  ),
+                  decoration: const InputDecoration(labelText: 'Vet Clinic Name', border: OutlineInputBorder()),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: phoneController,
-                  decoration: const InputDecoration(
-                    labelText: 'Phone Number',
-                    border: OutlineInputBorder(),
-                  ),
+                  decoration: const InputDecoration(labelText: 'Phone Number', border: OutlineInputBorder()),
                   keyboardType: TextInputType.phone,
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: emailController,
-                  decoration: const InputDecoration(
-                    labelText: 'Email',
-                    border: OutlineInputBorder(),
-                  ),
+                  decoration: const InputDecoration(labelText: 'Email', border: OutlineInputBorder()),
                   keyboardType: TextInputType.emailAddress,
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: addressController,
-                  decoration: const InputDecoration(
-                    labelText: 'Address',
-                    border: OutlineInputBorder(),
-                  ),
+                  decoration: const InputDecoration(labelText: 'Address', border: OutlineInputBorder()),
                   maxLines: 2,
                 ),
               ],
@@ -199,50 +152,33 @@ class _VetContactsPageState extends State<VetContactsPage> {
               child: const Text('Cancel'),
             ),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF8BAEAE),
-              ),
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF8BAEAE)),
               onPressed: () async {
-                if (nameController.text.isNotEmpty &&
-                    phoneController.text.isNotEmpty) {
+                if (nameController.text.isNotEmpty && phoneController.text.isNotEmpty) {
                   final navigator = Navigator.of(context);
                   final messenger = ScaffoldMessenger.of(context);
-                  final prefs = await SharedPreferences.getInstance();
-                  final int ownerId = prefs.getInt('owner_id') ?? 0;
-
-                  final success = await _petService.updateVetContact(
-                    vetId: vet['vet_id'],
-                    ownerId: ownerId,
-                    petId: selectedPetId,
-                    clinicName: nameController.text,
-                    phone: phoneController.text,
-                    email: emailController.text,
-                    address: addressController.text,
+                  setState(() {
+                    _vetContacts[index] = {
+                      'vet_id': vet['vet_id'],
+                      'pet_id': selectedPetId,
+                      'name': nameController.text,
+                      'phone': phoneController.text,
+                      'email': emailController.text,
+                      'address': addressController.text,
+                    };
+                  });
+                  await _persistContacts();
+                  navigator.pop();
+                  messenger.showSnackBar(
+                    const SnackBar(content: Text('Vet contact updated successfully!')),
                   );
-                  if (success && mounted) {
-                    await _loadVetContacts();
-                    navigator.pop();
-                    messenger.showSnackBar(
-                      const SnackBar(content: Text('Vet contact updated successfully!')),
-                    );
-                  } else if (mounted) {
-                    navigator.pop();
-                    messenger.showSnackBar(
-                      const SnackBar(content: Text('Failed to update vet contact')),
-                    );
-                  }
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Please fill in name and phone number'),
-                    ),
+                    const SnackBar(content: Text('Please fill in name and phone number')),
                   );
                 }
               },
-              child: const Text(
-                'Save Changes',
-                style: TextStyle(color: Colors.white),
-              ),
+              child: const Text('Save Changes', style: TextStyle(color: Colors.white)),
             ),
           ],
         ),
@@ -250,15 +186,13 @@ class _VetContactsPageState extends State<VetContactsPage> {
     );
   }
 
-  void _deleteVetContact(int index, dynamic vetId) async {
+  void _deleteVetContact(int index) async {
     bool? confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
         title: const Text('Delete Contact?'),
-        content: Text(
-          'Are you sure you want to delete ${_vetContacts[index]['name']}?',
-        ),
+        content: Text('Are you sure you want to delete ${_vetContacts[index]['name']}?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -273,14 +207,12 @@ class _VetContactsPageState extends State<VetContactsPage> {
     );
 
     if (confirm == true) {
-      final success = await _petService.deleteVetContact(vetId);
-      if (success) {
-        setState(() => _vetContacts.removeAt(index));
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Vet contact deleted')),
-          );
-        }
+      setState(() => _vetContacts.removeAt(index));
+      await _persistContacts();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Vet contact deleted')),
+        );
       }
     }
   }
@@ -354,13 +286,10 @@ class _VetContactsPageState extends State<VetContactsPage> {
               child: const Text('Cancel'),
             ),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF8BAEAE),
-              ),
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF8BAEAE)),
               onPressed: () {
-                if (nameController.text.isNotEmpty &&
-                    phoneController.text.isNotEmpty) {
-                  _saveVetContact({
+                if (nameController.text.isNotEmpty && phoneController.text.isNotEmpty) {
+                  _addVetContact({
                     'pet_id': selectedPetId,
                     'name': nameController.text,
                     'phone': phoneController.text,
@@ -370,16 +299,11 @@ class _VetContactsPageState extends State<VetContactsPage> {
                   Navigator.pop(context);
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Please fill in name and phone number'),
-                    ),
+                    const SnackBar(content: Text('Please fill in name and phone number')),
                   );
                 }
               },
-              child: const Text(
-                'Add Contact',
-                style: TextStyle(color: Colors.white),
-              ),
+              child: const Text('Add Contact', style: TextStyle(color: Colors.white)),
             ),
           ],
         ),
@@ -387,10 +311,7 @@ class _VetContactsPageState extends State<VetContactsPage> {
     );
   }
 
-  Widget _petDropdown({
-    required int? selectedPetId,
-    required ValueChanged<int?> onChanged,
-  }) {
+  Widget _petDropdown({required int? selectedPetId, required ValueChanged<int?> onChanged}) {
     return InputDecorator(
       decoration: const InputDecoration(
         labelText: 'Assign to pet (optional)',
@@ -420,10 +341,7 @@ class _VetContactsPageState extends State<VetContactsPage> {
       endDrawer: const AppDrawer(),
       appBar: AppBar(
         backgroundColor: const Color.fromARGB(255, 139, 174, 174),
-        title: const Text(
-          'Household Vet Contacts',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
+        title: const Text('Household Vet Contacts', style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
           Builder(
             builder: (context) => IconButton(
@@ -482,10 +400,7 @@ class _VetContactsPageState extends State<VetContactsPage> {
                             decoration: BoxDecoration(
                               color: cardColor.withValues(alpha: 0.35),
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: Colors.black12,
-                                width: 1,
-                              ),
+                              border: Border.all(color: Colors.black12, width: 1),
                               boxShadow: [
                                 BoxShadow(
                                   offset: const Offset(0, 4),
@@ -501,11 +416,7 @@ class _VetContactsPageState extends State<VetContactsPage> {
                                 children: [
                                   Row(
                                     children: [
-                                      const Icon(
-                                        Icons.local_hospital_rounded,
-                                        color: Color(0xFF0F6E56),
-                                        size: 28,
-                                      ),
+                                      const Icon(Icons.local_hospital_rounded, color: Color(0xFF0F6E56), size: 28),
                                       const SizedBox(width: 12),
                                       Expanded(
                                         child: Column(
@@ -520,13 +431,7 @@ class _VetContactsPageState extends State<VetContactsPage> {
                                               ),
                                             ),
                                             if (petName.isNotEmpty)
-                                              Text(
-                                                petName,
-                                                style: const TextStyle(
-                                                  fontSize: 12,
-                                                  color: Colors.black54,
-                                                ),
-                                              ),
+                                              Text(petName, style: const TextStyle(fontSize: 12, color: Colors.black54)),
                                           ],
                                         ),
                                       ),
@@ -538,7 +443,7 @@ class _VetContactsPageState extends State<VetContactsPage> {
                                       IconButton(
                                         icon: const Icon(Icons.delete_outline),
                                         color: Colors.red,
-                                        onPressed: () => _deleteVetContact(index, vet['vet_id']),
+                                        onPressed: () => _deleteVetContact(index),
                                       ),
                                     ],
                                   ),

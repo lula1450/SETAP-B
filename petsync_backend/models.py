@@ -47,29 +47,9 @@ class Pet(Base):
 
     pet_first_name = Column(String(50), nullable=False)
     pet_last_name = Column(String(50))
-    pet_address1 = Column(String(100), nullable=False)
-    pet_address2 = Column(String(100))
-    pet_postcode = Column(String(10), nullable=False)
-    pet_city = Column(String(30), nullable=False)
     pet_image_path = Column(String, nullable=True)
 
-# --- 4. MEDICAL & METADATA ---
-class SpayNeuteredStatus(enum.Enum):
-    Yes = "Yes"
-    No = "No"
-    NA = "N/A"
-
-class MedicalDetail(Base):
-    __tablename__ = "medical_detail"
-    medical_detail_id = Column(Integer, primary_key=True)
-    pet_id = Column(Integer, ForeignKey("pet.pet_id"), nullable=False)
-    blood_type = Column(String(20))
-    medical_notes = Column(Text)
-    current_medication = Column(Text)
-    allergies = Column(Text)
-    microchip_id = Column(String(15), unique=True)
-    spay_neutered = Column(Enum(SpayNeuteredStatus, name="spay_neutered_status"), nullable=False, default=SpayNeuteredStatus.NA)
-
+# --- 4. METADATA ---
 class PetMetaData(Base):
     __tablename__ = "pet_metadata"
     meta_data_id = Column(Integer, primary_key=True)
@@ -210,19 +190,3 @@ class PetReport(Base):
     report_summary = Column(Text, nullable=False)  # JSON serialized summary of metrics
     has_risk_flags = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
-
-
-# --- 9. VET CONTACTS ---
-class VetContact(Base):
-    __tablename__ = "vet_contact"
-
-    vet_id = Column(Integer, primary_key=True, index=True)
-    owner_id = Column(Integer, ForeignKey("owner.owner_id"), nullable=False, index=True)
-    pet_id = Column(Integer, ForeignKey("pet.pet_id"), nullable=True, index=True)
-    clinic_name = Column(String(100), nullable=False)
-    phone = Column(String(20), nullable=False)
-    email = Column(String(100), nullable=True)
-    address = Column(Text, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-    owner = relationship("Owner", backref="vet_contacts")
