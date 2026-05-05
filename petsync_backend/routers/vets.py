@@ -1,37 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List, Optional
-from pydantic import BaseModel
-from petsync_backend import models, database
+from typing import List
+from petsync_backend import models, database, schemas
 
 router = APIRouter()
-
-# --- SCHEMAS ---
-class VetContactCreate(BaseModel):
-    owner_id: int
-    pet_id: Optional[int] = None
-    clinic_name: str
-    phone: str
-    email: str
-    address: str
-
-class VetContactUpdate(BaseModel):
-    pet_id: Optional[int] = None
-    clinic_name: str
-    phone: str
-    email: str
-    address: str
-
-class VetContactResponse(BaseModel):
-    vet_id: int
-    pet_id: Optional[int] = None
-    clinic_name: str
-    phone: str
-    email: str
-    address: str
-
-    class Config:
-        from_attributes = True
 
 # --- GET VET CONTACTS FOR OWNER ---
 @router.get("/owner/{owner_id}", response_model=List[dict])
@@ -56,8 +28,8 @@ def get_owner_vet_contacts(owner_id: int, db: Session = Depends(database.get_db)
 
 
 # --- CREATE VET CONTACT ---
-@router.post("/create", response_model=VetContactResponse, status_code=201)
-def create_vet_contact(vet_data: VetContactCreate, db: Session = Depends(database.get_db)):
+@router.post("/create", response_model=schemas.VetContactResponse, status_code=201)
+def create_vet_contact(vet_data: schemas.VetContactCreate, db: Session = Depends(database.get_db)):
     """Create a new vet contact for an owner"""
     # Verify owner exists
     owner = db.query(models.Owner).filter(models.Owner.owner_id == vet_data.owner_id).first()
@@ -106,8 +78,8 @@ def delete_vet_contact(vet_id: int, db: Session = Depends(database.get_db)):
 
 
 # --- UPDATE VET CONTACT ---
-@router.put("/{vet_id}", response_model=VetContactResponse)
-def update_vet_contact(vet_id: int, vet_data: VetContactUpdate, db: Session = Depends(database.get_db)):
+@router.put("/{vet_id}", response_model=schemas.VetContactResponse)
+def update_vet_contact(vet_id: int, vet_data: schemas.VetContactUpdate, db: Session = Depends(database.get_db)):
     """Update a vet contact"""
     vet = db.query(models.VetContact).filter(models.VetContact.vet_id == vet_id).first()
     

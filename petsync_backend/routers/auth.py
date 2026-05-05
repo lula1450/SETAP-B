@@ -1,21 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
 
-# Import the database connection
 from petsync_backend.database import get_db
-
-# Import the modules so you can use models.Owner and schemas.OwnerCreate
 from petsync_backend import models, schemas
 
 router = APIRouter(prefix="", tags=["Auth"])
 
-class LoginRequest(BaseModel):
-    email: str
-    password: str
-
 @router.post("/login")
-def login(details: LoginRequest, db: Session = Depends(get_db)):
+def login(details: schemas.LoginRequest, db: Session = Depends(get_db)):
     # Use the 'models' prefix consistently
     owner = db.query(models.Owner).filter(models.Owner.owner_email == details.email).first()
     

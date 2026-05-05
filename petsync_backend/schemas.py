@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, ConfigDict
-from datetime import datetime
+from datetime import datetime, date, time
 from typing import Optional, Union, List
 from petsync_backend.models import MetricName
 
@@ -85,3 +85,63 @@ class PetReportResponse(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+# --- 5. AUTH SCHEMAS ---
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+# --- 6. VET CONTACT SCHEMAS ---
+class VetContactCreate(BaseModel):
+    owner_id: int
+    pet_id: Optional[int] = None
+    clinic_name: str
+    phone: str
+    email: str
+    address: str
+
+class VetContactUpdate(BaseModel):
+    pet_id: Optional[int] = None
+    clinic_name: str
+    phone: str
+    email: str
+    address: str
+
+class VetContactResponse(BaseModel):
+    vet_id: int
+    pet_id: Optional[int] = None
+    clinic_name: str
+    phone: str
+    email: str
+    address: str
+    model_config = ConfigDict(from_attributes=True)
+
+# --- 7. APPOINTMENT & SCHEDULE SCHEMAS ---
+class AppointmentCreate(BaseModel):
+    pet_id: int
+    appointment_date: date
+    appointment_time: time
+    notes: Optional[str] = None
+
+class AppointmentUpdate(BaseModel):
+    new_date: date
+    new_time: time
+    notes: Optional[str] = None
+
+class FeedingScheduleCreate(BaseModel):
+    pet_id: int
+    feeding_time: time
+    food_type: str
+
+class FeedingScheduleUpdate(BaseModel):
+    new_time: time
+    food_type: Optional[str] = None
+
+class ReminderCreate(BaseModel):
+    pet_id: int
+    reminder_time: time
+    reminder_message: str
+
+class ReminderUpdate(BaseModel):
+    new_time: time
+    new_message: str

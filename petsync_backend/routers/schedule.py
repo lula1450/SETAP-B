@@ -1,11 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends, status
-from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from datetime import date, time
-from typing import List, Optional
 
-# Database session provider and models
-from petsync_backend import models
+from petsync_backend import models, schemas
 from petsync_backend.database import get_db
 
 router = APIRouter(
@@ -13,41 +9,10 @@ router = APIRouter(
     tags=["Scheduling & Reminders"]
 )
 
-# --- 1. SCHEMAS (Data Validation) ---
-
-class AppointmentCreate(BaseModel):
-    pet_id: int
-    appointment_date: date
-    appointment_time: time
-    notes: Optional[str] = None
-
-class AppointmentUpdate(BaseModel):
-    new_date: date
-    new_time: time
-    notes: Optional[str] = None
-
-class FeedingScheduleCreate(BaseModel):
-    pet_id: int
-    feeding_time: time
-    food_type: str
-
-class FeedingScheduleUpdate(BaseModel):
-    new_time: time
-    food_type: Optional[str] = None
-
-class ReminderCreate(BaseModel):
-    pet_id: int
-    reminder_time: time
-    reminder_message: str
-
-class ReminderUpdate(BaseModel):
-    new_time: time
-    new_message: str
-
-# --- 2. CREATE ROUTES ---
+# --- 1. CREATE ROUTES ---
 
 @router.post("/appointments", status_code=status.HTTP_201_CREATED)
-def create_pet_appointment(appointment: AppointmentCreate, db: Session = Depends(get_db)):
+def create_pet_appointment(appointment: schemas.AppointmentCreate, db: Session = Depends(get_db)):
     new_appointment = models.PetAppointment(
         pet_id=appointment.pet_id,
         pet_appointment_date=appointment.appointment_date,
@@ -61,7 +26,7 @@ def create_pet_appointment(appointment: AppointmentCreate, db: Session = Depends
     return new_appointment
 
 @router.post("/feeding-schedules", status_code=status.HTTP_201_CREATED)
-def create_feeding_schedule(schedule: FeedingScheduleCreate, db: Session = Depends(get_db)):
+def create_feeding_schedule(schedule: schemas.FeedingScheduleCreate, db: Session = Depends(get_db)):
     new_schedule = models.FeedingSchedule(
         pet_id=schedule.pet_id,
         feeding_time=schedule.feeding_time,
@@ -73,7 +38,7 @@ def create_feeding_schedule(schedule: FeedingScheduleCreate, db: Session = Depen
     return new_schedule
 
 @router.post("/reminders", status_code=status.HTTP_201_CREATED)
-def create_reminder(reminder: ReminderCreate, db: Session = Depends(get_db)):
+def create_reminder(reminder: schemas.ReminderCreate, db: Session = Depends(get_db)):
     new_reminder = models.Reminder(
         pet_id=reminder.pet_id,
         reminder_time=reminder.reminder_time,
@@ -100,7 +65,7 @@ def get_feeding_schedules(pet_id: int, db: Session = Depends(get_db)):
 # --- 4. UPDATE ROUTES ---
 
 @router.put("/appointments/{appointment_id}")
-def update_pet_appointment(appointment_id: int, update: AppointmentUpdate, db: Session = Depends(get_db)):
+def update_pet_appointment(appointment_id: int, update: schemas.AppointmentUpdate, db: Session = Depends(get_db)):
     appointment = db.query(models.PetAppointment).filter(
         models.PetAppointment.pet_appointment_id == appointment_id
     ).first()

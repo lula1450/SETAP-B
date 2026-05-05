@@ -3,27 +3,14 @@ from sqlalchemy.orm import Session
 from datetime import datetime
 from petsync_backend.database import get_db
 from petsync_backend.models import HealthMetric, MetricDefinition, MetricName, MetricUnit, Pet, PetGoal
-from pydantic import BaseModel, Field
-from typing import Optional, Union
+from petsync_backend import schemas
 
 router = APIRouter(
     prefix="",
     tags=["Health"]
 )
 
-# --- 1. SCHEMAS (Defined at the top to avoid NameErrors) ---
-
-class HealthMetricLogCreate(BaseModel):
-    pet_id: int = Field(..., gt=0)
-    metric_name: MetricName
-    value: Union[float, int, str]
-    notes: Optional[str] = Field(None, max_length=1000)
-
-class HealthMetricLogResponse(BaseModel):
-    status: str
-    analysis: str
-
-# --- 2. ANALYZE HELPER (Used by the Log route) ---
+# --- 1. ANALYZE HELPER (Used by the Log route) ---
 
 async def analyze_health_metric(pet_id, metric_name, current_value, metric_def, db):
     # Cache the unit immediately before any session issues
@@ -85,8 +72,8 @@ def get_available_metrics(pet_id: int, db: Session = Depends(get_db)):
     ).all()
     return [{"name": d.metric_name.value, "unit": d.metric_unit.value} for d in definitions]
 
-@router.post("/log", response_model=HealthMetricLogResponse)
-async def log_health_metric(log: HealthMetricLogCreate, db: Session = Depends(get_db)):
+@router.post("/log", response_model=schemas.HealthMetricLogResponse)
+async def log_health_metric(log: schemas.HealthMetricLogCreate, db: Session = Depends(get_db)):
     pet = db.query(Pet).filter(Pet.pet_id == log.pet_id).first()
     if not pet:
         raise HTTPException(status_code=404, detail="Pet not found.")
