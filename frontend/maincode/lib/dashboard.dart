@@ -535,6 +535,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
   void _showBookingDialog(int day) async {
     final notesController = TextEditingController();
+    final vetController = TextEditingController();
     final TimeOfDay? pickedTime = await showTimePicker(
       context: context,
       initialTime: TimeOfDay.now(),
@@ -563,12 +564,21 @@ class _DashboardPageState extends State<DashboardPage> {
       }
 
       int? selectedPetId = _pets.isNotEmpty ? _pets[_selectedPetIndex]['pet_id'] : null;
-      String? selectedVetName;
 
       showDialog(
         context: context,
         builder: (context) => StatefulBuilder(
-          builder: (context, setDialogState) => AlertDialog(
+          builder: (context, setDialogState) {
+            // Build filtered vet list for current pet selection
+            final Map<String, String> filteredVets = {};
+            for (var vet in _vetContacts) {
+              if (vet['pet_id'] == selectedPetId || vet['pet_id'] == null) {
+                final name = (vet['clinic_name'] ?? vet['name'] ?? '') as String;
+                if (name.isNotEmpty) filteredVets[name] = name;
+              }
+            }
+
+            return AlertDialog(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
             title: Text("New Appointment: $day/${_focusedDay.month}"),
             content: Column(
@@ -595,14 +605,14 @@ class _DashboardPageState extends State<DashboardPage> {
                       }).toList(),
                       onChanged: (val) => setDialogState(() {
                         selectedPetId = val;
-                        selectedVetName = null; // Reset vet selection when pet changes
+                        vetController.clear();
                       }),
                     ),
                   ),
                   const SizedBox(height: 12),
                 ],
-                // Vet Selector (filtered by selected pet)
-                if (_vetContacts.isNotEmpty && selectedPetId != null) ...[
+                // Quick-pick from saved contacts (only shown when contacts exist)
+                if (filteredVets.isNotEmpty) ...[
                   InputDecorator(
                     decoration: InputDecoration(
                       labelText: "Vet Clinic",
@@ -610,35 +620,28 @@ class _DashboardPageState extends State<DashboardPage> {
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     ),
                     child: DropdownButton<String>(
-                      value: selectedVetName,
+                      value: filteredVets.containsKey(vetController.text) ? vetController.text : null,
                       isExpanded: true,
                       underline: const SizedBox(),
-                      hint: const Text("Select vet (optional)"),
-                      items: () {
-                        // Show vets assigned to selected pet, or with no pet assigned
-                        final Map<String, Map<String, dynamic>> uniqueVets = {};
-                        for (var vet in _vetContacts) {
-                          if (vet['pet_id'] == selectedPetId || vet['pet_id'] == null) {
-                            final clinicName = (vet['clinic_name'] ?? vet['name'] ?? '') as String;
-                            if (!uniqueVets.containsKey(clinicName)) {
-                              uniqueVets[clinicName] = vet;
-                            }
-                          }
-                        }
-                        
-                        return uniqueVets.entries.map<DropdownMenuItem<String>>((entry) {
-                          final clinicName = entry.key;
-                          final vet = entry.value;
-                          final phone = (vet['phone'] ?? '') as String;
-                          final displayText = phone.isNotEmpty ? '$clinicName - $phone' : clinicName;
-                          return DropdownMenuItem<String>(value: clinicName, child: Text(displayText));
-                        }).toList();
-                      }(),
-                      onChanged: (val) => setDialogState(() => selectedVetName = val),
+                      hint: const Text("Select from saved contacts"),
+                      items: filteredVets.keys.map<DropdownMenuItem<String>>((name) {
+                        return DropdownMenuItem<String>(value: name, child: Text(name));
+                      }).toList(),
+                      onChanged: (val) => setDialogState(() => vetController.text = val ?? ''),
                     ),
                   ),
                   const SizedBox(height: 12),
                 ],
+                // Always-visible vet name field
+                TextField(
+                  controller: vetController,
+                  decoration: const InputDecoration(
+                    labelText: 'Vet / Clinic (optional)',
+                    hintText: 'e.g. Happy Paws Veterinary',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
                 TextField(
                   controller: notesController,
                   decoration: const InputDecoration(hintText: "Notes (optional)"),
@@ -660,12 +663,13 @@ class _DashboardPageState extends State<DashboardPage> {
                     return;
                   }
 
+                  final vetName = vetController.text.trim();
                   final note = notesController.text.trim();
                   final String formattedNotes;
-                  if (selectedVetName != null && note.isNotEmpty) {
-                    formattedNotes = "$selectedVetName - $note";
-                  } else if (selectedVetName != null) {
-                    formattedNotes = selectedVetName!;
+                  if (vetName.isNotEmpty && note.isNotEmpty) {
+                    formattedNotes = "$vetName - $note";
+                  } else if (vetName.isNotEmpty) {
+                    formattedNotes = vetName;
                   } else {
                     formattedNotes = note;
                   }
@@ -686,7 +690,8 @@ class _DashboardPageState extends State<DashboardPage> {
                 child: const Text("Confirm", style: TextStyle(color: Colors.white)),
               ),
             ],
-          ),
+          );
+          },
         ),
       );
     }
