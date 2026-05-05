@@ -37,15 +37,51 @@ def delete_owner(owner_id: int, db: Session = Depends(database.get_db)):
     pets = db.query(models.Pet).filter(models.Pet.owner_id == owner_id).all()
 
     for pet in pets:
-        #Deletes Pet Appointment
+        # Delete Pet Metadata
+        db.query(models.PetMetaData).filter(
+            models.PetMetaData.pet_id == pet.pet_id
+        ).delete()
+        
+        # Delete Pet Goals
+        db.query(models.PetGoal).filter(
+            models.PetGoal.pet_id == pet.pet_id
+        ).delete()
+        
+        # Delete Feeding Schedules (and their associated reminders first)
+        feeding_schedules = db.query(models.FeedingSchedule).filter(
+            models.FeedingSchedule.pet_id == pet.pet_id
+        ).all()
+        for schedule in feeding_schedules:
+            db.query(models.Reminder).filter(
+                models.Reminder.feeding_schedule_id == schedule.feeding_schedule_id
+            ).delete()
+        db.query(models.FeedingSchedule).filter(
+            models.FeedingSchedule.pet_id == pet.pet_id
+        ).delete()
+        
+        # Delete Pet Appointments (and their associated reminders first)
+        appointments = db.query(models.PetAppointment).filter(
+            models.PetAppointment.pet_id == pet.pet_id
+        ).all()
+        for appointment in appointments:
+            db.query(models.Reminder).filter(
+                models.Reminder.pet_appointment_id == appointment.pet_appointment_id
+            ).delete()
         db.query(models.PetAppointment).filter(
             models.PetAppointment.pet_id == pet.pet_id
         ).delete()
-        #Delete Health Metrics
+        
+        # Delete Health Metrics
         db.query(models.HealthMetric).filter(
             models.HealthMetric.pet_id == pet.pet_id
         ).delete()
-        #Deletes pet
+        
+        # Delete Pet Reports
+        db.query(models.PetReport).filter(
+            models.PetReport.pet_id == pet.pet_id
+        ).delete()
+        
+        # Delete pet
         db.delete(pet)
 
     # 2. Delete the owner 
