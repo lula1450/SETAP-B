@@ -739,7 +739,7 @@ class _DashboardPageState extends State<DashboardPage> {
         child: SingleChildScrollView(
           child: Column(
             children: [
-              _calendarSection(),
+              _calendarSection(_getPetColor(_selectedPetIndex)),
               _buildDailySchedule(),
               _actionButtonsSection(context),
               _dailyInfoSection(),
@@ -777,7 +777,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
               IconButton(
-                icon: Icon(Icons.add_circle, color: Colors.white.withValues(alpha: 0.75)),
+                icon: const Icon(Icons.add_circle, color: Colors.black),
                 onPressed: () => _showBookingDialog(_selectedDay!),
               ),
             ],
@@ -1136,7 +1136,7 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  Widget _calendarSection() {
+  Widget _calendarSection(Color petColor) {
     return SizedBox(
       height: 420,
       child: Align(
@@ -1156,7 +1156,20 @@ class _DashboardPageState extends State<DashboardPage> {
               ),
             ],
           ),
-          child: _buildCalendar(),
+          child: Stack(
+            children: [
+              Center(
+                child: SizedBox(
+                  width: 360,
+                  height: 360,
+                  child: CustomPaint(
+                    painter: _PawPainter(color: Colors.white.withValues(alpha: 0.18), showBorder: false),
+                  ),
+                ),
+              ),
+              _buildCalendar(),
+            ],
+          ),
         ),
       ),
     );
@@ -1208,30 +1221,7 @@ class _DashboardPageState extends State<DashboardPage> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _gridButton(
-            "$petName's\nReport",
-            petColor,
-            onTap: () {
-              if (_pets.isNotEmpty) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => ReportsPage(
-                      petId: _pets[_selectedPetIndex]['pet_id'],
-                      petName: _pets[_selectedPetIndex]['pet_first_name'],
-                      petImagePath: _pets[_selectedPetIndex]['pet_image_path'] as String?,
-                    ),
-                  ),
-                );
-              } else {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const AddPetPage()),
-                ).then((_) => _fetchPets());
-              }
-            },
-          ),
+          _reportPawButton(context, petColor),
           _gridButton(
             "$petName's\nHealth Records",
             petColor,
@@ -1325,7 +1315,7 @@ class _DashboardPageState extends State<DashboardPage> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _actionButton(context, "Log $currentPetName's metrics", petColor),
+          _logMetricPawButton(context, currentPetName, petColor),
           _actionButton(context, "$currentPetName's recently\nlogged data", petColor),
           _actionButton(context, "Find out\nmore about $currentPetName", petColor),
           _upcomingAppointmentButton(context, petColor),
@@ -1490,6 +1480,85 @@ class _DashboardPageState extends State<DashboardPage> {
       ),
     );
   }
+
+  Widget _logMetricPawButton(BuildContext context, String petName, Color petColor) {
+    return GestureDetector(
+      onTap: () {
+        if (_pets.isEmpty) return;
+        final currentPet = _pets[_selectedPetIndex];
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => MetricsPage(
+              petId: currentPet['pet_id'],
+              petName: currentPet['pet_first_name'],
+              petIndex: _selectedPetIndex,
+              petImagePath: currentPet['pet_image_path'] as String?,
+            ),
+          ),
+        ).then((_) => _updateDailyAdvice());
+      },
+      child: SizedBox(
+        width: 100,
+        height: 90,
+        child: CustomPaint(
+          painter: _PawPainter(color: petColor.withValues(alpha: 0.35)),
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.only(top: 32),
+              child: Text(
+                "Metrics",
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _reportPawButton(BuildContext context, Color petColor) {
+    return GestureDetector(
+      onTap: () {
+        if (_pets.isNotEmpty) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ReportsPage(
+                petId: _pets[_selectedPetIndex]['pet_id'],
+                petName: _pets[_selectedPetIndex]['pet_first_name'],
+                petImagePath: _pets[_selectedPetIndex]['pet_image_path'] as String?,
+              ),
+            ),
+          );
+        } else {
+          Navigator.pop(context);
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const AddPetPage()),
+          ).then((_) => _fetchPets());
+        }
+      },
+      child: SizedBox(
+        width: 100,
+        height: 90,
+        child: CustomPaint(
+          painter: _PawPainter(color: petColor.withValues(alpha: 0.35)),
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.only(top: 32),
+              child: const Text(
+                "Report",
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _ReminderDialog extends StatefulWidget {
@@ -1586,4 +1655,47 @@ class _ReminderDialogState extends State<_ReminderDialog> {
       ],
     );
   }
+}
+
+class _PawPainter extends CustomPainter {
+  final Color color;
+  final bool showBorder;
+  _PawPainter({required this.color, this.showBorder = true});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final fill = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+    final border = Paint()
+      ..color = Colors.black12
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+
+    // Main pad
+    final mainPad = Rect.fromCenter(
+      center: Offset(size.width * 0.5, size.height * 0.68),
+      width: size.width * 0.58,
+      height: size.height * 0.44,
+    );
+    canvas.drawOval(mainPad, fill);
+    if (showBorder) canvas.drawOval(mainPad, border);
+
+    // 4 toe pads
+    final toeW = size.width * 0.22;
+    final toeH = size.height * 0.22;
+    for (final center in [
+      Offset(size.width * 0.18, size.height * 0.32),
+      Offset(size.width * 0.38, size.height * 0.18),
+      Offset(size.width * 0.62, size.height * 0.18),
+      Offset(size.width * 0.82, size.height * 0.32),
+    ]) {
+      final toe = Rect.fromCenter(center: center, width: toeW, height: toeH);
+      canvas.drawOval(toe, fill);
+      if (showBorder) canvas.drawOval(toe, border);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_PawPainter old) => old.color != color || old.showBorder != showBorder;
 }
