@@ -156,9 +156,10 @@ class _MedicalDocument {
 class HealthRecordsPage extends StatefulWidget {
   final String petId;
   final String petName;
+  final int petIndex;
   final String? petImagePath;
 
-  const HealthRecordsPage({super.key, this.petId = 'default', this.petName = '', this.petImagePath});
+  const HealthRecordsPage({super.key, this.petId = 'default', this.petName = '', this.petIndex = 0, this.petImagePath});
 
   @override
   State<HealthRecordsPage> createState() => _HealthRecordsPageState();
@@ -171,6 +172,7 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
   List<_MedicalDocument> _documents = [];
 
   bool _isLoading = true;
+  late String _currentPetName; // Track the current pet name
 
   String get _medKey => 'health_medications_${widget.petId}';
   String get _allergyKey => 'health_allergies_${widget.petId}';
@@ -250,7 +252,32 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
   @override
   void initState() {
     super.initState();
+    _currentPetName = widget.petName;
     _loadData();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Sync pet name when page comes back from other routes
+    // Use a post-frame callback to avoid setState during build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _syncPetName();
+    });
+  }
+
+  Future<void> _syncPetName() async {
+    // Try to get petId as int if possible
+    final petIdInt = int.tryParse(widget.petId);
+    if (petIdInt != null && mounted) {
+      final prefs = await SharedPreferences.getInstance();
+      final updatedName = prefs.getString('pet_name_$petIdInt');
+      if (updatedName != null && updatedName != _currentPetName && mounted) {
+        setState(() {
+          _currentPetName = updatedName;
+        });
+      }
+    }
   }
 
   // Document upload flow
@@ -828,6 +855,22 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
     };
   }
 
+  Color _getPetColor(int index) {
+    final List<Color> nameColors = [
+      const Color.fromARGB(255, 146, 179, 236), // Blue
+      const Color.fromRGBO(212, 162, 221, 1), // Purple
+      const Color.fromARGB(255, 182, 139, 83), // Brown/Gold
+      const Color.fromRGBO(223, 128, 158, 1), // Pink
+      const Color.fromARGB(255, 126, 140, 224), // Indigo
+      const Color.fromARGB(255, 255, 171, 145), // Coral
+      const Color.fromARGB(255, 167, 235, 244), // Cyan
+      const Color.fromARGB(255, 219, 247, 240), // Mint
+    ];
+
+    if (index < 0) return Colors.grey;
+    return nameColors[index % nameColors.length];
+  }
+
   // Build
 
   @override
@@ -852,12 +895,12 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
                       : FileImage(File(widget.petImagePath!)))
                   : null,
               child: (widget.petImagePath == null || widget.petImagePath!.isEmpty)
-                  ? const Icon(Icons.add_a_photo, size: 25, color: Color(0xFF8BAEAE))
+                  ? Icon(Icons.add_a_photo, size: 25, color: _getPetColor(widget.petIndex))
                   : null,
             ),
             const SizedBox(height: 8),
             Text(
-              widget.petName.isNotEmpty ? "${widget.petName}'s Health Records" : 'Health Records',
+              _currentPetName.isNotEmpty ? "$_currentPetName's Health Records" : 'Health Records',
               style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.black, fontSize: 18),
             ),
           ],

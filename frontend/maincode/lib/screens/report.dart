@@ -14,9 +14,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ReportsPage extends StatefulWidget {
   final int petId;
   final String petName;
+  final int petIndex;
   final String? petImagePath;
 
-  const ReportsPage({super.key, required this.petId, required this.petName, this.petImagePath});
+  const ReportsPage({super.key, required this.petId, required this.petName, required this.petIndex, this.petImagePath});
 
   @override
   State<ReportsPage> createState() => _ReportsPageState();
@@ -31,11 +32,33 @@ class _ReportsPageState extends State<ReportsPage> {
   final Set<String> _customMetrics = {};
   final GlobalKey _chartKey = GlobalKey();
   DateTimeRange? _selectedDateRange;
+  late String _currentPetName; // Track the current pet name
 
   @override
   void initState() {
     super.initState();
+    _currentPetName = widget.petName;
     _initializePage();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Sync pet name when page comes back from other routes
+    // Use a post-frame callback to avoid setState during build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _syncPetName();
+    });
+  }
+
+  Future<void> _syncPetName() async {
+    final prefs = await SharedPreferences.getInstance();
+    final updatedName = prefs.getString('pet_name_${widget.petId}');
+    if (updatedName != null && updatedName != _currentPetName && mounted) {
+      setState(() {
+        _currentPetName = updatedName;
+      });
+    }
   }
 
   // Initialize page: fetch which metrics have logged data, pick a sensible default, then load data
@@ -328,11 +351,11 @@ class _ReportsPageState extends State<ReportsPage> {
                       : FileImage(File(widget.petImagePath!)))
                   : null,
               child: (widget.petImagePath == null || widget.petImagePath!.isEmpty)
-                  ? const Icon(Icons.add_a_photo, size: 25, color: Color(0xFF8BAEAE))
+                  ? Icon(Icons.add_a_photo, size: 25, color: _getPetColor(widget.petIndex))
                   : null,
             ),
             const SizedBox(height: 8),
-            Text('${widget.petName}\'s Report', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black, fontSize: 18)),
+            Text('$_currentPetName\'s Report', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black, fontSize: 18)),
           ],
         ),
         actions: [
@@ -425,7 +448,7 @@ class _ReportsPageState extends State<ReportsPage> {
                         // Capture the chart image from the RepaintBoundary
                         Uint8List chartImage = await _capturePng();
                         // Generate and preview the PDF with the captured image
-                        await PdfHelper.generateReport(widget.petName, _analysisData, chartImage, dateRange: _selectedDateRange);
+                        await PdfHelper.generateReport(_currentPetName, _analysisData, chartImage, dateRange: _selectedDateRange);
                       } catch (e) {
                         debugPrint('PDF preview error: $e');
                         if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not generate preview')));
@@ -437,6 +460,22 @@ class _ReportsPageState extends State<ReportsPage> {
             ),
       ),
     );
+  }
+
+  Color _getPetColor(int index) {
+    final List<Color> nameColors = [
+      const Color.fromARGB(255, 146, 179, 236), // Blue
+      const Color.fromRGBO(212, 162, 221, 1), // Purple
+      const Color.fromARGB(255, 182, 139, 83), // Brown/Gold
+      const Color.fromRGBO(223, 128, 158, 1), // Pink
+      const Color.fromARGB(255, 126, 140, 224), // Indigo
+      const Color.fromARGB(255, 255, 171, 145), // Coral
+      const Color.fromARGB(255, 167, 235, 244), // Cyan
+      const Color.fromARGB(255, 219, 247, 240), // Mint
+    ];
+
+    if (index < 0) return Colors.grey;
+    return nameColors[index % nameColors.length];
   }
 
   // --- Settings Drawer (using shared AppDrawer) ---

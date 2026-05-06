@@ -400,6 +400,13 @@ class _DashboardPageState extends State<DashboardPage> {
                 lastNameController.text.trim(),
               );
               if (success) {
+                // Store the pet name change in SharedPreferences for all pages to access
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.setString('pet_name_${pet['pet_id']}', newFirst);
+                if (lastNameController.text.trim().isNotEmpty) {
+                  await prefs.setString('pet_last_name_${pet['pet_id']}', lastNameController.text.trim());
+                }
+                
                 _fetchPets();
                 messenger.showSnackBar(
                   SnackBar(content: Text("${pet['pet_first_name']} renamed to $newFirst")),
@@ -1210,6 +1217,7 @@ class _DashboardPageState extends State<DashboardPage> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           _infoBox("Daily fun fact for $petName:", _dailyFact, petColor),
           const SizedBox(height: 10),
@@ -1235,6 +1243,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 builder: (context) => HealthRecordsPage(
                   petId: _pets[_selectedPetIndex]['pet_id'].toString(),
                   petName: _pets[_selectedPetIndex]['pet_first_name'] as String,
+                  petIndex: _selectedPetIndex,
                   petImagePath: _pets[_selectedPetIndex]['pet_image_path'] as String?,
                 ),
               ),
@@ -1275,13 +1284,16 @@ class _DashboardPageState extends State<DashboardPage> {
         border: Border.all(color: Colors.black12),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(
             title,
             style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+            textAlign: TextAlign.center,
           ),
           const SizedBox(height: 4),
-          Text(content, style: const TextStyle(fontSize: 14)),
+          Text(content, style: const TextStyle(fontSize: 14), textAlign: TextAlign.center),
         ],
       ),
     );
@@ -1453,6 +1465,7 @@ class _DashboardPageState extends State<DashboardPage> {
               builder: (context) => RecentlyLoggedDataPage(
                 petId: currentPet['pet_id'],
                 petName: currentPet['pet_first_name'],
+                petIndex: _selectedPetIndex,
                 petImagePath: currentPet['pet_image_path'] as String?,
               ),
             ),
@@ -1532,6 +1545,7 @@ class _DashboardPageState extends State<DashboardPage> {
               builder: (context) => ReportsPage(
                 petId: _pets[_selectedPetIndex]['pet_id'],
                 petName: _pets[_selectedPetIndex]['pet_first_name'],
+                petIndex: _selectedPetIndex,
                 petImagePath: _pets[_selectedPetIndex]['pet_image_path'] as String?,
               ),
             ),

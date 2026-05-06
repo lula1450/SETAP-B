@@ -35,6 +35,7 @@ class _MetricsPageState extends State<MetricsPage> {
   Map<String, String> _customUnits = {};
   List<String> _favorites = [];
   String? _lastLoggedMetric;
+  late String _currentPetName; // Track the current pet name
 
   // Metrics where setting a target doesn't make clinical sense
   static const _noTargetMetrics = {
@@ -47,8 +48,29 @@ class _MetricsPageState extends State<MetricsPage> {
   @override
   void initState() {
     super.initState();
+    _currentPetName = widget.petName;
     _loadFavorites();
     _loadMetricsThenRefresh();
+  }
+
+  Future<void> _syncPetName() async {
+    final prefs = await SharedPreferences.getInstance();
+    final updatedName = prefs.getString('pet_name_${widget.petId}');
+    if (updatedName != null && updatedName != _currentPetName && mounted) {
+      setState(() {
+        _currentPetName = updatedName;
+      });
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Sync pet name when page comes back from other routes
+    // Use a post-frame callback to avoid setState during build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _syncPetName();
+    });
   }
 
   Future<void> _loadMetricsThenRefresh() async {
@@ -90,6 +112,16 @@ class _MetricsPageState extends State<MetricsPage> {
       await prefs.remove('custom_current_${widget.petId}_$key');
       await prefs.remove('custom_target_${widget.petId}_$key');
       await prefs.remove('custom_history_${widget.petId}_$key');
+      
+      // Clear last logged metric if it matches the deleted metric
+      final lastLogged = prefs.getString('last_logged_metric_${widget.petId}');
+      if (lastLogged != null) {
+        final lastLoggedTitle = lastLogged.split('|').first;
+        if (lastLoggedTitle == name) {
+          await prefs.remove('last_logged_metric_${widget.petId}');
+        }
+      }
+      
       setState(() {
         _customUnits = updatedUnits;
         _customMetricNames.remove(name);
@@ -194,8 +226,7 @@ class _MetricsPageState extends State<MetricsPage> {
                         trailing: IconButton(
                           icon: const Icon(Icons.delete_outline, color: Colors.red),
                           onPressed: () {
-                            _removeMetric(name);
-                            setDialogState(() {});
+                            _showDeleteConfirmationDialog(name);
                           },
                         ),
                       );
@@ -206,6 +237,37 @@ class _MetricsPageState extends State<MetricsPage> {
             TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Done")),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showDeleteConfirmationDialog(String metricName) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        title: const Text("Confirm Deletion"),
+        content: Text(
+          "Are you sure you want to delete '$metricName'? This metric and all its logged data will be removed from the Metrics page, Recently Logged page, and Reports page. This action cannot be undone.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("Cancel"),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              await _removeMetric(metricName);
+              if (mounted) {
+                Navigator.pop(ctx); // Close confirmation dialog
+                // Update parent dialog to reflect changes
+                setState(() {});
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text("Delete", style: TextStyle(color: Colors.white)),
+          ),
+        ],
       ),
     );
   }
@@ -560,43 +622,6 @@ class _MetricsPageState extends State<MetricsPage> {
                   ),
                   const SizedBox(height: 8),
                 ],
-                if (showValue) ...[
-                  if (isScale) ...[
-                    Text("Current $title", style: const TextStyle(fontSize: 13, color: Colors.grey)),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        const Text('1', style: TextStyle(color: Colors.grey, fontSize: 13)),
-                        Expanded(
-                          child: Slider(
-                            value: sliderVal,
-                            min: 1, max: 5, divisions: 4,
-                            activeColor: const Color(0xFF8BAEAE),
-                            label: sliderVal.round().toString(),
-                            onChanged: (v) => setDialogState(() {
-                              sliderVal = v;
-                              valueController.text = v.round().toString();
-                            }),
-                          ),
-                        ),
-                        const Text('5', style: TextStyle(color: Colors.grey, fontSize: 13)),
-                      ],
-                    ),
-                    Center(
-                      child: Text('${sliderVal.round()} / 5',
-                          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-                    ),
-                  ] else TextField(
-                    controller: valueController,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: InputDecoration(
-                      labelText: "Current $title",
-                      hintText: isWaterIntake ? (waterUnit == 'L' ? "e.g. 1.5" : "e.g. 1500") : "e.g. 4.5",
-                      suffixText: displayUnit,
-                    ),
-                  ),
-                ],
-                if (showValue && showTarget) const SizedBox(height: 16),
                 if (showTarget) ...[
                   if (isScale) ...[
                     Text("Target $title", style: const TextStyle(fontSize: 13, color: Colors.grey)),
@@ -629,6 +654,43 @@ class _MetricsPageState extends State<MetricsPage> {
                     decoration: InputDecoration(
                       labelText: "Target Goal",
                       hintText: isWaterIntake ? (waterUnit == 'L' ? "e.g. 2.0" : "e.g. 2000") : "e.g. 5.0",
+                      suffixText: displayUnit,
+                    ),
+                  ),
+                ],
+                if (showValue && showTarget) const SizedBox(height: 16),
+                if (showValue) ...[
+                  if (isScale) ...[
+                    Text("Current $title", style: const TextStyle(fontSize: 13, color: Colors.grey)),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const Text('1', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                        Expanded(
+                          child: Slider(
+                            value: sliderVal,
+                            min: 1, max: 5, divisions: 4,
+                            activeColor: const Color(0xFF8BAEAE),
+                            label: sliderVal.round().toString(),
+                            onChanged: (v) => setDialogState(() {
+                              sliderVal = v;
+                              valueController.text = v.round().toString();
+                            }),
+                          ),
+                        ),
+                        const Text('5', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                      ],
+                    ),
+                    Center(
+                      child: Text('${sliderVal.round()} / 5',
+                          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                    ),
+                  ] else TextField(
+                    controller: valueController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: InputDecoration(
+                      labelText: "Current $title",
+                      hintText: isWaterIntake ? (waterUnit == 'L' ? "e.g. 1.5" : "e.g. 1500") : "e.g. 4.5",
                       suffixText: displayUnit,
                     ),
                   ),
@@ -791,7 +853,7 @@ class _MetricsPageState extends State<MetricsPage> {
                   : null,
             ),
             const SizedBox(height: 8),
-            Text("${widget.petName}'s Metrics", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black, fontSize: 18)),
+            Text("$_currentPetName's Metrics", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black, fontSize: 18)),
           ],
         ),
       ),
