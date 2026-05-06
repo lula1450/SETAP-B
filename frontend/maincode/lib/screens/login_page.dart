@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:maincode/screens/register.dart';
-import '../services/auth_service.dart';
+import '../../services/auth_service.dart';
 import 'dashboard.dart';
 
 class LoginPage extends StatefulWidget {
