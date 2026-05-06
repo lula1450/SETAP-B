@@ -1,18 +1,25 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
+import bcrypt
 from petsync_backend import models, schemas, database
 
 router = APIRouter()
 
+
+def _hash_password(plain: str) -> str:
+    return bcrypt.hashpw(plain.encode(), bcrypt.gensalt()).decode()
+
+
 @router.post("/", response_model=schemas.OwnerResponse, status_code=201)
 def create_owner(owner: schemas.OwnerCreate, db: Session = Depends(database.get_db)):
-    # Check if email already exists
     db_owner = db.query(models.Owner).filter(models.Owner.owner_email == owner.owner_email).first()
     if db_owner:
         raise HTTPException(status_code=400, detail="Email already registered")
-    
-    new_owner = models.Owner(**owner.model_dump())
+
+    data = owner.model_dump()
+    data["password"] = _hash_password(data["password"])
+    new_owner = models.Owner(**data)
     db.add(new_owner)
     db.commit()
     db.refresh(new_owner)
@@ -108,6 +115,8 @@ async def update_owner(owner_id: int, owner_data: schemas.OwnerUpdate, db: Sessi
 
     # Update only the fields provided in the request (excluding None values)
     update_data = owner_data.model_dump(exclude_unset=True)
+    if "password" in update_data and update_data["password"] is not None:
+        update_data["password"] = _hash_password(update_data["password"])
     for key, value in update_data.items():
         if value is not None and hasattr(db_owner, key):
             print(f"DEBUG: Setting {key} = {value}")
