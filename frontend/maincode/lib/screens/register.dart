@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:maincode/add_pet.dart';
+import 'package:maincode/screens/add_pet.dart';
 import 'package:maincode/services/auth_service.dart';
 
 class RegisterPage extends StatefulWidget {

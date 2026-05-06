@@ -1,5 +1,5 @@
 import pytest
-from petsync_backend.calculations import check_15_percent_deviation, calculate_daily_mean
+from petsync_backend.utils.calculations import check_15_percent_deviation, calculate_daily_mean
 
 """
 export PYTHONPATH=$PYTHONPATH:. && pytest petsync_backend/routers/tests/test_calculations.py -vv

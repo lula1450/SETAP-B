@@ -53,7 +53,9 @@ app.include_router(reports.router, prefix="/reports", tags=["reports"])
 app.include_router(owners.router, prefix="/owners", tags=["owners"])
 
 _static_dir = os.path.join(os.path.dirname(__file__), "static")
+_seed_images_dir = os.path.join(os.path.dirname(__file__), "seed", "images")
 app.mount("/static", StaticFiles(directory=_static_dir), name="static")
+app.mount("/static/seed_images", StaticFiles(directory=_seed_images_dir), name="seed_images")
 
 @app.get("/")
 async def root():

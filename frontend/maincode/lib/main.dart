@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:maincode/login_page.dart';
-import 'package:maincode/route_observer.dart';
+import 'package:maincode/screens/login_page.dart';
+import 'package:maincode/screens/route_observer.dart';
 import 'package:maincode/services/notification_service.dart';
 
 

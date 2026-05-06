@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'services/pet_info_service.dart';
+import '../services/pet_info_service.dart';
 import 'package:maincode/widgets/app_drawer.dart';
 
 class PetInfoPage extends StatelessWidget {

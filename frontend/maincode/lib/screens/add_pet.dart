@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:maincode/services/pet_service.dart';
-import 'package:maincode/dashboard.dart'; // Ensure this path matches your project structure
+import 'package:maincode/screens/dashboard.dart'; // Ensure this path matches your project structure
 
 class AddPetPage extends StatefulWidget {
   const AddPetPage({super.key});

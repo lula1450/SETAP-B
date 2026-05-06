@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from petsync_backend.models import (
     Pet, PetReport, ReportFrequency, HealthMetric, MetricDefinition, MetricName
 )
-from petsync_backend.calculations import check_15_percent_deviation
+from petsync_backend.utils.calculations import check_15_percent_deviation
 
 
 def generate_report_for_pet(

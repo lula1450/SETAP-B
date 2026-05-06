@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:maincode/login_page.dart';
-import 'package:maincode/edit_profile.dart';
-import 'package:maincode/notfications.dart';
-import 'package:maincode/report_history.dart';
+import 'package:maincode/screens/login_page.dart';
+import 'package:maincode/screens/edit_profile.dart';
+import 'package:maincode/screens/notfications.dart';
+import 'package:maincode/screens/report_history.dart';
 import 'package:maincode/services/auth_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 

@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from petsync_backend.database import get_db
 from petsync_backend.models import HealthMetric, MetricDefinition, Pet, MetricName, PetReport
-from petsync_backend.calculations import check_15_percent_deviation
+from petsync_backend.utils.calculations import check_15_percent_deviation
 from fastapi.responses import StreamingResponse
 from petsync_backend.utils.pdf_generator import generate_health_pdf
 from petsync_backend.utils.report_generator import get_report_history
