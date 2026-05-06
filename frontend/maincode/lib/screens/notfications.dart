@@ -79,6 +79,8 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
     final ownerId = prefs.getInt('owner_id') ?? 0;
     final data = await _petService.getOwnerPets(ownerId);
 
+    final deletedFeedingIds = prefs.getStringList('deleted_feeding_ids') ?? [];
+
     final Map<int, Map<String, Map<String, dynamic>>> localEvents = {};
     final localJson = prefs.getString('offline_feeding_schedule');
     if (localJson != null) {
@@ -112,6 +114,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
     final schedules = await _petService.getFeedingSchedules(id);
     for (var s in schedules) {
       final scheduleId = 'backend_${s['feeding_schedule_id']}';
+      if (deletedFeedingIds.contains(scheduleId)) continue;
       final raw = s['feeding_time'] as String? ?? '';
       TimeOfDay t = const TimeOfDay(hour: 8, minute: 0);
       try {
