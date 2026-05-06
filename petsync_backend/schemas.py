@@ -137,11 +137,18 @@ class FeedingScheduleUpdate(BaseModel):
     new_time: time
     food_type: Optional[str] = None
 
-class ReminderCreate(BaseModel):
-    pet_id: int
-    reminder_time: time
-    reminder_message: str
+class ReminderStatusUpdate(BaseModel):
+    status: str
 
-class ReminderUpdate(BaseModel):
-    new_time: time
-    new_message: str
+class ReminderPending(BaseModel):
+    reminder_id: int
+    reminder_datetime: datetime
+    type: str
+    pet_id: int
+    pet_name: str
+    title: str
+    body: str
+    appointment_id: Optional[int] = None
+    feeding_schedule_id: Optional[int] = None
+    feeding_hour: Optional[int] = None
+    feeding_minute: Optional[int] = None

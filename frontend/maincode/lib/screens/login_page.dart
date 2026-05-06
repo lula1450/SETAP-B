@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:maincode/screens/register.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/auth_service.dart';
+import '../../services/reminder_sync_service.dart';
 import 'dashboard.dart';
 
 class LoginPage extends StatefulWidget {
@@ -35,9 +37,14 @@ class _LoginPageState extends State<LoginPage> {
     if (mounted) {
       setState(() => _isLoading = false);
       if (success) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const DashboardPage()),
+        final navigator = Navigator.of(context);
+        final prefs = await SharedPreferences.getInstance();
+        final ownerId = prefs.getInt('owner_id');
+        if (ownerId != null) {
+          ReminderSyncService().syncReminders(ownerId);
+        }
+        navigator.pushReplacement(
+          MaterialPageRoute(builder: (_) => const DashboardPage()),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -129,7 +136,7 @@ class _LoginPageState extends State<LoginPage> {
         hintText: hint,
         prefixIcon: Icon(icon, color: const Color(0xFF8BAEAE)),
         filled: true,
-        fillColor: Colors.white.withOpacity(0.9),
+        fillColor: Colors.white.withValues(alpha: 0.9),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
       ),
     );
@@ -154,7 +161,7 @@ class _LoginPageState extends State<LoginPage> {
           },
         ),
         filled: true,
-        fillColor: Colors.white.withOpacity(0.9),
+        fillColor: Colors.white.withValues(alpha: 0.9),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
       ),
     );
