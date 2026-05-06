@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:maincode/screens/petinfo.dart';
 import 'package:maincode/screens/recentlylogged.dart';
@@ -16,6 +15,8 @@ import 'package:maincode/services/advice_service.dart';
 import 'package:maincode/services/notification_service.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:maincode/widgets/app_drawer.dart';
+import 'package:maincode/utils/url_helper.dart';
+import 'package:maincode/utils/image_provider_helper.dart';
 
 class DashboardPage extends StatefulWidget {
   final int? initialPetId;
@@ -1090,8 +1091,8 @@ class _DashboardPageState extends State<DashboardPage> {
             backgroundColor: Colors.white,
             backgroundImage: (imagePath != null && imagePath.isNotEmpty)
                 ? (imagePath.startsWith('http')
-                    ? NetworkImage(imagePath.replaceFirst('http://localhost', 'http://10.0.2.2')) as ImageProvider
-                    : FileImage(File(imagePath)))
+                    ? NetworkImage(UrlHelper.getImageUrl(imagePath)) as ImageProvider
+                    : buildLocalFileImage(imagePath))
                 : null,
             child: (imagePath == null || imagePath.isEmpty)
                 ? Icon(

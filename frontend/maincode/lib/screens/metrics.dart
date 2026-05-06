@@ -1,9 +1,10 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:maincode/widgets/app_drawer.dart';
+import 'package:maincode/utils/image_provider_helper.dart';
 
 class MetricsPage extends StatefulWidget {
   final int petId;
@@ -845,8 +846,8 @@ class _MetricsPageState extends State<MetricsPage> {
               backgroundColor: Colors.white,
               backgroundImage: (widget.petImagePath != null && widget.petImagePath!.isNotEmpty)
                   ? (widget.petImagePath!.startsWith('http')
-                      ? NetworkImage(widget.petImagePath!.replaceFirst('http://localhost', 'http://10.0.2.2')) as ImageProvider
-                      : FileImage(File(widget.petImagePath!)))
+                      ? NetworkImage(HealthService.getImageUrl(widget.petImagePath)) as ImageProvider
+                      : buildLocalFileImage(widget.petImagePath!))
                   : null,
               child: (widget.petImagePath == null || widget.petImagePath!.isEmpty)
                   ? Icon(Icons.add_a_photo, size: 25, color: petThemeColor)
@@ -1096,7 +1097,24 @@ class _SparklinePainter extends CustomPainter {
 }
 
 class HealthService {
-  static const String baseUrl = "http://10.0.2.2:8000";
+  static String get baseUrl {
+    // Use localhost for web, 10.0.2.2 for Android emulator
+    if (kIsWeb) {
+      return "http://localhost:8000";
+    }
+    return "http://10.0.2.2:8000";
+  }
+
+  static String getImageUrl(String? imageUrl) {
+    if (imageUrl == null || imageUrl.isEmpty) return '';
+    if (!imageUrl.startsWith('http')) return imageUrl;
+    
+    // For web, use localhost; for mobile, use 10.0.2.2
+    if (kIsWeb) {
+      return imageUrl.replaceFirst('http://10.0.2.2', 'http://localhost');
+    }
+    return imageUrl.replaceFirst('http://localhost', 'http://10.0.2.2');
+  }
 
   Future<Map<String, dynamic>> logMetric({required int petId, required String metricName, required dynamic value}) async {
     final url = Uri.parse("$baseUrl/health/log");

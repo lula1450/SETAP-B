@@ -3,7 +3,13 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 class HealthService {
-  static const String baseUrl = "http://10.0.2.2:8000";
+  static String get baseUrl {
+    // Use localhost for web, 10.0.2.2 for Android emulator
+    if (kIsWeb) {
+      return "http://localhost:8000";
+    }
+    return "http://10.0.2.2:8000";
+  }
 
   /// Logs a new metric entry and returns the backend's analysis
   Future<Map<String, dynamic>> logMetric({

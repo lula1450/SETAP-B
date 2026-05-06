@@ -1,13 +1,13 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:open_filex/open_filex.dart';
 import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 import 'package:flutter/foundation.dart';
 import 'package:maincode/widgets/app_drawer.dart';
+import 'package:maincode/utils/url_helper.dart';
+import 'package:maincode/utils/image_provider_helper.dart';
+import 'package:maincode/utils/file_io_helper.dart';
 
 // Data models
 
@@ -303,12 +303,11 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
       await _showDocumentMetaDialog('', picked.name);
     } else {
       if (picked.path == null) return;
-      final appDir = await getApplicationDocumentsDirectory();
-      final destDir = Directory('${appDir.path}/health_docs/${widget.petId}');
-      await destDir.create(recursive: true);
-      final destPath =
-          '${destDir.path}/${DateTime.now().millisecondsSinceEpoch}_${picked.name}';
-      await File(picked.path!).copy(destPath);
+      final destPath = await saveDocumentToStorage(
+        sourcePath: picked.path!,
+        petId: widget.petId,
+        fileName: picked.name,
+      );
       if (!mounted) return;
       await _showDocumentMetaDialog(destPath, picked.name);
     }
@@ -409,8 +408,7 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
       return;
     }
     if (doc.filePath.isEmpty) return;
-    final file = File(doc.filePath);
-    if (!await file.exists()) {
+    if (!await documentExists(doc.filePath)) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -420,7 +418,7 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
       }
       return;
     }
-    await OpenFilex.open(doc.filePath);
+    await openDocumentFile(doc.filePath);
   }
 
   void _confirmRemoveDocument(_MedicalDocument doc, int index) {
@@ -440,8 +438,7 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
             onPressed: () async {
               Navigator.pop(context);
               if (!kIsWeb && doc.filePath.isNotEmpty) {
-                final file = File(doc.filePath);
-                if (await file.exists()) await file.delete();
+                await deleteDocumentIfExists(doc.filePath);
               }
               setState(() => _documents.removeAt(index));
               _saveDocuments();
@@ -891,8 +888,8 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
               backgroundColor: Colors.white,
               backgroundImage: (widget.petImagePath != null && widget.petImagePath!.isNotEmpty)
                   ? (widget.petImagePath!.startsWith('http')
-                      ? NetworkImage(widget.petImagePath!.replaceFirst('http://localhost', 'http://10.0.2.2')) as ImageProvider
-                      : FileImage(File(widget.petImagePath!)))
+                      ? NetworkImage(UrlHelper.getImageUrl(widget.petImagePath)) as ImageProvider
+                      : buildLocalFileImage(widget.petImagePath!))
                   : null,
               child: (widget.petImagePath == null || widget.petImagePath!.isEmpty)
                   ? Icon(Icons.add_a_photo, size: 25, color: _getPetColor(widget.petIndex))

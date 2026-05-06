@@ -4,7 +4,13 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthService {
-  static const String baseUrl = "http://10.0.2.2:8000";
+  static String get baseUrl {
+    // Use localhost for web, 10.0.2.2 for Android emulator
+    if (kIsWeb) {
+      return "http://localhost:8000";
+    }
+    return "http://10.0.2.2:8000";
+  }
 
   // --- LOGIN ---
   Future<bool> login(String email, String password) async {

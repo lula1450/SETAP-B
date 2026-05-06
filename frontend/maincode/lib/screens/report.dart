@@ -1,10 +1,11 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart'; // Make sure to run 'flutter pub add fl_chart'
 import 'package:maincode/services/pet_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:maincode/utils/pdf_helper.dart';
+import 'package:maincode/utils/url_helper.dart';
+import 'package:maincode/utils/image_provider_helper.dart';
 import 'dart:ui' as ui;
 import 'dart:typed_data';
 import 'package:flutter/rendering.dart';
@@ -51,6 +52,15 @@ class _ReportsPageState extends State<ReportsPage> {
     });
   }
 
+  @override
+  void didUpdateWidget(ReportsPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Reload data when widget updates (e.g., after returning from metrics page)
+    if (oldWidget.petId != widget.petId || oldWidget.petName != widget.petName) {
+      _initializePage();
+    }
+  }
+
   Future<void> _syncPetName() async {
     final prefs = await SharedPreferences.getInstance();
     final updatedName = prefs.getString('pet_name_${widget.petId}');
@@ -68,6 +78,9 @@ class _ReportsPageState extends State<ReportsPage> {
       final metrics = await _service.getLoggedMetrics(widget.petId);
 
       final prefs = await SharedPreferences.getInstance();
+      final hidden = prefs.getStringList('hidden_metrics_${widget.petId}') ?? [];
+      final hiddenKeys = hidden.map((h) => h.toLowerCase().replaceAll(' ', '_')).toSet();
+
       final customNames = prefs.getStringList('custom_metrics_${widget.petId}') ?? [];
       final customKeys = <String>[];
       for (final name in customNames) {
@@ -82,7 +95,7 @@ class _ReportsPageState extends State<ReportsPage> {
 
       if (!mounted) return;
       setState(() {
-        _availableMetrics = [...customKeys, ...metrics];
+        _availableMetrics = [...customKeys, ...metrics.where((m) => !hiddenKeys.contains(m))];
         if (!_availableMetrics.contains(_selectedMetric) && _availableMetrics.isNotEmpty) {
           _selectedMetric = _availableMetrics.first;
         }
@@ -347,8 +360,8 @@ class _ReportsPageState extends State<ReportsPage> {
               backgroundColor: Colors.white,
               backgroundImage: (widget.petImagePath != null && widget.petImagePath!.isNotEmpty)
                   ? (widget.petImagePath!.startsWith('http')
-                      ? NetworkImage(widget.petImagePath!.replaceFirst('http://localhost', 'http://10.0.2.2')) as ImageProvider
-                      : FileImage(File(widget.petImagePath!)))
+                      ? NetworkImage(UrlHelper.getImageUrl(widget.petImagePath)) as ImageProvider
+                      : buildLocalFileImage(widget.petImagePath!))
                   : null,
               child: (widget.petImagePath == null || widget.petImagePath!.isEmpty)
                   ? Icon(Icons.add_a_photo, size: 25, color: _getPetColor(widget.petIndex))

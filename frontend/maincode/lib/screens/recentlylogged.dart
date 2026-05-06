@@ -1,9 +1,10 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:maincode/services/pet_service.dart';
 import 'package:maincode/widgets/app_drawer.dart';
+import 'package:maincode/utils/url_helper.dart';
+import 'package:maincode/utils/image_provider_helper.dart';
 
 class RecentlyLoggedDataPage extends StatefulWidget {
   final int petId;
@@ -61,6 +62,15 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
     });
   }
 
+  @override
+  void didUpdateWidget(RecentlyLoggedDataPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Reload history when widget updates (e.g., after returning from metrics page)
+    if (oldWidget.petId != widget.petId || oldWidget.petName != widget.petName) {
+      _refresh();
+    }
+  }
+
   Future<void> _syncPetName() async {
     final prefs = await SharedPreferences.getInstance();
     final updatedName = prefs.getString('pet_name_${widget.petId}');
@@ -88,11 +98,16 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
     final prefs = await SharedPreferences.getInstance();
     final List<Map<String, dynamic>> all = [];
 
+    final hidden = prefs.getStringList('hidden_metrics_${widget.petId}') ?? [];
+    final hiddenKeys = hidden.map((h) => h.toLowerCase().replaceAll(' ', '_')).toSet();
+
     // Backend history — fail-safe so custom entries still show if backend is down
     try {
       final backendRaw = await _service.getPetHistory(widget.petId);
       all.addAll(
-        backendRaw.map<Map<String, dynamic>>((e) => Map<String, dynamic>.from(e as Map)),
+        backendRaw
+            .map<Map<String, dynamic>>((e) => Map<String, dynamic>.from(e as Map))
+            .where((e) => !hiddenKeys.contains(e['metric']?.toString().toLowerCase())),
       );
     } catch (_) {}
 
@@ -296,8 +311,8 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
               backgroundColor: Colors.white,
               backgroundImage: (widget.petImagePath != null && widget.petImagePath!.isNotEmpty)
                   ? (widget.petImagePath!.startsWith('http')
-                      ? NetworkImage(widget.petImagePath!.replaceFirst('http://localhost', 'http://10.0.2.2')) as ImageProvider
-                      : FileImage(File(widget.petImagePath!)))
+                      ? NetworkImage(UrlHelper.getImageUrl(widget.petImagePath)) as ImageProvider
+                      : buildLocalFileImage(widget.petImagePath!))
                   : null,
               child: (widget.petImagePath == null || widget.petImagePath!.isEmpty)
                   ? Icon(Icons.add_a_photo, size: 25, color: _getPetColor(widget.petIndex))
