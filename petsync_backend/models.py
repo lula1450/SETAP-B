@@ -16,7 +16,8 @@ class Owner(Base):
     owner_last_name = Column(String(100), nullable=False, index=True)
     owner_email = Column(String(100), unique=True, nullable=False, index=True)
     password = Column(String(255), nullable=False, default="password123")
-    
+    deletion_requested_at = Column(DateTime, nullable=True)
+
     # Relationship to pets
     pets = relationship("Pet", backref="owner", cascade="all, delete")
 

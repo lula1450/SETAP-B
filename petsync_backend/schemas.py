@@ -20,6 +20,7 @@ class OwnerUpdate(BaseModel):
 
 class OwnerResponse(OwnerBase):
     owner_id: int
+    deletion_requested_at: Optional[datetime] = None
     model_config = ConfigDict(from_attributes=True)
 
 # --- 2. PET SCHEMAS ---

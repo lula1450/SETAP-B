@@ -1,4 +1,5 @@
 import random
+import bcrypt
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta, time
 
@@ -25,7 +26,8 @@ def seed_data():
     if not owner:
         owner = Owner(
             owner_first_name="Alex", owner_last_name="Jordan",
-            owner_email="test@petsync.com", password="password123",
+            owner_email="test@petsync.com",
+            password=bcrypt.hashpw(b"password123", bcrypt.gensalt()).decode(),
         )
         db.add(owner)
         db.commit()

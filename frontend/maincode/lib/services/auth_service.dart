@@ -76,15 +76,20 @@ class AuthService {
   }
 
   // --- DELETE ACCOUNT ---
-  Future<bool> deleteAccount(int ownerId) async {
+  // Returns the scheduled purge date string, or null on failure.
+  Future<String?> deleteAccount(int ownerId) async {
     try {
       final response = await http.delete(
         Uri.parse("$baseUrl/owners/$ownerId"),
       );
-      return response.statusCode == 200;
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['scheduled_purge_at'] as String?;
+      }
+      return null;
     } catch (e) {
       debugPrint("Delete error: $e");
-      return false;
+      return null;
     }
   }
 }

@@ -36,3 +36,12 @@ def get_db():
 
 # Optional: automatically create tables
 Base.metadata.create_all(bind=engine)
+
+# Add deletion_requested_at column if it doesn't exist yet (safe for existing DBs)
+from sqlalchemy import text as _text
+try:
+    with engine.connect() as _conn:
+        _conn.execute(_text("ALTER TABLE owner ADD COLUMN deletion_requested_at DATETIME"))
+        _conn.commit()
+except Exception:
+    pass  # column already exists

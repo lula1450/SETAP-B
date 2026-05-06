@@ -12,30 +12,59 @@ class AppDrawer extends StatelessWidget {
   void _showDeleteConfirmation(BuildContext context) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (ctx) => AlertDialog(
         title: const Text("Delete Account"),
         content: const Text(
-          "Are you sure you want to delete your account? This action cannot be undone.",
+          "Your account will be scheduled for permanent deletion in 30 days. "
+          "You can cancel by logging back in during that period.",
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(ctx),
             child: const Text("Cancel"),
           ),
           TextButton(
             onPressed: () async {
-              final navigator = Navigator.of(context);
+              final navigator = Navigator.of(ctx);
               navigator.pop();
               final prefs = await SharedPreferences.getInstance();
               final ownerId = prefs.getInt('owner_id');
-              if (ownerId != null) {
-                final success = await AuthService().deleteAccount(ownerId);
-                if (success) {
-                  await prefs.clear();
-                  navigator.pushReplacement(
-                    MaterialPageRoute(builder: (context) => const LoginPage()),
-                  );
-                }
+              if (ownerId == null) return;
+
+              final purgeAt = await AuthService().deleteAccount(ownerId);
+              if (purgeAt == null) return;
+
+              await prefs.clear();
+
+              String dateLabel = purgeAt;
+              final parsed = DateTime.tryParse(purgeAt);
+              if (parsed != null) {
+                dateLabel =
+                    '${parsed.day.toString().padLeft(2, '0')}/'
+                    '${parsed.month.toString().padLeft(2, '0')}/'
+                    '${parsed.year}';
+              }
+
+              if (navigator.context.mounted) {
+                showDialog(
+                  context: navigator.context,
+                  barrierDismissible: false,
+                  builder: (ctx2) => AlertDialog(
+                    title: const Text("Deletion Scheduled"),
+                    content: Text(
+                      "Your account has been scheduled for permanent deletion on $dateLabel.\n\n"
+                      "You have 30 days to change your mind — just log back in and cancel.",
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => navigator.pushReplacement(
+                          MaterialPageRoute(builder: (_) => const LoginPage()),
+                        ),
+                        child: const Text("OK"),
+                      ),
+                    ],
+                  ),
+                );
               }
             },
             child: const Text("Delete", style: TextStyle(color: Colors.red)),

@@ -1,10 +1,16 @@
 
 from petsync_backend.routers import auth, pets, health, schedule, reports, owners
+from petsync_backend.routers.owners import purge_owner, DELETION_GRACE_DAYS
 
 from fastapi.staticfiles import StaticFiles
 import os
+import asyncio
+from contextlib import asynccontextmanager
+from datetime import datetime, timedelta
 
 from petsync_backend.middleware import PetSyncFirewall
+from petsync_backend.database import SessionLocal
+from petsync_backend import models
 
 # allows the api gateway to handle concurrent requests
 from fastapi import FastAPI, HTTPException, Request
@@ -18,20 +24,43 @@ from fastapi.middleware.cors import CORSMiddleware
 # make comparisons between data entries
 import pandas as pd
 
-# validatae that appointments are not set in the past - allows timestamps - chronological order
-from datetime import datetime
 
-# create the FastAPI app instance
+def _run_deletion_purge() -> None:
+    db = SessionLocal()
+    try:
+        cutoff = datetime.utcnow() - timedelta(days=DELETION_GRACE_DAYS)
+        expired = db.query(models.Owner).filter(
+            models.Owner.deletion_requested_at != None,
+            models.Owner.deletion_requested_at <= cutoff,
+        ).all()
+        for owner in expired:
+            print(f"[purge] Permanently deleting owner_id={owner.owner_id} (requested {owner.deletion_requested_at})")
+            purge_owner(owner, db)
+    finally:
+        db.close()
 
-# pip install - uvicorn - environment to host api - ensures the application layer remains stable
 
-# background dependency
-# pip install - python-multipart - allows FastAPI to handle form data and file uploads - HRM from AUTH UI to OSS
+async def _deletion_purge_loop() -> None:
+    while True:
+        await asyncio.get_running_loop().run_in_executor(None, _run_deletion_purge)
+        await asyncio.sleep(3600)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    task = asyncio.create_task(_deletion_purge_loop())
+    yield
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
 
 
 app = FastAPI(
     title="PetSync API",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(PetSyncFirewall)
