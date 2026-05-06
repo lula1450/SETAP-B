@@ -230,6 +230,18 @@ class PetService {
     return [];
   }
 
+  Future<bool> deleteFeedingSchedule(int scheduleId) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/schedule/feeding-schedules/$scheduleId'),
+      );
+      return response.statusCode == 200 || response.statusCode == 204;
+    } catch (e) {
+      debugPrint('Delete feeding schedule error: $e');
+      return false;
+    }
+  }
+
   Future<bool> deleteHealthLog(int petId, int metricId) async {
     try {
       final response = await http.delete(

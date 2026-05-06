@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:maincode/screens/route_observer.dart';
 import 'package:maincode/widgets/app_drawer.dart';
 import 'package:maincode/services/pet_service.dart';
+import 'package:maincode/services/notification_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 
@@ -203,6 +204,7 @@ class FeedingSchedulePage extends StatefulWidget {
 
 class _FeedingSchedulePageState extends State<FeedingSchedulePage> with RouteAware {
   final PetService _service = PetService();
+  final NotificationService _notif = NotificationService();
 
   List<Pet> _pets = [];
   int? _activePetId;
@@ -249,12 +251,15 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> with RouteAwa
     if (!mounted) return;
     final pets = rawPets.map((j) => Pet.fromJson(j as Map<String, dynamic>)).toList();
 
+    final deletedIds = prefs.getStringList('deleted_feeding_ids') ?? [];
+
     // --- STEP 1: LOAD BACKEND SEEDED DATA ---
     for (final p in pets) {
       _recurring.putIfAbsent(p.id, () => {});
       try {
         final schedules = await _service.getFeedingSchedules(p.id);
         for (final s in schedules) {
+          if (deletedIds.contains('backend_${s['feeding_schedule_id']}')) continue;
           final raw = s['feeding_time'] as String? ?? '';
           TimeOfDay t = const TimeOfDay(hour: 8, minute: 0);
           int weekday = 0; 
@@ -405,14 +410,48 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> with RouteAwa
     _saveToLocal();
   }
 
-  void _deleteEvent(int petId, String dayKey, String eventId) {
+  void _deleteEvent(int petId, String dayKey, String eventId) async {
+    final String baseId = eventId.replaceAll(RegExp(r'_[0-6]$'), '');
+
+    // Find the event before removing it so we can cancel its notification.
+    PetEvent? found;
+    _recurring[petId]?.forEach((_, list) {
+      for (final e in list) {
+        if (e.id.replaceAll(RegExp(r'_[0-6]$'), '') == baseId) {
+          found = e;
+          return;
+        }
+      }
+    });
+
+    final prefs = await SharedPreferences.getInstance();
+
+    // If it's a backend event, delete from the server and store the ID locally
+    // so it doesn't come back on reload even if the API call fails.
+    if (baseId.startsWith('backend_')) {
+      final scheduleId = int.tryParse(baseId.replaceFirst('backend_', ''));
+      if (scheduleId != null) {
+        await _service.deleteFeedingSchedule(scheduleId);
+      }
+      final deleted = prefs.getStringList('deleted_feeding_ids') ?? [];
+      if (!deleted.contains(baseId)) {
+        deleted.add(baseId);
+        await prefs.setStringList('deleted_feeding_ids', deleted);
+      }
+    }
+
+    // Cancel the corresponding notification.
+    if (found != null) {
+      final timeStr =
+          '${found!.time.hour.toString().padLeft(2, '0')}:${found!.time.minute.toString().padLeft(2, '0')}';
+      _notif.cancel(NotificationService.feedingId(petId, timeStr));
+      await prefs.remove('feeding_notif_${petId}_$timeStr');
+    }
+
     setState(() {
-      String baseId = eventId.replaceAll(RegExp(r'_[0-6]$'), '');
       _recurring[petId]?.forEach((_, list) {
-        list.removeWhere((e) {
-          final existingBase = e.id.replaceAll(RegExp(r'_[0-6]$'), '');
-          return existingBase == baseId;
-        });
+        list.removeWhere((e) =>
+            e.id.replaceAll(RegExp(r'_[0-6]$'), '') == baseId);
       });
     });
     _saveToLocal();
