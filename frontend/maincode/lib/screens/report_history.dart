@@ -22,6 +22,17 @@ class ReportHistoryPage extends StatefulWidget {
   State<ReportHistoryPage> createState() => _ReportHistoryPageState();
 }
 
+const _kPetColors = [
+  Color.fromARGB(255, 146, 179, 236),
+  Color.fromRGBO(212, 162, 221, 1),
+  Color.fromARGB(255, 182, 139, 83),
+  Color.fromRGBO(223, 128, 158, 1),
+  Color.fromARGB(255, 126, 140, 224),
+  Color.fromARGB(255, 255, 171, 145),
+  Color.fromARGB(255, 167, 235, 244),
+  Color.fromARGB(255, 219, 247, 240),
+];
+
 class _ReportHistoryPageState extends State<ReportHistoryPage> {
   final PetService _service = PetService();
   List<dynamic> _pets = [];
@@ -30,6 +41,12 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
   bool _isLoading = true;
   String _filterFrequency = "all"; // all, weekly, monthly, custom
   List<Map<String, dynamic>> _customReports = [];
+
+  Color get _petColor {
+    final idx = _pets.indexWhere((p) => p['pet_id'] == _selectedPetId);
+    if (idx < 0) return const Color(0xFF8BAEAE);
+    return _kPetColors[idx % _kPetColors.length];
+  }
 
   @override
   void initState() {
@@ -410,6 +427,7 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
     return Card(
       elevation: 2,
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 0),
+      color: _petColor.withValues(alpha: 0.45),
       child: ExpansionTile(
         tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         title: Row(
@@ -418,9 +436,7 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: report['report_frequency'] == 'weekly'
-                    ? const Color(0xFF8BAEAE)
-                    : const Color.fromARGB(255, 212, 162, 221),
+                color: _petColor,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
@@ -428,7 +444,7 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
                     ? 'Weekly Report'
                     : 'Monthly Report',
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: Colors.black87,
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
                 ),
@@ -440,19 +456,18 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
                 ? Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Colors.red.withOpacity(0.2),
-                      border: Border.all(color: Colors.red),
+                      color: Colors.red.withValues(alpha: 0.6),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.warning_amber, color: Colors.red, size: 16),
+                        Icon(Icons.warning_amber, color: Colors.black87, size: 16),
                         SizedBox(width: 4),
                         Text(
                           'Risk Flags',
                           style: TextStyle(
-                            color: Colors.red,
+                            color: Colors.black87,
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
                           ),
@@ -463,19 +478,18 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
                 : Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Colors.green.withOpacity(0.2),
-                      border: Border.all(color: Colors.green),
+                      color: Colors.green.withValues(alpha: 0.6),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.check_circle, color: Colors.green, size: 16),
+                        Icon(Icons.check_circle, color: Colors.black87, size: 16),
                         SizedBox(width: 4),
                         Text(
                           'Stable',
                           style: TextStyle(
-                            color: Colors.green,
+                            color: Colors.black87,
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
                           ),
@@ -490,10 +504,10 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
           children: [
             const SizedBox(height: 4),
             Text(_formatDate(report['report_date']),
-                style: const TextStyle(fontSize: 13, color: Colors.grey)),
+                style: const TextStyle(fontSize: 13, color: Colors.black87)),
             Text(
                 "Period: ${_formatDate(report['start_date'])} to ${_formatDate(report['end_date'])}",
-                style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                style: const TextStyle(fontSize: 12, color: Colors.black87)),
           ],
         ),
         children: [
@@ -505,7 +519,7 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
                 // Metrics Summary
                 const Text(
                   'Metrics Summary',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.black),
                 ),
                 const SizedBox(height: 8),
                 ...metrics.entries.map((entry) {
@@ -529,12 +543,12 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
                                     .map((w) =>
                                         w[0].toUpperCase() + w.substring(1))
                                     .join(' '),
-                                style: const TextStyle(fontSize: 14),
+                                style: const TextStyle(fontSize: 14, color: Colors.black),
                               ),
                               Text(
                                 'Latest: ${metricData['latest']?.toStringAsFixed(2) ?? 'N/A'} | Avg: ${(metricData['average'] ?? 0).toStringAsFixed(2)}',
                                 style: const TextStyle(
-                                    fontSize: 12, color: Colors.grey),
+                                    fontSize: 12, color: Colors.black87),
                               ),
                             ],
                           ),
@@ -543,19 +557,15 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
-                            color: status == 'at_risk'
-                                ? Colors.red.withOpacity(0.2)
-                                : Colors.green.withOpacity(0.2),
+                            color: status == 'at_risk' ? Colors.red.withValues(alpha: 0.6) : Colors.green.withValues(alpha: 0.6),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
-                            status == 'at_risk' ? '⚠️ At Risk' : '✅ Stable',
-                            style: TextStyle(
+                            status == 'at_risk' ? 'At Risk' : 'Stable',
+                            style: const TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.bold,
-                              color: status == 'at_risk'
-                                  ? Colors.red
-                                  : Colors.green,
+                              color: Colors.black87,
                             ),
                           ),
                         ),
@@ -584,8 +594,7 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
                           child: Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: Colors.red.withOpacity(0.1),
-                              border: Border.all(color: Colors.red.withOpacity(0.3)),
+                              color: Colors.red.withValues(alpha: 0.6),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Column(
@@ -601,14 +610,14 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
                                   style: const TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.red,
+                                    color: Colors.black87,
                                   ),
                                 ),
                                 Text(
                                   'Current: ${(flag['current'] ?? 0).toStringAsFixed(2)} | Baseline: ${(flag['baseline'] ?? 0).toStringAsFixed(2)} | Deviation: ${(flag['deviation_percent'] ?? 0).toStringAsFixed(1)}%',
                                   style: const TextStyle(
                                     fontSize: 12,
-                                    color: Colors.red,
+                                    color: Colors.black87,
                                   ),
                                 ),
                               ],
@@ -697,40 +706,44 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
                           SingleChildScrollView(
                             scrollDirection: Axis.horizontal,
                             child: Row(
-                              children: _pets.map((pet) {
+                              children: _pets.asMap().entries.map((entry) {
+                                final idx = entry.key;
+                                final pet = entry.value;
                                 final isSelected = _selectedPetId == pet['pet_id'];
-                                return GestureDetector(
-                                  onTap: () {
-                                    setState(() => _selectedPetId = pet['pet_id']);
-                                    _fetchReportsForPet(pet['pet_id']);
-                                    _loadCustomReports(pet['pet_id'] as int);
-                                  },
-                                  child: Container(
-                                    margin: const EdgeInsets.only(right: 8),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 8,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: isSelected
-                                          ? Colors.white
-                                          : Colors.white.withValues(alpha: 0.75),
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(
-                                        color: isSelected
-                                            ? const Color(0xFF8BAEAE)
-                                            : Colors.transparent,
-                                        width: 2,
+                                final petColor = _kPetColors[idx % _kPetColors.length];
+                                return Padding(
+                                  padding: const EdgeInsets.only(right: 8),
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      setState(() => _selectedPetId = pet['pet_id']);
+                                      _fetchReportsForPet(pet['pet_id']);
+                                      _loadCustomReports(pet['pet_id'] as int);
+                                    },
+                                    child: AnimatedContainer(
+                                      duration: const Duration(milliseconds: 180),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 14,
+                                        vertical: 6,
                                       ),
-                                    ),
-                                    child: Text(
-                                      pet['pet_first_name'],
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.bold,
+                                      decoration: BoxDecoration(
                                         color: isSelected
-                                            ? const Color(0xFF8BAEAE)
-                                            : Colors.grey,
+                                            ? petColor
+                                            : petColor.withValues(alpha: 0.25),
+                                        borderRadius: BorderRadius.circular(20),
+                                        border: Border.all(
+                                          color: isSelected
+                                              ? petColor
+                                              : petColor.withValues(alpha: 0.5),
+                                          width: isSelected ? 2 : 0.5,
+                                        ),
+                                      ),
+                                      child: Text(
+                                        pet['pet_first_name'],
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.black87,
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -745,7 +758,7 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.6),
+                        color: Colors.white.withValues(alpha: 0.6),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: Colors.white24),
                       ),
@@ -795,23 +808,28 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
                         Expanded(
                           child: GestureDetector(
                             onTap: () => setState(() => _filterFrequency = "all"),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 180),
+                              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
                               decoration: BoxDecoration(
                                 color: _filterFrequency == "all"
-                                    ? Colors.white
-                                    : Colors.white.withValues(alpha: 0.75),
-                                borderRadius: BorderRadius.circular(8),
+                                    ? _petColor
+                                    : _petColor.withValues(alpha: 0.25),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: _filterFrequency == "all"
+                                      ? _petColor
+                                      : _petColor.withValues(alpha: 0.5),
+                                  width: _filterFrequency == "all" ? 2 : 0.5,
+                                ),
                               ),
-                              child: Text(
+                              child: const Text(
                                 'All Reports',
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                   fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                  color: _filterFrequency == "all"
-                                      ? const Color(0xFF8BAEAE)
-                                      : Colors.grey,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.black87,
                                 ),
                               ),
                             ),
@@ -820,25 +838,29 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: GestureDetector(
-                            onTap: () =>
-                                setState(() => _filterFrequency = "weekly"),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 8),
+                            onTap: () => setState(() => _filterFrequency = "weekly"),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 180),
+                              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
                               decoration: BoxDecoration(
                                 color: _filterFrequency == "weekly"
-                                    ? Colors.white
-                                    : Colors.white.withValues(alpha: 0.75),
-                                borderRadius: BorderRadius.circular(8),
+                                    ? _petColor
+                                    : _petColor.withValues(alpha: 0.25),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: _filterFrequency == "weekly"
+                                      ? _petColor
+                                      : _petColor.withValues(alpha: 0.5),
+                                  width: _filterFrequency == "weekly" ? 2 : 0.5,
+                                ),
                               ),
-                              child: Text(
+                              child: const Text(
                                 'Weekly',
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                   fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                  color: _filterFrequency == "weekly"
-                                      ? const Color(0xFF8BAEAE)
-                                      : Colors.grey,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.black87,
                                 ),
                               ),
                             ),
@@ -847,25 +869,29 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: GestureDetector(
-                            onTap: () =>
-                                setState(() => _filterFrequency = "monthly"),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 8),
+                            onTap: () => setState(() => _filterFrequency = "monthly"),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 180),
+                              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
                               decoration: BoxDecoration(
                                 color: _filterFrequency == "monthly"
-                                    ? Colors.white
-                                    : Colors.white.withValues(alpha: 0.75),
-                                borderRadius: BorderRadius.circular(8),
+                                    ? _petColor
+                                    : _petColor.withValues(alpha: 0.25),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: _filterFrequency == "monthly"
+                                      ? _petColor
+                                      : _petColor.withValues(alpha: 0.5),
+                                  width: _filterFrequency == "monthly" ? 2 : 0.5,
+                                ),
                               ),
-                              child: Text(
+                              child: const Text(
                                 'Monthly',
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                   fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                  color: _filterFrequency == "monthly"
-                                      ? const Color(0xFF8BAEAE)
-                                      : Colors.grey,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.black87,
                                 ),
                               ),
                             ),
@@ -874,25 +900,29 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: GestureDetector(
-                            onTap: () =>
-                                setState(() => _filterFrequency = "custom"),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 8),
+                            onTap: () => setState(() => _filterFrequency = "custom"),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 180),
+                              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
                               decoration: BoxDecoration(
                                 color: _filterFrequency == "custom"
-                                    ? Colors.white
-                                    : Colors.white.withValues(alpha: 0.75),
-                                borderRadius: BorderRadius.circular(8),
+                                    ? _petColor
+                                    : _petColor.withValues(alpha: 0.25),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: _filterFrequency == "custom"
+                                      ? _petColor
+                                      : _petColor.withValues(alpha: 0.5),
+                                  width: _filterFrequency == "custom" ? 2 : 0.5,
+                                ),
                               ),
-                              child: Text(
+                              child: const Text(
                                 'Custom',
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                   fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                  color: _filterFrequency == "custom"
-                                      ? const Color(0xFF8BAEAE)
-                                      : Colors.grey,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.black87,
                                 ),
                               ),
                             ),
@@ -937,7 +967,7 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
                                   'No custom reports uploaded yet',
                                   style: TextStyle(
                                     fontSize: 14,
-                                    color: Colors.white.withOpacity(0.7),
+                                    color: Colors.white.withValues(alpha: 0.7),
                                   ),
                                 ),
                               ],
@@ -967,7 +997,7 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
                                 'No reports available',
                                 style: TextStyle(
                                   fontSize: 14,
-                                  color: Colors.white.withOpacity(0.7),
+                                  color: Colors.white.withValues(alpha: 0.7),
                                 ),
                               ),
                             ],
@@ -1007,10 +1037,10 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
         leading: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: const Color(0xFF8BAEAE).withValues(alpha: 0.15),
+            color: _petColor.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: const Icon(Icons.insert_drive_file, color: Color(0xFF8BAEAE), size: 28),
+          child: Icon(Icons.insert_drive_file, color: _petColor, size: 28),
         ),
         title: Text(
           report['name'] as String? ?? 'Custom Report',
@@ -1029,7 +1059,7 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
               onPressed: () => _showRenameDialog(report, index),
             ),
             IconButton(
-              icon: const Icon(Icons.open_in_new, color: Color(0xFF8BAEAE)),
+              icon: Icon(Icons.open_in_new, color: _petColor),
               tooltip: 'Open',
               onPressed: () => _openCustomReport(report),
             ),
