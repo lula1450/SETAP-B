@@ -70,9 +70,10 @@ class PetService {
   // --- 3. CREATE APPOINTMENT ---
   Future<bool> createAppointment({
     required int petId,
-    required String date, 
-    required String time, 
+    required String date,
+    required String time,
     required String notes,
+    String reminderFrequency = 'once',
   }) async {
     try {
       final response = await http.post(
@@ -82,7 +83,8 @@ class PetService {
           "pet_id": petId,
           "appointment_date": date,
           "appointment_time": time,
-          "notes": notes, 
+          "notes": notes,
+          "reminder_frequency": reminderFrequency,
         }),
       );
       return response.statusCode == 201;
@@ -184,6 +186,14 @@ class PetService {
   // lib/services/pet_service.dart
 
   // lib/services/pet_service.dart
+
+  Future<void> deleteAppointmentSeries(int seriesId) async {
+    final url = Uri.parse('$baseUrl/schedule/appointments/series/$seriesId');
+    final response = await http.delete(url, headers: {"Content-Type": "application/json"});
+    if (response.statusCode != 204) {
+      throw Exception("Failed to delete appointment series");
+    }
+  }
 
   Future<void> deleteAppointment(int appointmentId) async { 
     final url = Uri.parse('$baseUrl/schedule/appointments/$appointmentId');

@@ -72,48 +72,61 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
-  void _deleteAppointment(int appointmentId) async {
-    bool? confirm = await showDialog<bool>(
+  void _deleteAppointment(dynamic appt) async {
+    final appointmentId = appt['pet_appointment_id'] as int;
+    final seriesId = appt['series_id'] as int?;
+    final isRecurring = seriesId != null;
+
+    // 'result' is null (cancel), 'this', or 'series'
+    final String? result = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
         title: const Text("Delete Appointment"),
-        content: const Text("Are you sure you want to remove this visit?"),
+        content: Text(isRecurring
+            ? "Remove just this appointment or the entire recurring series?"
+            : "Are you sure you want to remove this visit?"),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(context, null),
             child: const Text("Cancel"),
           ),
+          if (isRecurring)
+            TextButton(
+              onPressed: () => Navigator.pop(context, 'series'),
+              child: const Text("Delete series", style: TextStyle(color: Colors.red)),
+            ),
           TextButton(
-            onPressed: () => Navigator.pop(context, true), // Just return true
-            child: const Text("Delete", style: TextStyle(color: Colors.red)),
+            onPressed: () => Navigator.pop(context, 'this'),
+            child: Text(isRecurring ? "This only" : "Delete",
+                style: const TextStyle(color: Colors.red)),
           ),
         ],
       ),
     );
 
-    if (confirm == true) {
-      try {
-        // 1. Call the service with the ID passed into the function
+    if (result == null) return;
+
+    try {
+      if (result == 'series') {
+        await _petService.deleteAppointmentSeries(seriesId!);
+      } else {
         await _petService.deleteAppointment(appointmentId);
-
-        // 2. Refresh the UI by fetching the list again
-        await _fetchAppointments();
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Appointment removed successfully")),
-          );
-        }
-      } catch (e) {
-        debugPrint("Delete Error: $e");
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text("Error: Could not delete from server"),
-            ),
-          );
-        }
+      }
+      await _fetchAppointments();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result == 'series'
+              ? "All appointments in series removed"
+              : "Appointment removed successfully")),
+        );
+      }
+    } catch (e) {
+      debugPrint("Delete Error: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Error: Could not delete from server")),
+        );
       }
     }
   }
@@ -572,6 +585,7 @@ class _DashboardPageState extends State<DashboardPage> {
       }
 
       int? selectedPetId = _pets.isNotEmpty ? _pets[_selectedPetIndex]['pet_id'] : null;
+      String selectedFrequency = 'once';
 
       showDialog(
         context: context,
@@ -589,7 +603,8 @@ class _DashboardPageState extends State<DashboardPage> {
             return AlertDialog(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
             title: Text("New Appointment: $day/${_focusedDay.month}"),
-            content: Column(
+            content: SingleChildScrollView(
+              child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 // Pet Selector
@@ -654,7 +669,27 @@ class _DashboardPageState extends State<DashboardPage> {
                   controller: notesController,
                   decoration: const InputDecoration(hintText: "Notes (optional)"),
                 ),
+                const SizedBox(height: 12),
+                InputDecorator(
+                  decoration: InputDecoration(
+                    labelText: "Repeats",
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  ),
+                  child: DropdownButton<String>(
+                    value: selectedFrequency,
+                    isExpanded: true,
+                    underline: const SizedBox(),
+                    items: const [
+                      DropdownMenuItem(value: 'once', child: Text('One-time')),
+                      DropdownMenuItem(value: 'weekly', child: Text('Once a week for 28 days')),
+                      DropdownMenuItem(value: 'monthly', child: Text('Monthly (12 months)')),
+                    ],
+                    onChanged: (val) => setDialogState(() => selectedFrequency = val!),
+                  ),
+                ),
               ],
+            ),
             ),
             actions: [
               TextButton(
@@ -690,6 +725,7 @@ class _DashboardPageState extends State<DashboardPage> {
                     date: dateStr,
                     time: timeStr,
                     notes: formattedNotes,
+                    reminderFrequency: selectedFrequency,
                   );
 
                   Navigator.pop(context);
@@ -864,7 +900,7 @@ class _DashboardPageState extends State<DashboardPage> {
                           size: 18,
                         ),
                         onPressed: () =>
-                            _deleteAppointment(appt['pet_appointment_id']),
+                            _deleteAppointment(appt),
                       ),
                     ],
                   ),

@@ -116,8 +116,8 @@ class AppointmentStatus(enum.Enum):
 
 class AppointmentReminderFrequency(enum.Enum):
     once = "once"
-    daily = "daily"
     weekly = "weekly"
+    monthly = "monthly"
     none = "none"
 
 class PetAppointment(Base):
@@ -126,8 +126,9 @@ class PetAppointment(Base):
     pet_appointment_id = Column(Integer, primary_key=True, index=True)
     pet_id = Column(Integer, ForeignKey("pet.pet_id"), nullable=False, index=True)
 
+    series_id = Column(Integer, nullable=True, index=True)
     enable_reminder = Column(Boolean, nullable=False, default=True)
-    reminder_frequency = Column(Enum(AppointmentReminderFrequency, name="reminder_frequency") ,nullable=False, default=AppointmentReminderFrequency.daily)
+    reminder_frequency = Column(Enum(AppointmentReminderFrequency, name="reminder_frequency") ,nullable=False, default=AppointmentReminderFrequency.once)
     pet_appointment_date = Column(Date, nullable=False, index=True)
     pet_appointment_time = Column(Time, nullable=False, index=True)
     appointment_status = Column(Enum(AppointmentStatus, name="appointment_status"), nullable=False, default=AppointmentStatus.Scheduled)

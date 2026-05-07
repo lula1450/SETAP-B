@@ -122,6 +122,7 @@ class AppointmentCreate(BaseModel):
     appointment_date: date
     appointment_time: time
     notes: Optional[str] = None
+    reminder_frequency: str = "once"
 
 class AppointmentUpdate(BaseModel):
     new_date: date

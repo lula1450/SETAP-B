@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends, status
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta, date
+from dateutil.relativedelta import relativedelta
 from typing import List
 
 from petsync_backend import models, schemas
@@ -15,26 +16,52 @@ router = APIRouter(
 
 @router.post("/appointments", status_code=status.HTTP_201_CREATED)
 def create_pet_appointment(appointment: schemas.AppointmentCreate, db: Session = Depends(get_db)):
-    new_appointment = models.PetAppointment(
-        pet_id=appointment.pet_id,
-        pet_appointment_date=appointment.appointment_date,
-        pet_appointment_time=appointment.appointment_time,
-        appointment_status="Scheduled",
-        appointment_notes=appointment.notes,
-    )
-    db.add(new_appointment)
-    db.commit()
-    db.refresh(new_appointment)
+    try:
+        freq = models.AppointmentReminderFrequency[appointment.reminder_frequency]
+    except KeyError:
+        freq = models.AppointmentReminderFrequency.once
 
-    appt_dt = datetime.combine(appointment.appointment_date, appointment.appointment_time)
-    reminder_dt = appt_dt - timedelta(hours=24)
-    db.add(models.Reminder(
-        pet_appointment_id=new_appointment.pet_appointment_id,
-        reminder_datetime=reminder_dt,
-        reminder_notes="Upcoming vet appointment",
-    ))
+    if freq == models.AppointmentReminderFrequency.weekly:
+        deltas = [timedelta(weeks=i) for i in range(4)]
+    elif freq == models.AppointmentReminderFrequency.monthly:
+        deltas = [relativedelta(months=i) for i in range(12)]
+    else:
+        deltas = [timedelta(0)]
+
+    first_appointment = None
+    all_appointments = []
+    for delta in deltas:
+        appt_date = appointment.appointment_date + delta
+        new_appointment = models.PetAppointment(
+            pet_id=appointment.pet_id,
+            pet_appointment_date=appt_date,
+            pet_appointment_time=appointment.appointment_time,
+            appointment_status=models.AppointmentStatus.Scheduled,
+            appointment_notes=appointment.notes,
+            enable_reminder=freq != models.AppointmentReminderFrequency.none,
+            reminder_frequency=freq,
+        )
+        db.add(new_appointment)
+        db.flush()
+
+        if freq != models.AppointmentReminderFrequency.none:
+            appt_dt = datetime.combine(appt_date, appointment.appointment_time)
+            db.add(models.Reminder(
+                pet_appointment_id=new_appointment.pet_appointment_id,
+                reminder_datetime=appt_dt - timedelta(hours=24),
+                reminder_notes="Upcoming vet appointment",
+            ))
+
+        if first_appointment is None:
+            first_appointment = new_appointment
+        all_appointments.append(new_appointment)
+
+    series_id = first_appointment.pet_appointment_id if len(all_appointments) > 1 else None
+    for appt in all_appointments:
+        appt.series_id = series_id
+
     db.commit()
-    return new_appointment
+    return first_appointment
 
 
 @router.post("/feeding-schedules", status_code=status.HTTP_201_CREATED)
@@ -179,6 +206,22 @@ def update_reminder_status(reminder_id: int, update: schemas.ReminderStatusUpdat
 
 
 # --- DELETE ---
+
+@router.delete("/appointments/series/{series_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_appointment_series(series_id: int, db: Session = Depends(get_db)):
+    appointments = db.query(models.PetAppointment).filter(
+        models.PetAppointment.series_id == series_id
+    ).all()
+    if not appointments:
+        raise HTTPException(status_code=404, detail="Series not found")
+    for appt in appointments:
+        db.query(models.Reminder).filter(
+            models.Reminder.pet_appointment_id == appt.pet_appointment_id
+        ).delete()
+        db.delete(appt)
+    db.commit()
+    return None
+
 
 @router.delete("/appointments/{appointment_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_pet_appointment(appointment_id: int, db: Session = Depends(get_db)):
