@@ -225,6 +225,21 @@ def delete_metric_goal(pet_id: int, metric_name: str, db: Session = Depends(get_
         db.commit()
     return {"status": "deleted"}
 
+@router.put("/history/entry/{pet_id}/{metric_id}")
+def update_health_entry(pet_id: int, metric_id: int, update: schemas.HealthMetricUpdate, db: Session = Depends(get_db)):
+    entry = db.query(HealthMetric).filter(
+        HealthMetric.health_metric_id == metric_id,
+        HealthMetric.pet_id == pet_id
+    ).first()
+    if not entry:
+        raise HTTPException(status_code=404, detail="Log entry not found")
+    entry.metric_value = update.value
+    entry.notes = update.notes
+    db.commit()
+    db.refresh(entry)
+    return {"status": "updated", "health_metric_id": entry.health_metric_id}
+
+
 @router.delete("/history/entry/{pet_id}/{metric_id}")
 def delete_health_entry(pet_id: int, metric_id: int, db: Session = Depends(get_db)):
     entry = db.query(HealthMetric).filter(

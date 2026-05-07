@@ -252,6 +252,20 @@ class PetService {
     }
   }
 
+  Future<bool> updateHealthLog(int petId, int metricId, {required dynamic value, String? notes}) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl/health/history/entry/$petId/$metricId'),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"value": value, "notes": notes}),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint("Update health log error: $e");
+      return false;
+    }
+  }
+
   Future<bool> deleteHealthLog(int petId, int metricId) async {
     try {
       final response = await http.delete(

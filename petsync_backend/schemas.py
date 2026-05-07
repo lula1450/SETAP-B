@@ -51,6 +51,10 @@ class HealthMetricLogResponse(BaseModel):
     status: str
     analysis: str
 
+class HealthMetricUpdate(BaseModel):
+    value: Union[float, int, str]
+    notes: Optional[str] = Field(None, max_length=1000)
+
 # Added this to support the Goal column in Flutter
 class MetricGoalUpdate(BaseModel):
     pet_id: int

@@ -10,6 +10,7 @@ import 'dart:ui' as ui;
 import 'dart:typed_data';
 import 'package:flutter/rendering.dart';
 import 'package:maincode/widgets/app_drawer.dart';
+import 'package:maincode/screens/route_observer.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ReportsPage extends StatefulWidget {
@@ -24,7 +25,7 @@ class ReportsPage extends StatefulWidget {
   State<ReportsPage> createState() => _ReportsPageState();
 }
 
-class _ReportsPageState extends State<ReportsPage> {
+class _ReportsPageState extends State<ReportsPage> with RouteAware {
   final PetService _service = PetService();
   Map<String, dynamic> _analysisData = {};
   bool _isLoading = true;
@@ -45,11 +46,21 @@ class _ReportsPageState extends State<ReportsPage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Sync pet name when page comes back from other routes
-    // Use a post-frame callback to avoid setState during build
+    routeObserver.subscribe(this, ModalRoute.of(context)!);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _syncPetName();
     });
+  }
+
+  @override
+  void dispose() {
+    routeObserver.unsubscribe(this);
+    super.dispose();
+  }
+
+  @override
+  void didPopNext() {
+    _initializePage();
   }
 
   @override

@@ -259,6 +259,23 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
             const SizedBox(height: 4),
             Text('Logged: ${log['time']}', style: const TextStyle(color: Colors.grey)),
             const SizedBox(height: 24),
+            if (log['id'] != null && !isCustom)
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.edit),
+                  label: const Text('Edit entry'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF8BAEAE),
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    _showEditDialog(context, log, index);
+                  },
+                ),
+              ),
+            if (log['id'] != null && !isCustom) const SizedBox(height: 8),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
@@ -276,6 +293,82 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showEditDialog(BuildContext context, Map<String, dynamic> log, int index) {
+    final valueController = TextEditingController(text: '${log['value']}');
+    final notesController = TextEditingController(text: log['notes']?.toString() ?? '');
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        title: const Text('Edit Entry'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: valueController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: InputDecoration(
+                labelText: 'Value (${_formatUnit(log['unit']?.toString())})',
+                border: const OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: notesController,
+              decoration: const InputDecoration(
+                labelText: 'Notes (optional)',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF8BAEAE)),
+            onPressed: () async {
+              final raw = valueController.text.trim();
+              final newValue = num.tryParse(raw) ?? raw;
+              final newNotes = notesController.text.trim().isEmpty ? null : notesController.text.trim();
+
+              final success = await _service.updateHealthLog(
+                widget.petId,
+                log['id'] as int,
+                value: newValue,
+                notes: newNotes,
+              );
+
+              if (!mounted) return;
+              Navigator.pop(ctx);
+
+              if (success) {
+                setState(() {
+                  _loadedLogs[index] = {
+                    ..._loadedLogs[index],
+                    'value': newValue,
+                    'notes': newNotes,
+                  };
+                });
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Entry updated')),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Failed to update entry')),
+                );
+              }
+            },
+            child: const Text('Save', style: TextStyle(color: Colors.white)),
+          ),
+        ],
       ),
     );
   }
