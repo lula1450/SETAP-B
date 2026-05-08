@@ -1,7 +1,8 @@
 PetSync Documentation
 ====================
 
-Welcome to the SETAP-B documentation! This is a comprehensive documentation for the PetSync application - a comprehensive pet health and wellness management system.
+Welcome to the PetSync documentation! This is a comprehensive documentation for the PetSync application.
+A comprehensive pet health and wellness management system.
 
 .. toctree::
    :maxdepth: 2
@@ -13,24 +14,31 @@ Welcome to the SETAP-B documentation! This is a comprehensive documentation for 
    api
    contributing
 
-About SETAP-B
-=============
+Main Features
+-------------
+- Pet profile management
+- Feeding and medication schedules
+- Health records tracking
+- Notifications and reminders
+- Cross-platform mobile support (Flutter)
+- REST API backend (FastAPI)
 
-SETAP-B is a pet management system that consists of:
+System Architecture
+------------------
+PetSync consists of:
 
-- **Backend**: A FastAPI-based REST API for managing pet health, feeding schedules, and health records
-- **Frontend**: A Flutter mobile application for iOS and Android
+- Flutter frontend (mobile app)
+- FastAPI backend (REST API)
+- Database (PostgreSQL)
 
 Quick Links
 -----------
-
 - `GitHub Repository <https://github.com/lula1450/SETAP-B>`_
 - :doc:`getting_started`
 - :doc:`api`
 
 Indices and tables
-==================
-
+------------------
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
