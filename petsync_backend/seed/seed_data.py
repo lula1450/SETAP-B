@@ -98,25 +98,25 @@ def seed_data():
     targets = [
         # Bailey Targets (Labrador)
         (bailey, MetricName.weight, 15.0),
-        (bailey, MetricName.energy_level, 4.0),
-        (bailey, MetricName.appetite, 4.5),
+        (bailey, MetricName.energy_level, 4),
+        (bailey, MetricName.appetite, 4),
 
         # Luna Targets (Maine Coon)
         (luna, MetricName.weight, 6.4),
         (luna, MetricName.water_intake, 300.0),
-        (luna, MetricName.stool_quality, 4.0),
+        (luna, MetricName.stool_quality, 4),
 
         # Rio Targets (African Grey)
         (rio, MetricName.weight, 0.5),              # Goal: 500g
-        (rio, MetricName.feather_condition, 4.0),   # Goal: Healthy plumage (4/5)
-        (rio, MetricName.vocalisation_level, 3.0),  # Goal: Moderate (3/5)
-        (rio, MetricName.appetite, 4.0),            # Goal: Good appetite (4/5)
+        (rio, MetricName.feather_condition, 4),     # Goal: Healthy plumage (4/5)
+        (rio, MetricName.vocalisation_level, 3),    # Goal: Moderate (3/5)
+        (rio, MetricName.appetite, 4),              # Goal: Good appetite (4/5)
 
         # Ziggy Targets (Ball Python)
         (ziggy, MetricName.weight, 1.5),            # Goal: 1.5kg
         (ziggy, MetricName.humidity_level, 60.0),   # Goal: 60% humidity
-        (ziggy, MetricName.shedding_quality, 4.0),  # Goal: Clean shed (4/5)
-        (ziggy, MetricName.appetite, 3.5),          # Goal: Regular feeding (3.5/5)
+        (ziggy, MetricName.shedding_quality, 4),    # Goal: Clean shed (4/5)
+        (ziggy, MetricName.appetite, 4),            # Goal: Regular feeding (4/5)
     ]
 
     for pet, m_name, target_val in targets:
@@ -170,6 +170,12 @@ def seed_data():
     }
     MEAL_HOURS = [(7, 8), (12, 13), (18, 19)]
 
+    SCALE_METRICS = {
+        MetricName.energy_level, MetricName.appetite, MetricName.stool_quality,
+        MetricName.feather_condition, MetricName.vocalisation_level,
+        MetricName.shedding_quality,
+    }
+
     for pet, m_name, base, var, trend in scenarios:
         m_def = db.query(MetricDefinition).filter(
             MetricDefinition.species_id == pet.species_id, MetricDefinition.metric_name == m_name
@@ -183,6 +189,9 @@ def seed_data():
                     else:        val = (base - 0.4) + ((i - 20) * 0.04)
                 else:
                     val = base + random.uniform(-var, var)
+
+                if m_name in SCALE_METRICS:
+                    val = max(1, min(5, round(val)))
 
                 hour_range = METRIC_HOURS.get(m_name)
                 h_min, h_max = hour_range if hour_range else MEAL_HOURS[i % 3]

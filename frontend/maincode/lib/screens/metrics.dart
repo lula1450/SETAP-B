@@ -513,7 +513,7 @@ class _MetricsPageState extends State<MetricsPage> {
           children: [
             _infoRow(
               Icons.monitor_heart_outlined, "Current",
-              neverLogged ? 'Not yet logged' : '$currentVal $unit',
+              neverLogged ? 'Not yet logged' : (unit == '/5' ? '${(double.tryParse(currentVal) ?? 0).round()} $unit' : '$currentVal $unit'),
               onClear: neverLogged ? null : () => clearCurrent(dlgCtx),
             ),
             if (!neverLogged && lastTime.isNotEmpty) ...[
@@ -524,7 +524,7 @@ class _MetricsPageState extends State<MetricsPage> {
               const SizedBox(height: 12),
               _infoRow(
                 Icons.flag_outlined, "Target",
-                targetVal.isEmpty ? 'Not set' : '$targetVal $unit',
+                targetVal.isEmpty ? 'Not set' : (unit == '/5' ? '${(double.tryParse(targetVal) ?? 0).round()} $unit' : '$targetVal $unit'),
                 onClear: targetVal.isEmpty ? null : () => clearTarget(dlgCtx),
               ),
             ],
@@ -571,12 +571,35 @@ class _MetricsPageState extends State<MetricsPage> {
     final bool isWaterIntake = title.toLowerCase() == 'water intake';
     final bool isScale = unit == '/5';
     String waterUnit = 'ml';
-    double sliderVal = 3.0;
-    double goalSliderVal = 5.0;
-    if (isScale) {
-      valueController.text = sliderVal.round().toString();
-      goalController.text = goalSliderVal.round().toString();
+    // IMPORTANT: Only initialize slider values for the fields being shown
+    double sliderVal = showValue ? 3.0 : 0.0;
+    double goalSliderVal = showTarget ? 3.0 : 0.0;
+    
+    // Initialize current value from existing data if showing value
+    if (showValue) {
+      final currentVal = _latestValues[title]?['value'] ?? '';
+      if (currentVal.isNotEmpty && currentVal != '---' && currentVal != '...') {
+        if (isScale) {
+          sliderVal = (double.tryParse(currentVal) ?? 3.0).clamp(1.0, 5.0);
+        } else {
+          valueController.text = currentVal;
+        }
+      }
     }
+    
+    // Initialize target value from existing data if showing target
+    if (showTarget) {
+      final existingTarget = _latestValues[title]?['target'] ?? '';
+      if (isScale && existingTarget.isNotEmpty) {
+        goalSliderVal = (double.tryParse(existingTarget) ?? 3.0).clamp(1.0, 5.0);
+      } else if (!isScale && existingTarget.isNotEmpty) {
+        goalController.text = existingTarget;
+      }
+    }
+    
+    // Set slider text for scale metrics - only for fields being shown
+    if (isScale && showValue) valueController.text = sliderVal.round().toString();
+    if (isScale && showTarget) goalController.text = goalSliderVal.round().toString();
 
     showDialog(
       context: outerCtx,
@@ -704,17 +727,26 @@ class _MetricsPageState extends State<MetricsPage> {
                 ? const Padding(padding: EdgeInsets.all(8.0), child: CircularProgressIndicator())
                 : ElevatedButton(
                     onPressed: () async {
-                      if (valueController.text.isEmpty && goalController.text.isEmpty) return;
+                      // Determine which fields are actually being used in this dialog
+                      // If a field is NOT being shown, ignore whatever might be in its controller
+                      final effectiveValue = showValue ? valueController.text : '';
+                      final effectiveGoal = showTarget ? goalController.text : '';
+                      
+                      debugPrint('DEBUG: Dialog for $title - showValue=$showValue, showTarget=$showTarget');
+                      debugPrint('DEBUG: valueController.text="${valueController.text}", goalController.text="${goalController.text}"');
+                      debugPrint('DEBUG: effectiveValue="$effectiveValue", effectiveGoal="$effectiveGoal"');
+                      
+                      if (effectiveValue.isEmpty && effectiveGoal.isEmpty) return;
                       setDialogState(() => isLogging = true);
                       String backendName = title.toLowerCase().replaceAll(" ", "_");
 
                       // Convert L → ml before saving so the backend always receives ml
-                      String resolvedValue = valueController.text;
-                      String resolvedGoal = goalController.text;
+                      String resolvedValue = effectiveValue;
+                      String resolvedGoal = effectiveGoal;
                       if (isWaterIntake && waterUnit == 'L') {
-                        final v = double.tryParse(valueController.text);
+                        final v = double.tryParse(effectiveValue);
                         if (v != null) resolvedValue = (v * 1000).toStringAsFixed(0);
-                        final g = double.tryParse(goalController.text);
+                        final g = double.tryParse(effectiveGoal);
                         if (g != null) resolvedGoal = (g * 1000).toStringAsFixed(0);
                       }
 
@@ -724,8 +756,9 @@ class _MetricsPageState extends State<MetricsPage> {
                         final isCustom = customList.contains(title);
                         if (isCustom) {
                           final key = title.toLowerCase().replaceAll(" ", "_");
-                          if (valueController.text.isNotEmpty) {
-                            await prefs.setString('custom_current_${widget.petId}_$key', valueController.text);
+                          // ONLY update current value if we're actually editing it
+                          if (showValue && effectiveValue.isNotEmpty) {
+                            await prefs.setString('custom_current_${widget.petId}_$key', effectiveValue);
                             final histKey = 'custom_history_${widget.petId}_$key';
                             final existing = jsonDecode(prefs.getString(histKey) ?? '[]') as List;
                             final now = DateTime.now();
@@ -734,24 +767,26 @@ class _MetricsPageState extends State<MetricsPage> {
                             existing.insert(0, {
                               'metric': key,
                               'display': title,
-                              'value': valueController.text,
+                              'value': effectiveValue,
                               'unit': _getUnitForMetric(title),
                               'time': timeStr,
                             });
                             await prefs.setString(histKey, jsonEncode(existing));
                           }
-                          if (goalController.text.isNotEmpty) {
-                            await prefs.setString('custom_target_${widget.petId}_$key', goalController.text);
+                          // ONLY update target if we're actually editing it
+                          if (showTarget && effectiveGoal.isNotEmpty) {
+                            await prefs.setString('custom_target_${widget.petId}_$key', effectiveGoal);
                           }
                         } else {
-                          if (resolvedValue.isNotEmpty) {
+                          if (showValue && resolvedValue.isNotEmpty) {
                             await _healthService.logMetric(
                               petId: widget.petId,
                               metricName: backendName,
                               value: resolvedValue,
                             );
                           }
-                          if (resolvedGoal.isNotEmpty) {
+                          // Only sync goal if we're actually showing the target field AND a new goal was entered
+                          if (showTarget && effectiveGoal.isNotEmpty) {
                             await _healthService.syncGoalToBackend(
                               widget.petId,
                               backendName,
@@ -760,7 +795,8 @@ class _MetricsPageState extends State<MetricsPage> {
                           }
                         }
                         if (!mounted) return;
-                        final effectiveTarget = resolvedGoal.isNotEmpty
+                        // Only use the new goal if it was actually being edited
+                        final effectiveTarget = (showTarget && resolvedGoal.isNotEmpty)
                             ? resolvedGoal
                             : (_latestValues[title]?['target'] ?? '');
                         if (dlgCtx.mounted) Navigator.pop(dlgCtx);
@@ -997,8 +1033,22 @@ class _MetricsPageState extends State<MetricsPage> {
 
     Color statusColor = _getStatusColor(current, hasTarget ? target : '');
 
-    String displayCurrent = (current == "..." || current == "---") ? "" : "$current $unit";
-    String displayGoal = target.isNotEmpty ? "$target $unit" : "";
+    String displayCurrent;
+    if (current == "..." || current == "---") {
+      displayCurrent = "";
+    } else if (unit == '/5') {
+      final d = double.tryParse(current);
+      displayCurrent = d != null ? '${d.round()} $unit' : '$current $unit';
+    } else {
+      displayCurrent = '$current $unit';
+    }
+    String displayGoal;
+    if (unit == '/5' && target.isNotEmpty) {
+      final d = double.tryParse(target);
+      displayGoal = d != null ? '${d.round()} $unit' : '$target $unit';
+    } else {
+      displayGoal = target.isNotEmpty ? '$target $unit' : '';
+    }
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
