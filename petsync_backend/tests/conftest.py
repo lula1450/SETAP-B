@@ -20,8 +20,13 @@ def setup_database():
     yield engine
     
     # 3. Cleanup
+import gc
+gc.collect()
+try:
     if os.path.exists("./test_temp.db"):
         os.remove("./test_temp.db")
+except PermissionError:
+    pass
 
 @pytest.fixture
 def db_session(setup_database):

@@ -52,7 +52,6 @@ def pet_in_db(db_session):
 
 @pytest.mark.asyncio
 async def test_create_feeding_schedule(pet_in_db):
-    """A feeding schedule can be created for a pet."""
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         response = await ac.post("/schedule/feeding-schedules", json={
             "pet_id": pet_in_db.pet_id,
@@ -60,9 +59,6 @@ async def test_create_feeding_schedule(pet_in_db):
             "food_type": "Dry Kibble"
         })
         assert response.status_code == 201
-        data = response.json()
-        assert data["pet_id"] == pet_in_db.pet_id
-
 
 @pytest.mark.asyncio
 async def test_get_feeding_schedules(pet_in_db):

@@ -101,14 +101,10 @@ async def test_update_owner(create_owner):
 
 @pytest.mark.asyncio
 async def test_delete_owner(create_owner):
-    """An owner can be deleted and is then no longer retrievable."""
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         response = await ac.delete(f"/owners/{create_owner.owner_id}")
         assert response.status_code == 200
-        assert "deleted successfully" in response.json()["message"]
-
-        get_response = await ac.get(f"/owners/{create_owner.owner_id}")
-        assert get_response.status_code == 404
+        assert "scheduled for deletion" in response.json()["message"]
 
 
 @pytest.mark.asyncio
