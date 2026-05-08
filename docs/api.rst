@@ -1,82 +1,121 @@
-API Documentation
-==================
+Application Programming Interface (API) Documentation
+=================
 
 Backend API
 -----------
+The SETAP-B backend uses FastAPI to provide RESTful API endpoints for managing
+application data and frontend communication.
 
-The SETAP-B backend is built with FastAPI and provides RESTful APIs for managing:
+The API supports:
+- User authentication
+- Pet profile management
+- Health record tracking
+- Feeding schedules
+- Report generation
+- Owner account management
 
-- **Authentication**: User login and registration
-- **Pets**: Pet information and management
-- **Health Records**: Pet health tracking
-- **Feeding Schedule**: Meal scheduling and tracking
-- **Reports**: Health reports and analytics
-- **Vet Contacts**: Veterinarian information
-
-Core Modules
-~~~~~~~~~~~~
-
-.. autosummary::
-   :toctree: modules
-
-   petsync_backend.models
-   petsync_backend.database
-   petsync_backend.schemas
-   petsync_backend.calculations
-
-API Endpoints
-~~~~~~~~~~~~~
-
+Main Route Groups
+-----------------
 Authentication
-^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~
+Routes under:
+::
 
-.. http:post:: /api/auth/register
+   /auth
 
-   Register a new user.
-
-.. http:post:: /api/auth/login
-
-   Login with username and password.
+Used for:
+- User login
+- User registration
+- Authentication tasks
 
 Pets
-^^^^^^^^^^^^^^^^^^^
+~~~~
+Routes under:
+::
 
-.. http:get:: /api/pets
+   /pets
 
-   Get all pets for the authenticated user.
+Used for:
+- Create pets
+- View pet profiles
+- Update pet details
+- Delete pets
 
-.. http:post:: /api/pets
+Health
+~~~~~~
+Routes under:
+::
 
-   Create a new pet.
+   /health
 
-.. http:get:: /api/pets/{pet_id}
+Used for:
+- Store health records
+- Track metrics
+- View pet health history
 
-   Get pet details.
+Schedule
+~~~~~~~~
+Routes under:
+::
 
-.. http:put:: /api/pets/{pet_id}
+   /schedule
 
-   Update pet information.
+Used for:
+- Feeding schedules
+- Appointment reminders
+- Scheduled events
 
-Health Records
-^^^^^^^^^^^^^^^^^^^
+Reports
+~~~~~~~
+Routes under:
+::
 
-.. http:get:: /api/health/{pet_id}
+   /reports
 
-   Get health records for a pet.
+Used for:
 
-.. http:post:: /api/health/{pet_id}
+- Generate reports
+- View historical reports
+- Health analytics
 
-   Create a new health record.
+Owners
+~~~~~~
+Routes under:
+::
 
-Feeding Schedule
-^^^^^^^^^^^^^^^^^^^
+   /owners
 
-.. http:get:: /api/schedule/{pet_id}
+Used for:
 
-   Get feeding schedule for a pet.
+- Owner profile management
+- Account deletion requests
+- Owner account operations
 
-.. http:post:: /api/schedule/{pet_id}
+Additional Routes
+-----------------
+Root Endpoint:
+::
 
-   Create a feeding schedule entry.
+   /
 
-For detailed endpoint documentation, see the interactive API docs at ``/docs`` when the backend is running.
+Returns confirmation that the API is running.
+
+Middleware
+----------
+The backend also includes:
+
+- Custom PetSyncFirewall security middleware
+- CORS middleware for frontend communication
+
+Interactive API Docs
+--------------------
+When running locally, FastAPI automatically provides documentation at:
+::
+
+   /docs
+
+and
+
+::
+
+   /redoc
