@@ -5,7 +5,6 @@ We welcome contributions to SETAP-B! Here's how you can help:
 
 Getting Started
 ---------------
-
 1. Fork the repository on GitHub
 2. Clone your fork locally
 3. Create a new branch for your feature: ``git checkout -b feature/your-feature-name``
@@ -19,7 +18,6 @@ Development Guidelines
 
 Code Style
 ~~~~~~~~~~
-
 **Python (Backend)**
 
 - Follow PEP 8 style guide
@@ -36,21 +34,18 @@ Code Style
 
 Testing
 ~~~~~~~
-
 - Write tests for new features
 - Ensure all tests pass before submitting a PR
 - Maintain or improve code coverage
 
 Documentation
 ~~~~~~~~~~~~~~
-
 - Update documentation for new features
 - Write clear commit messages
 - Include docstrings in code
 
 Reporting Issues
 ----------------
-
 If you find a bug or have a suggestion:
 
 1. Check if the issue already exists
@@ -60,5 +55,4 @@ If you find a bug or have a suggestion:
 
 License
 -------
-
 By contributing, you agree that your contributions will be licensed under the same license as the project.
