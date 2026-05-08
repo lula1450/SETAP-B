@@ -1,64 +1,85 @@
+import pytest
+from httpx import AsyncClient, ASGITransport
+from petsync_backend.main import app
+
 """
-Security firewall testing module for PetSync API.
-Tests various common security threats and vulnerabilities to ensure
-the API firewall properly blocks malicious requests.
+export PYTHONPATH=$PYTHONPATH:. && pytest petsync_backend/routers/tests/test_firewall.py -vv
 """
 
-import requests
+transport = ASGITransport(app=app)
 
-BASE_URL = "http://localhost:8000"
 
-def test_firewall():
-    """
-    Execute security tests against the PetSync API to verify firewall protection.
-    Tests for SQL injection, path traversal, and other common attack vectors.
-    Expects the firewall to return 403 (Forbidden) status for blocked requests.
-    """
-    # Define test cases: (method, url, data, description)
-    # Each test attempts a different type of security attack
-    tests = [
-        # SQL Injection attempts - trying to drop tables or execute unauthorized queries
-        ("GET", f"{BASE_URL}/pets/owner/1?q=drop%20table", None, "SQL Injection in query"),
-        ("GET", f"{BASE_URL}/pets?search=union%20select%20*", None, "UNION SELECT"),
-        
-        # Path traversal - attempting to access system files outside intended directory
-        ("GET", f"{BASE_URL}/etc/passwd", None, "Path traversal"),
-        
-        # POST-based SQL injection - malicious SQL in request body
-        ("POST", f"{BASE_URL}/pets/create", {"query": "drop table pets"}, "Drop table in POST body"),
-        
-        # SQL comment injection - attempting to bypass authentication or logic
-        ("GET", f"{BASE_URL}/api?test=--", None, "SQL comment"),
-    ]
-    
-    # Print header for test results
-    print("=" * 80)
-    print("🔒 FIREWALL SECURITY TESTS")
-    print("=" * 80)
-    
-    # Run each test and evaluate the response
-    # Run each test and evaluate the response
-    for method, url, data, description in tests:
-        print(f"\n🧪 Test: {description}")
-        print(f"   Method: {method} {url}")
-        try:
-            # Send the malicious request and check the response
-            if method == "GET":
-                resp = requests.get(url, timeout=5)
-            else:
-                resp = requests.post(url, json=data, timeout=5)
-            
-            # Evaluate the result: 403 means the firewall blocked the attack (success)
-            if resp.status_code == 403:
-                print(f"   ✅ BLOCKED (403): {resp.json()['detail']}")
-            else:
-                # Any other status code means the attack wasn't blocked (failure)
-                print(f"   ❌ NOT BLOCKED - Status: {resp.status_code}")
-                
-        except Exception as e:
-            # Connection errors or other exceptions indicate a problem
-            print(f"   ❌ Error: {str(e)[:100]}")
+# --- SQL Injection Tests ---
 
-# Entry point - run the security tests when script is executed directly
-if __name__ == "__main__":
-    test_firewall()
+@pytest.mark.asyncio
+async def test_sql_injection_in_query_param():
+    """SQL injection via query parameter is blocked by the firewall."""
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        response = await ac.get("/pets/owner/1?q=drop%20table")
+        assert response.status_code == 403
+        assert "detail" in response.json()
+
+
+@pytest.mark.asyncio
+async def test_union_select_injection():
+    """UNION SELECT injection attempt in query string is blocked."""
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        response = await ac.get("/pets?search=union%20select%20*")
+        assert response.status_code == 403
+        assert "detail" in response.json()
+
+
+@pytest.mark.asyncio
+async def test_sql_injection_in_post_body():
+    """SQL injection via POST request body is blocked."""
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        response = await ac.post("/pets/create", json={"query": "drop table pets"})
+        assert response.status_code == 403
+        assert "detail" in response.json()
+
+
+@pytest.mark.asyncio
+async def test_sql_comment_injection():
+    """SQL comment injection attempt in query string is blocked."""
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        response = await ac.get("/api?test=--")
+        assert response.status_code == 403
+        assert "detail" in response.json()
+
+
+# --- Path Traversal Tests ---
+
+@pytest.mark.asyncio
+async def test_path_traversal_etc_passwd():
+    """Attempt to access /etc/passwd via path traversal is blocked."""
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        response = await ac.get("/etc/passwd")
+        assert response.status_code == 403
+        assert "detail" in response.json()
+
+
+@pytest.mark.asyncio
+async def test_path_traversal_with_dots():
+    """Directory traversal using ../ sequences is blocked."""
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        response = await ac.get("/pets/../../etc/passwd")
+        assert response.status_code == 403
+        assert "detail" in response.json()
+
+
+# --- Clean Request Tests ---
+
+@pytest.mark.asyncio
+async def test_normal_request_not_blocked():
+    """A normal clean request is not blocked by the firewall."""
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        response = await ac.get("/pets/1")
+        assert response.status_code != 403
+
+
+@pytest.mark.asyncio
+async def test_normal_owner_request_not_blocked():
+    """A legitimate owner request passes through the firewall."""
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        response = await ac.get("/owners/1")
+        assert response.status_code != 403
