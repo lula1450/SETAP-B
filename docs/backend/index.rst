@@ -1,8 +1,8 @@
 Backend Documentation
 ======================
 
-SystemOverview
---------------
+System Overview
+---------------
 The SETAP-B backend is a FastAPI application that provides a comprehensive REST API for the PetSync pet management system. 
 It includes user authentication, pet profile management, health record tracking, scheduling features, vet contact management
 and more. It is respodible for handling requests from the frontend, prcessing application logic and managing data storage. 
@@ -13,7 +13,9 @@ the application and the database.
 
 Purpose
 -------
-What the backend does...
+The purpose of the backend is to power the PetSync platform by providing secure and reliable services for managing pets, 
+owners, health records, scheduling, and related data. It acts as the bridge between the frontend and the database, ensuring 
+that all operations are processed effeciently and consistently.
 
 Responsibilities
 ----------------
@@ -23,9 +25,21 @@ Responsibilities
 - Providing user authentication and authorization
 - Generating reports and analytics based on pet health data
 
-Architecture
-------------
-Layered design explanation...
+System Architecture
+-------------------
+The backend uses layered architecture to sesperate the responsibilities and improve organisation of the code.
+
+1. API Layer 
+   - Defines routes and endpoints using FastAPI
+   - Handling request validation
+   - Returns JSON responses to the frontend
+2. Service Layer 
+   - Main Business logic implementation
+   - Coordinates operations between API and the database
+   - Applies rules such as reminders, scheduling checks, and validation
+3. Data Layer 
+   - Uses SQLAlchemy ORM for database communication and data storage.
+   - Maintains relationships between users, pets, records, and scheduling.
 
 Key Features
 ~~~~~~~~~~~~
@@ -39,9 +53,12 @@ Key Features
 
 Tech Stack
 ~~~~~~~~~~
-- FastAPI
-- SQLAlchemy
-- SQLite
+- FastAPI --> High performance Python web framework
+- SQLAlchemy --> Used for database operations
+- SQLite --> Relational database
+- Pydantic --> Data validation and serialization
+- Uvicorn --> ASGI server for running the application
+- Python --> Core/Base programming language
 
 API Reference
 --------------
