@@ -35,7 +35,7 @@ class _MetricsPageState extends State<MetricsPage> {
   bool _loadingMetrics = true;
   Map<String, String> _customUnits = {};
   List<String> _favorites = [];
-  String? _lastLoggedMetric;
+
   late String _currentPetName; // Track the current pet name
 
   // Metrics where setting a target doesn't make clinical sense
@@ -81,8 +81,6 @@ class _MetricsPageState extends State<MetricsPage> {
     final hidden = prefs.getStringList('hidden_metrics_${widget.petId}') ?? [];
     final unitsRaw = prefs.getString('custom_units_${widget.petId}') ?? '{}';
     final unitsMap = Map<String, String>.from(jsonDecode(unitsRaw) as Map);
-    final lastLogged = prefs.getString('last_logged_metric_${widget.petId}');
-    final lastLoggedTitle = lastLogged?.split('|').first;
     if (mounted) {
       setState(() {
         _customMetricNames = List<String>.from(custom);
@@ -92,9 +90,6 @@ class _MetricsPageState extends State<MetricsPage> {
         ];
         _customUnits = unitsMap;
         _loadingMetrics = false;
-        if (lastLoggedTitle != null && lastLoggedTitle.isNotEmpty) {
-          _lastLoggedMetric = lastLoggedTitle;
-        }
       });
       _refreshAllMetrics();
     }
@@ -113,7 +108,7 @@ class _MetricsPageState extends State<MetricsPage> {
       await prefs.remove('custom_current_${widget.petId}_$key');
       await prefs.remove('custom_target_${widget.petId}_$key');
       await prefs.remove('custom_history_${widget.petId}_$key');
-      
+
       // Clear last logged metric if it matches the deleted metric
       final lastLogged = prefs.getString('last_logged_metric_${widget.petId}');
       if (lastLogged != null) {
@@ -122,7 +117,7 @@ class _MetricsPageState extends State<MetricsPage> {
           await prefs.remove('last_logged_metric_${widget.petId}');
         }
       }
-      
+
       setState(() {
         _customUnits = updatedUnits;
         _customMetricNames.remove(name);
@@ -207,42 +202,53 @@ class _MetricsPageState extends State<MetricsPage> {
   }
 
   void _showDeleteMetricDialog() {
+    final metricsNotifier = ValueNotifier<List<String>>(List.from(_metrics));
+
     showDialog(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-          title: const Text("Remove a Metric"),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: _metrics.isEmpty
-                ? const Text("No metrics to remove.")
-                : ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: _metrics.length,
-                    itemBuilder: (_, i) {
-                      final name = _metrics[i];
-                      return ListTile(
-                        title: Text(name),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.delete_outline, color: Colors.red),
-                          onPressed: () {
-                            _showDeleteConfirmationDialog(name);
-                          },
-                        ),
-                      );
-                    },
-                  ),
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        title: const Text("Remove a Metric"),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ValueListenableBuilder<List<String>>(
+            valueListenable: metricsNotifier,
+            builder: (_, metrics, _) {
+              return metrics.isEmpty
+                  ? const Text("No metrics to remove.")
+                  : ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: metrics.length,
+                      itemBuilder: (_, i) {
+                        final name = metrics[i];
+                        return ListTile(
+                          title: Text(name),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.delete_outline, color: Colors.red),
+                            onPressed: () {
+                              _showDeleteConfirmationDialog(
+                                name,
+                                onConfirm: () async {
+                                  await _removeMetric(name);
+                                  metricsNotifier.value = List.from(metricsNotifier.value)..remove(name);
+                                },
+                              );
+                            },
+                          ),
+                        );
+                      },
+                    );
+            },
           ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Done")),
-          ],
         ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Done")),
+        ],
       ),
     );
   }
 
-  void _showDeleteConfirmationDialog(String metricName) {
+  void _showDeleteConfirmationDialog(String metricName, {required Future<void> Function() onConfirm}) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -258,12 +264,8 @@ class _MetricsPageState extends State<MetricsPage> {
           ),
           ElevatedButton(
             onPressed: () async {
-              await _removeMetric(metricName);
-              if (mounted) {
-                Navigator.pop(ctx); // Close confirmation dialog
-                // Update parent dialog to reflect changes
-                setState(() {});
-              }
+              await onConfirm();
+              if (ctx.mounted) Navigator.pop(ctx);
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             child: const Text("Delete", style: TextStyle(color: Colors.white)),
@@ -341,7 +343,7 @@ class _MetricsPageState extends State<MetricsPage> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
         title: Row(
           children: [
-            const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
+            const Icon(Icons.warning_rounded, color: Colors.red, size: 28),
             const SizedBox(width: 8),
             Expanded(child: Text("$title Alert", style: const TextStyle(fontSize: 16))),
           ],
@@ -413,7 +415,7 @@ class _MetricsPageState extends State<MetricsPage> {
       const Color.fromARGB(255, 167, 235, 244), // Cyan
       const Color.fromARGB(255, 219, 247, 240), // Mint
     ];
-    
+
     if (index < 0) return Colors.grey;
     return nameColors[index % nameColors.length];
   }
@@ -513,7 +515,7 @@ class _MetricsPageState extends State<MetricsPage> {
           children: [
             _infoRow(
               Icons.monitor_heart_outlined, "Current",
-              neverLogged ? 'Not yet logged' : (unit == '/5' ? '${(double.tryParse(currentVal) ?? 0).round()} $unit' : '$currentVal $unit'),
+              neverLogged ? 'Not yet logged' : '$currentVal $unit',
               onClear: neverLogged ? null : () => clearCurrent(dlgCtx),
             ),
             if (!neverLogged && lastTime.isNotEmpty) ...[
@@ -524,7 +526,7 @@ class _MetricsPageState extends State<MetricsPage> {
               const SizedBox(height: 12),
               _infoRow(
                 Icons.flag_outlined, "Target",
-                targetVal.isEmpty ? 'Not set' : (unit == '/5' ? '${(double.tryParse(targetVal) ?? 0).round()} $unit' : '$targetVal $unit'),
+                targetVal.isEmpty ? 'Not set' : '$targetVal $unit',
                 onClear: targetVal.isEmpty ? null : () => clearTarget(dlgCtx),
               ),
             ],
@@ -571,35 +573,12 @@ class _MetricsPageState extends State<MetricsPage> {
     final bool isWaterIntake = title.toLowerCase() == 'water intake';
     final bool isScale = unit == '/5';
     String waterUnit = 'ml';
-    // IMPORTANT: Only initialize slider values for the fields being shown
-    double sliderVal = showValue ? 3.0 : 0.0;
-    double goalSliderVal = showTarget ? 3.0 : 0.0;
-    
-    // Initialize current value from existing data if showing value
-    if (showValue) {
-      final currentVal = _latestValues[title]?['value'] ?? '';
-      if (currentVal.isNotEmpty && currentVal != '---' && currentVal != '...') {
-        if (isScale) {
-          sliderVal = (double.tryParse(currentVal) ?? 3.0).clamp(1.0, 5.0);
-        } else {
-          valueController.text = currentVal;
-        }
-      }
+    double sliderVal = 3.0;
+    double goalSliderVal = 5.0;
+    if (isScale) {
+      valueController.text = sliderVal.round().toString();
+      goalController.text = goalSliderVal.round().toString();
     }
-    
-    // Initialize target value from existing data if showing target
-    if (showTarget) {
-      final existingTarget = _latestValues[title]?['target'] ?? '';
-      if (isScale && existingTarget.isNotEmpty) {
-        goalSliderVal = (double.tryParse(existingTarget) ?? 3.0).clamp(1.0, 5.0);
-      } else if (!isScale && existingTarget.isNotEmpty) {
-        goalController.text = existingTarget;
-      }
-    }
-    
-    // Set slider text for scale metrics - only for fields being shown
-    if (isScale && showValue) valueController.text = sliderVal.round().toString();
-    if (isScale && showTarget) goalController.text = goalSliderVal.round().toString();
 
     showDialog(
       context: outerCtx,
@@ -727,26 +706,17 @@ class _MetricsPageState extends State<MetricsPage> {
                 ? const Padding(padding: EdgeInsets.all(8.0), child: CircularProgressIndicator())
                 : ElevatedButton(
                     onPressed: () async {
-                      // Determine which fields are actually being used in this dialog
-                      // If a field is NOT being shown, ignore whatever might be in its controller
-                      final effectiveValue = showValue ? valueController.text : '';
-                      final effectiveGoal = showTarget ? goalController.text : '';
-                      
-                      debugPrint('DEBUG: Dialog for $title - showValue=$showValue, showTarget=$showTarget');
-                      debugPrint('DEBUG: valueController.text="${valueController.text}", goalController.text="${goalController.text}"');
-                      debugPrint('DEBUG: effectiveValue="$effectiveValue", effectiveGoal="$effectiveGoal"');
-                      
-                      if (effectiveValue.isEmpty && effectiveGoal.isEmpty) return;
+                      if (valueController.text.isEmpty && goalController.text.isEmpty) return;
                       setDialogState(() => isLogging = true);
                       String backendName = title.toLowerCase().replaceAll(" ", "_");
 
                       // Convert L → ml before saving so the backend always receives ml
-                      String resolvedValue = effectiveValue;
-                      String resolvedGoal = effectiveGoal;
+                      String resolvedValue = valueController.text;
+                      String resolvedGoal = goalController.text;
                       if (isWaterIntake && waterUnit == 'L') {
-                        final v = double.tryParse(effectiveValue);
+                        final v = double.tryParse(valueController.text);
                         if (v != null) resolvedValue = (v * 1000).toStringAsFixed(0);
-                        final g = double.tryParse(effectiveGoal);
+                        final g = double.tryParse(goalController.text);
                         if (g != null) resolvedGoal = (g * 1000).toStringAsFixed(0);
                       }
 
@@ -756,9 +726,8 @@ class _MetricsPageState extends State<MetricsPage> {
                         final isCustom = customList.contains(title);
                         if (isCustom) {
                           final key = title.toLowerCase().replaceAll(" ", "_");
-                          // ONLY update current value if we're actually editing it
-                          if (showValue && effectiveValue.isNotEmpty) {
-                            await prefs.setString('custom_current_${widget.petId}_$key', effectiveValue);
+                          if (valueController.text.isNotEmpty) {
+                            await prefs.setString('custom_current_${widget.petId}_$key', valueController.text);
                             final histKey = 'custom_history_${widget.petId}_$key';
                             final existing = jsonDecode(prefs.getString(histKey) ?? '[]') as List;
                             final now = DateTime.now();
@@ -767,26 +736,24 @@ class _MetricsPageState extends State<MetricsPage> {
                             existing.insert(0, {
                               'metric': key,
                               'display': title,
-                              'value': effectiveValue,
+                              'value': valueController.text,
                               'unit': _getUnitForMetric(title),
                               'time': timeStr,
                             });
                             await prefs.setString(histKey, jsonEncode(existing));
                           }
-                          // ONLY update target if we're actually editing it
-                          if (showTarget && effectiveGoal.isNotEmpty) {
-                            await prefs.setString('custom_target_${widget.petId}_$key', effectiveGoal);
+                          if (goalController.text.isNotEmpty) {
+                            await prefs.setString('custom_target_${widget.petId}_$key', goalController.text);
                           }
                         } else {
-                          if (showValue && resolvedValue.isNotEmpty) {
+                          if (resolvedValue.isNotEmpty) {
                             await _healthService.logMetric(
                               petId: widget.petId,
                               metricName: backendName,
                               value: resolvedValue,
                             );
                           }
-                          // Only sync goal if we're actually showing the target field AND a new goal was entered
-                          if (showTarget && effectiveGoal.isNotEmpty) {
+                          if (resolvedGoal.isNotEmpty) {
                             await _healthService.syncGoalToBackend(
                               widget.petId,
                               backendName,
@@ -795,12 +762,10 @@ class _MetricsPageState extends State<MetricsPage> {
                           }
                         }
                         if (!mounted) return;
-                        // Only use the new goal if it was actually being edited
-                        final effectiveTarget = (showTarget && resolvedGoal.isNotEmpty)
+                        final effectiveTarget = resolvedGoal.isNotEmpty
                             ? resolvedGoal
                             : (_latestValues[title]?['target'] ?? '');
                         if (dlgCtx.mounted) Navigator.pop(dlgCtx);
-                        if (resolvedValue.isNotEmpty) setState(() => _lastLoggedMetric = title);
                         _refreshAllMetrics();
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(content: Text("Updated $title successfully!"), backgroundColor: Colors.green.shade700),
@@ -829,6 +794,199 @@ class _MetricsPageState extends State<MetricsPage> {
     );
   }
 
+  void _showCurrentValueOptions(String title) {
+    final String currentVal = _latestValues[title]?['value'] ?? '---';
+    final bool hasValue = currentVal != '---' && currentVal != '...';
+
+    if (!hasValue) {
+      _showEditDialog(context, title, showValue: true, showTarget: false);
+      return;
+    }
+
+    final String unit = _getUnitForMetric(title);
+    final String displayVal = unit == '/5'
+        ? '${double.tryParse(currentVal)?.round() ?? currentVal} $unit'
+        : '$currentVal $unit';
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        title: Text(title),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Current value: $displayVal', style: const TextStyle(fontSize: 18)),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  _showEditDialog(context, title, showValue: true, showTarget: false);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF8BAEAE),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                child: const Text('Log New Value', style: TextStyle(color: Colors.white, fontSize: 16)),
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: TextButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  _doClearCurrentValue(title);
+                },
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.red,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                child: const Text('Remove Value', style: TextStyle(fontSize: 16)),
+              ),
+            ),
+            SizedBox(
+              width: double.infinity,
+              child: TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+                child: const Text('Cancel', style: TextStyle(fontSize: 16)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showTargetOptions(String title) {
+    final String targetVal = _latestValues[title]?['target'] ?? '';
+    final bool hasTarget = targetVal.isNotEmpty;
+
+    if (!hasTarget) {
+      _showEditDialog(context, title, showValue: false, showTarget: true);
+      return;
+    }
+
+    final String unit = _getUnitForMetric(title);
+    final String displayTarget = unit == '/5'
+        ? '${double.tryParse(targetVal)?.round() ?? targetVal} $unit'
+        : '$targetVal $unit';
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        title: Text('$title Target'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Current target: $displayTarget', style: const TextStyle(fontSize: 18)),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  _showEditDialog(context, title, showValue: false, showTarget: true);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF8BAEAE),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                child: const Text('Set Target', style: TextStyle(color: Colors.white, fontSize: 16)),
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: TextButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  _doClearTarget(title);
+                },
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.red,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                child: const Text('Remove Target', style: TextStyle(fontSize: 16)),
+              ),
+            ),
+            SizedBox(
+              width: double.infinity,
+              child: TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+                child: const Text('Cancel', style: TextStyle(fontSize: 16)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _doClearCurrentValue(String title) async {
+    final String entryId = _latestValues[title]?['id'] ?? '';
+    final bool isCustom = _customMetricNames.contains(title);
+    final String key = title.toLowerCase().replaceAll(' ', '_');
+
+    bool success = false;
+    if (isCustom) {
+      final prefs = await SharedPreferences.getInstance();
+      final histKey = 'custom_history_${widget.petId}_$key';
+      final histRaw = prefs.getString(histKey) ?? '[]';
+      final entries = List<Map<String, dynamic>>.from(
+        (jsonDecode(histRaw) as List).map((e) => Map<String, dynamic>.from(e as Map)),
+      );
+      if (entries.isNotEmpty) {
+        entries.sort((a, b) => (b['time'] ?? '').toString().compareTo((a['time'] ?? '').toString()));
+        entries.removeAt(0);
+        await prefs.setString(histKey, jsonEncode(entries));
+        if (entries.isEmpty) {
+          await prefs.remove('custom_current_${widget.petId}_$key');
+        } else {
+          await prefs.setString('custom_current_${widget.petId}_$key', jsonEncode(entries.first));
+        }
+      }
+      success = true;
+    } else if (entryId.isNotEmpty) {
+      success = await _healthService.deleteEntry(widget.petId, int.parse(entryId));
+    }
+
+    if (mounted) {
+      _refreshAllMetrics();
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(success ? 'Current value cleared.' : 'Could not clear value.'),
+        backgroundColor: success ? Colors.green.shade700 : Colors.red.shade400,
+      ));
+    }
+  }
+
+  Future<void> _doClearTarget(String title) async {
+    final bool isCustom = _customMetricNames.contains(title);
+    final String key = title.toLowerCase().replaceAll(' ', '_');
+
+    bool success = false;
+    if (isCustom) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('custom_target_${widget.petId}_$key');
+      success = true;
+    } else {
+      success = await _healthService.clearGoal(widget.petId, key);
+    }
+
+    if (mounted) {
+      _refreshAllMetrics();
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(success ? 'Target cleared.' : 'Could not clear target.'),
+        backgroundColor: success ? Colors.green.shade700 : Colors.red.shade400,
+      ));
+    }
+  }
+
   Color _getStatusColor(String current, String target) {
     if (current == "---" || target.isEmpty) return Colors.transparent;
     try {
@@ -837,33 +995,19 @@ class _MetricsPageState extends State<MetricsPage> {
       if (t == 0) return Colors.transparent;
       double diff = (c - t).abs() / t;
 
-      // If the value is more than 15% off target, show Amber/Orange
-      if (diff > 0.15) return Colors.orangeAccent;
-      // Otherwise, use the PetSync Teal
-      return const Color(0xFF8BAEAE);
+      if (diff > 0.15) return Colors.red;
+      return const Color(0xFF4CAF50);
     } catch (_) {
       return Colors.transparent;
     }
-  }
-
-  Widget _buildSparkline(Color color) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 8.0),
-      child: CustomPaint(
-        size: const Size(35, 20),
-        painter: _SparklinePainter(color),
-      ),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
     final Color petThemeColor = _getPetColor(widget.petIndex);
     List<String> filteredMetrics = _metrics.where((m) => m.toLowerCase().contains(_searchQuery)).toList();
-    
+
     filteredMetrics.sort((a, b) {
-      if (a == _lastLoggedMetric) return -1;
-      if (b == _lastLoggedMetric) return 1;
       if (_favorites.contains(a) && !_favorites.contains(b)) return -1;
       if (!_favorites.contains(a) && _favorites.contains(b)) return 1;
       return 0;
@@ -936,9 +1080,9 @@ class _MetricsPageState extends State<MetricsPage> {
                               text: TextSpan(
                                 style: TextStyle(color: Colors.blueGrey[800], fontSize: 14),
                                 children: [
-                                  TextSpan(text: "Teal", style: TextStyle(color: Colors.blueGrey[700], fontWeight: FontWeight.bold)),
+                                  TextSpan(text: "Green", style: TextStyle(color: Color(0xFF4CAF50), fontWeight: FontWeight.bold)),
                                   const TextSpan(text: " = within 15% of target\n\n"),
-                                  TextSpan(text: "Orange", style: TextStyle(color: Colors.orange[700], fontWeight: FontWeight.bold)),
+                                  TextSpan(text: "Red", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
                                   const TextSpan(text: " = deviates more than 15% from target"),
                                 ],
                               ),
@@ -967,12 +1111,12 @@ class _MetricsPageState extends State<MetricsPage> {
                         child: ElevatedButton.icon(
                           onPressed: _addCustomMetric,
                           icon: const Icon(Icons.add, size: 16),
-                          label: const Text('Custom Metric', style: TextStyle(fontSize: 13)),
+                          label: const Text('Custom Metric', style: TextStyle(fontSize: 16)),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF8BAEAE),
                             foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
                           ),
                         ),
                       ),
@@ -981,12 +1125,12 @@ class _MetricsPageState extends State<MetricsPage> {
                         child: ElevatedButton.icon(
                           onPressed: _showDeleteMetricDialog,
                           icon: const Icon(Icons.delete_outline, size: 16),
-                          label: const Text('Remove Metric', style: TextStyle(fontSize: 13)),
+                          label: const Text('Remove Metric', style: TextStyle(fontSize: 16)),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.white.withValues(alpha: 0.85),
                             foregroundColor: Colors.blueGrey[700],
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
                           ),
                         ),
                       ),
@@ -1064,16 +1208,15 @@ class _MetricsPageState extends State<MetricsPage> {
             child: _metricButton(
               title,
               Colors.white,
-              () => _showInfoDialog(context, title),
+              null,
               borderColor: statusColor,
-              showSpark: true,
             )
           ),
           const SizedBox(width: 8),
-          Expanded(flex: 1, child: _metricButton(displayCurrent, const Color(0xFFF0F6F5), () => _showEditDialog(context, title, showValue: true, showTarget: false))),
+          Expanded(flex: 1, child: _metricButton(displayCurrent, const Color(0xFFF0F6F5), () => _showCurrentValueOptions(title))),
           const SizedBox(width: 8),
           if (hasTarget)
-            Expanded(flex: 1, child: _metricButton(displayGoal, const Color(0xFFE2EFED), () => _showEditDialog(context, title, showValue: false, showTarget: true)))
+            Expanded(flex: 1, child: _metricButton(displayGoal, const Color(0xFFE2EFED), () => _showTargetOptions(title)))
           else
             Expanded(flex: 1, child: Container(height: 60)),
         ],
@@ -1081,7 +1224,7 @@ class _MetricsPageState extends State<MetricsPage> {
     );
   }
 
-  Widget _metricButton(String text, Color color, VoidCallback onTap, {Color borderColor = Colors.transparent, bool showSpark = false}) {
+  Widget _metricButton(String text, Color color, VoidCallback? onTap, {Color borderColor = Colors.transparent}) {
     return InkWell(
       onTap: onTap,
       child: Container(
@@ -1089,28 +1232,20 @@ class _MetricsPageState extends State<MetricsPage> {
         decoration: BoxDecoration(
           color: color,
           borderRadius: BorderRadius.circular(12),
-          // Applying the Status Border
           border: Border.all(
-            color: borderColor != Colors.transparent ? borderColor : Colors.black12,
-            width: borderColor != Colors.transparent ? 2.5 : 1.0,
+            color: borderColor != Colors.transparent ? borderColor : Colors.black26,
+            width: borderColor != Colors.transparent ? 5.0 : 3.0,
           ),
         ),
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            // Positioning the Mini Sparkline on the right
-            if (showSpark && borderColor != Colors.transparent)
-              Positioned(right: 5, child: _buildSparkline(borderColor)),
-
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4.0),
-              child: Text(
-                text,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-              ),
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4.0),
+            child: Text(
+              text,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -1118,33 +1253,6 @@ class _MetricsPageState extends State<MetricsPage> {
 
 }
 
-class _SparklinePainter extends CustomPainter {
-  final Color color;
-  _SparklinePainter(this.color);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (color == Colors.transparent) return;
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = 2.0
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    final path = Path();
-    // This creates a fake "trending up" little squiggle
-    path.moveTo(0, size.height * 0.7);
-    path.lineTo(size.width * 0.2, size.height * 0.8);
-    path.lineTo(size.width * 0.5, size.height * 0.3);
-    path.lineTo(size.width * 0.7, size.height * 0.5);
-    path.lineTo(size.width, size.height * 0.1);
-
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
 
 class HealthService {
   static String get baseUrl {
@@ -1158,7 +1266,7 @@ class HealthService {
   static String getImageUrl(String? imageUrl) {
     if (imageUrl == null || imageUrl.isEmpty) return '';
     if (!imageUrl.startsWith('http')) return imageUrl;
-    
+
     // For web, use localhost; for mobile, use 10.0.2.2
     if (kIsWeb) {
       return imageUrl.replaceFirst('http://10.0.2.2', 'http://localhost');
