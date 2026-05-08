@@ -1,55 +1,68 @@
 Overview
 ========
 
-Flutter Application Structure
-------------------------------
-
-The frontend is organized as follows:
+Frontend Structure
+------------------
+The Flutter frontend is organised using a modular structure inside the ``lib/`` directory. Screens, services, 
+widgets, and utility files are separated to improve maintainability, readability, and scalability.
 
 ::
-
    lib/
-   ├── main.dart                 # Application entry point
-   ├── login_page.dart          # User authentication
-   ├── register.dart            # User registration
-   ├── dashboard.dart           # Main dashboard
-   ├── add_pet.dart             # Add pet functionality
-   ├── petinfo.dart             # Pet information display
-   ├── edit_profile.dart        # Profile editing
-   ├── feeding_schedule.dart    # Feeding management
-   ├── health_records.dart      # Health tracking
-   ├── report.dart              # Report generation
-   ├── report_history.dart      # Report history
-   ├── metrics.dart             # Health metrics
-   ├── vet_contacts.dart        # Vet information
-   ├── recentlylogged.dart      # Recently logged activities
-   ├── services/                # API and service layer
-   └── utils/                   # Utility functions
+   ├── main.dart
+   ├── screens/
+   ├── services/
+   ├── utils/
+   └── widgets/
 
-Screen Organization
+Main Directories
+----------------
+**main.dart**
+Applications entry point. Initializes Flutter and launches the main app widgets.
+
+**screens/**
+Contains all user-facing pages used throughout the application.
+
+**services/**
+Handles backend API communication, HTTP requests, and business logic.
+
+**utils/**
+Contains helper methods, constants, and reusable utility functions.
+
+**widgets/**
+Reusable custom UI components shared across multiple screens.
+
+Screens
+-------
+
+Authentication Screens
+~~~~~~~~~~~~~~~~~~~~~~
+- ``login_page.dart`` – User login screen
+- ``register.dart`` – User registration screen
+
+Core Screens
+~~~~~~~~~~~~
+- ``dashboard.dart`` – Main dashboard and pet overview
+- ``add_pet.dart`` – Add a new pet
+- ``petinfo.dart`` – View pet details
+- ``edit_profile.dart`` – Edit user profile
+
+Health & Scheduling
 ~~~~~~~~~~~~~~~~~~~
+- ``feeding_schedule.dart`` – Manage feeding plans
+- ``health_records.dart`` – Record health entries
+- ``metrics.dart`` – View tracked health metrics
+- ``notifications.dart`` – View reminders and alerts
 
-**Authentication Flow**
+Reports & Activity
+~~~~~~~~~~~~~~~~~~
+- ``report.dart`` – Generate reports
+- ``report_history.dart`` – View report history
+- ``recentlylogged.dart`` – Recently logged activity
+- ``vet_contacts.dart`` – Veterinarian contacts
 
-- ``login_page.dart`` - Login screen
-- ``register.dart`` - Registration screen
+Architecture Notes
+------------------
+The frontend follows a screen-based architecture where each page is separated into individual 
+Dart files. Shared logic is placed in services, while reusable UI elements are stored in widgets.
 
-**Main Application**
-
-- ``dashboard.dart`` - Main dashboard with pet overview
-- ``add_pet.dart`` - Add new pet
-- ``petinfo.dart`` - View/manage pet details
-- ``edit_profile.dart`` - Edit user profile
-
-**Pet Management**
-
-- ``feeding_schedule.dart`` - View and manage feeding schedules
-- ``health_records.dart`` - Track pet health records
-- ``metrics.dart`` - View health metrics and charts
-
-**Reports & Contacts**
-
-- ``report.dart`` - Create health reports
-- ``report_history.dart`` - View past reports
-- ``vet_contacts.dart`` - Manage veterinarian contacts
-- ``recentlylogged.dart`` - View recently logged activities
+This approach improves code reuse and keeps the project clean and organised.
