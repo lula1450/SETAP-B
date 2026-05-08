@@ -1,4 +1,4 @@
-SETAP-B Documentation
+PetSync Documentation
 ====================
 
 Welcome to the SETAP-B documentation! This is a comprehensive documentation for the PetSync application - a comprehensive pet health and wellness management system.
