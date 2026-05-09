@@ -12,3 +12,5 @@ petsync_backend/venv/
 
 # Database
 petsync.db
+petsync.db-shm
+petsync.db-wal

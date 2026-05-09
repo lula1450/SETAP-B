@@ -2,22 +2,25 @@
 # provides the get_db() dependency so we can safely query and commit data
 # without duplicating connection logic
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 # petsync_backend/database.py
 
 from petsync_backend.models import Base
 
-# Define the database URL and create the SQLAlchemy engine for connecting to the database.
-#  In this case, we are using SQLite for simplicity (and so we dont need login credentials), 
-# but this can be replaced with any other database URL as needed.
 DATABASE_URL = "sqlite:///./petsync.db"
 
-# Create the SQLAlchemy engine and session factory for database interactions.
 engine = create_engine(
     DATABASE_URL,
-    connect_args={"check_same_thread": False}
+    connect_args={"check_same_thread": False, "timeout": 30}
 )
+
+@event.listens_for(engine, "connect")
+def set_sqlite_pragmas(dbapi_connection, connection_record):
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA journal_mode=WAL")
+    cursor.execute("PRAGMA busy_timeout=5000")
+    cursor.close()
 
 # Create session factory
 SessionLocal = sessionmaker(

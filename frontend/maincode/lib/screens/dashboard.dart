@@ -1280,6 +1280,7 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   void _renamePetDialog(Map<String, dynamic> pet) async {
+    _dismissAllOverlays();
     final firstNameController = TextEditingController(text: pet['pet_first_name'] ?? '');
     final lastNameController = TextEditingController(text: pet['pet_last_name'] ?? '');
     final messenger = ScaffoldMessenger.of(context);
@@ -1360,8 +1361,52 @@ class _DashboardPageState extends State<DashboardPage> {
     _fetchPets();
   }
 
+  void _dismissAllOverlays() {
+    _photoHintEntry?.remove();
+    _photoHintEntry = null;
+    _metricsHintEntry?.remove();
+    _metricsHintEntry = null;
+    _appointmentHintEntry?.remove();
+    _appointmentHintEntry = null;
+    _adviceHintEntry?.remove();
+    _adviceHintEntry = null;
+    _reportHintEntry?.remove();
+    _reportHintEntry = null;
+    _recentlyLoggedHintEntry?.remove();
+    _recentlyLoggedHintEntry = null;
+    _healthRecordsHintEntry?.remove();
+    _healthRecordsHintEntry = null;
+    _feedingHintEntry?.remove();
+    _feedingHintEntry = null;
+    _vetHintEntry?.remove();
+    _vetHintEntry = null;
+    _findOutMoreHintEntry?.remove();
+    _findOutMoreHintEntry = null;
+    _settingsHintEntry?.remove();
+    _settingsHintEntry = null;
+    _changePetHintEntry?.remove();
+    _changePetHintEntry = null;
+    if (mounted) {
+      setState(() {
+        _showPhotoHint = false;
+        _showMetricsHint = false;
+        _showAppointmentHint = false;
+        _showAdviceHint = false;
+        _showReportHint = false;
+        _showRecentlyLoggedHint = false;
+        _showHealthRecordsHint = false;
+        _showFeedingHint = false;
+        _showVetHint = false;
+        _showFindOutMoreHint = false;
+        _showSettingsHint = false;
+        _showChangePetHint = false;
+      });
+    }
+  }
+
   @override
   void dispose() {
+    _photoHintEntry?.remove();
     _metricsHintEntry?.remove();
     _appointmentHintEntry?.remove();
     _adviceHintEntry?.remove();
