@@ -713,18 +713,51 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> with RouteAwa
                           child: Row(
                             children: [
                               Expanded(
-                                child: Text(
-                                  weekLabel,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 15,
-                                    color: Colors.black87,
-                                  ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    if (_weekOffset == 0)
+                                      Container(
+                                        margin: const EdgeInsets.only(bottom: 3),
+                                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withValues(alpha: 0.5),
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: const Text(
+                                          'Current Week',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.black54,
+                                          ),
+                                        ),
+                                      ),
+                                    Text(
+                                      weekLabel,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 15,
+                                        color: Colors.black87,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                               _NavButton(label: '‹', onTap: () => _shiftWeek(-1)),
                               const SizedBox(width: 6),
-                              _NavButton(label: 'This Week', onTap: () => _shiftWeek(0)),
+                              GestureDetector(
+                                onTap: () => _shiftWeek(0),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.4),
+                                    border: Border.all(color: Colors.white54, width: 0.5),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(Icons.calendar_today, size: 16, color: Colors.black87),
+                                ),
+                              ),
                               const SizedBox(width: 6),
                               _NavButton(label: '›', onTap: () => _shiftWeek(1)),
                             ],
