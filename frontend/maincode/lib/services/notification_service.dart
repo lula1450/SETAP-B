@@ -163,6 +163,8 @@ class NotificationService {
   Future<void> cancel(int id) async { if (!kIsWeb) await _plugin.cancel(id); }
   Future<void> cancelAll() async { if (!kIsWeb) await _plugin.cancelAll(); }
 
+  static int feedingEndId(String eventBaseId) => 50000000 + eventBaseId.hashCode.abs() % 1000000;
+
   static int feedingId(int petId, String timeStr) {
     final parts = timeStr.split(':');
     final minutes = int.parse(parts[0]) * 60 + int.parse(parts[1]);

@@ -96,10 +96,12 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
             '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
         final String label = eventMap['name'] as String? ?? 'Feeding';
         final bool repeatDaily = eventMap['repeatDaily'] as bool? ?? true;
+        final String? endDate = eventMap['endDate'] as String?;
         localEvents.putIfAbsent(petId, () => {})[baseId] = {
           'time': timeStr,
           'label': label,
           'repeatDaily': repeatDaily,
+          'endDate': endDate,
         };
       }
     }
@@ -146,6 +148,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
         'time': entry.value['time'] as String,
         'label': entry.value['label'] as String,
         'repeatDaily': entry.value['repeatDaily'] as bool? ?? true,
+        'endDate': entry.value['endDate'],
       };
     }
   }
@@ -163,6 +166,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
       'enabled': prefs.getBool(key) ?? true,
       'baseId': entry.key,
       'repeatDaily': entry.value['repeatDaily'] as bool? ?? true,
+      'endDate': entry.value['endDate'],
     });
   }
 
@@ -662,23 +666,46 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                     ),
                   ),
                   ...pet['times'].map<Widget>((slot) {
+                    final endDateStr = slot['endDate'] as String?;
+                    String? endDateLabel;
+                    if (endDateStr != null) {
+                      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                      final dt = DateTime.parse(endDateStr);
+                      endDateLabel = 'Until ${dt.day} ${months[dt.month - 1]} ${dt.year}';
+                    }
                     return ListTile(
                       leading: const Icon(Icons.access_time, size: 18),
                       title: Text(slot['label'] as String),
-                      subtitle: OutlinedButton.icon(
-                        onPressed: petEnabled ? () async {
-                          final parts = (slot['time'] as String).split(':');
-                          final picked = await showTimePicker(
-                            context: context,
-                            initialTime: TimeOfDay(
-                              hour: int.parse(parts[0]),
-                              minute: int.parse(parts[1]),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          OutlinedButton.icon(
+                            onPressed: petEnabled ? () async {
+                              final parts = (slot['time'] as String).split(':');
+                              final picked = await showTimePicker(
+                                context: context,
+                                initialTime: TimeOfDay(
+                                  hour: int.parse(parts[0]),
+                                  minute: int.parse(parts[1]),
+                                ),
+                              );
+                              if (picked != null) await _changeFeedingTime(pet, slot, picked);
+                            } : null,
+                            icon: const Icon(Icons.edit, size: 14),
+                            label: Text(slot['time'] as String),
+                          ),
+                          if (endDateLabel != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 2, bottom: 4),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.event_busy, size: 12, color: Colors.grey),
+                                  const SizedBox(width: 4),
+                                  Text(endDateLabel, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                                ],
+                              ),
                             ),
-                          );
-                          if (picked != null) await _changeFeedingTime(pet, slot, picked);
-                        } : null,
-                        icon: const Icon(Icons.edit, size: 14),
-                        label: Text(slot['time'] as String),
+                        ],
                       ),
                       trailing: Switch(
                         value: (slot['enabled'] as bool) && petEnabled,

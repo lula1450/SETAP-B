@@ -391,13 +391,14 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> with RouteAwa
   }
 
   void _upsertEvent(PetEvent ev, String dayKey) {
+    final String baseId = ev.id.replaceAll(RegExp(r'_[0-6]$'), '');
+
     setState(() {
       final petMap = _recurring[ev.petId] ??= {};
 
       // Strip the weekday suffix (_0 … _6) to get the base ID.
       // Only strip a single digit 0-6, so 'backend_42_3' → 'backend_42'
       // without accidentally stripping the schedule ID from 'backend_42'.
-      String baseId = ev.id.replaceAll(RegExp(r'_[0-6]$'), '');
 
       // Remove all copies of this event from every weekday slot.
       petMap.forEach((weekday, list) {
@@ -424,6 +425,24 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> with RouteAwa
 
     // 4. Persist changes to local storage
     _saveToLocal();
+    _scheduleEndDateNotification(ev, baseId);
+  }
+
+  void _scheduleEndDateNotification(PetEvent ev, String baseId) async {
+    if (ev.endDate != null) {
+      final pet = _pets.firstWhere((p) => p.id == ev.petId,
+          orElse: () => const Pet(id: 0, name: 'Your pet', species: ''));
+      final endDateTime = DateTime(
+          ev.endDate!.year, ev.endDate!.month, ev.endDate!.day, 9, 0);
+      await _notif.scheduleOnce(
+        id: NotificationService.feedingEndId(baseId),
+        title: "${pet.name}'s feeding schedule",
+        body: "'${ev.name}' ends today.",
+        dateTime: endDateTime,
+      );
+    } else {
+      await _notif.cancel(NotificationService.feedingEndId(baseId));
+    }
   }
 
   void _deleteEvent(int petId, String dayKey, String eventId) async {
@@ -461,6 +480,7 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> with RouteAwa
       final timeStr =
           '${found!.time.hour.toString().padLeft(2, '0')}:${found!.time.minute.toString().padLeft(2, '0')}';
       _notif.cancel(NotificationService.feedingId(petId, timeStr));
+      _notif.cancel(NotificationService.feedingEndId(baseId));
       await prefs.remove('feeding_notif_${petId}_$timeStr');
     }
 
@@ -619,6 +639,11 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> with RouteAwa
                             entry.event.name,
                             style: const TextStyle(fontSize: 12, color: Colors.black),
                           ),
+                          if (entry.event.endDate != null)
+                            Text(
+                              'Until ${entry.event.endDate!.day} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][entry.event.endDate!.month - 1]} ${entry.event.endDate!.year}',
+                              style: const TextStyle(fontSize: 11, color: Colors.black54),
+                            ),
                         ],
                       ),
                     ),
@@ -662,14 +687,27 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> with RouteAwa
       appBar: AppBar(
         backgroundColor: const Color(0xFF8BAEAE),
         elevation: 0,
+        centerTitle: true,
         surfaceTintColor: Colors.transparent,
-        title: const Text(
-          'Feeding Schedule',
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 18,
-            color: Colors.black,
-          ),
+        title: const Column(
+          children: [
+            Text(
+              'Household Feeding',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 20,
+                color: Colors.black,
+              ),
+            ),
+            Text(
+              'Schedule',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 20,
+                color: Colors.black,
+              ),
+            ),
+          ],
         ),
         actions: [
           Builder(
@@ -908,7 +946,7 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> with RouteAwa
 
                         // Calendar grid — fixed height, horizontal scroll with arrows
                         SizedBox(
-                          height: 340,
+                          height: 420,
                           child: _activePetId == null
                               ? const Center(
                                   child: Text(
@@ -1189,6 +1227,19 @@ class _EventChip extends StatelessWidget {
                 ),
               ],
             ),
+            if (event.endDate != null) ...[
+              const SizedBox(height: 3),
+              Row(
+                children: [
+                  const Icon(Icons.event_busy, size: 10, color: Colors.black45),
+                  const SizedBox(width: 3),
+                  Text(
+                    'Until ${event.endDate!.day} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][event.endDate!.month - 1]}',
+                    style: const TextStyle(fontSize: 10, color: Colors.black45),
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
       ),
