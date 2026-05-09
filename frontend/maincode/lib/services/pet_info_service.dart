@@ -146,7 +146,7 @@ class PetInfoService {
 
       12: {
         "name": "Ball Python",
-        "image": "https://images.unsplash.com/photo-1601758064226-1b7d2dcb1e53",
+        "image": "https://images.unsplash.com/photo-1742748757633-5bbd80f61746",
         "traits": "Shy • Calm • Nocturnal",
         "helpUrl": "https://www.rspca.org.uk/adviceandwelfare/pets/reptiles",
         "breedInfo": ["• Medium snake", "• 20–30 years", "• Thick Body", "• Nocturnal"],

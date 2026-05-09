@@ -82,7 +82,7 @@ class PetInfoPage extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       petInfo["traits"],
-                      style: const TextStyle(color: Colors.grey),
+                      style: const TextStyle(color: Colors.black),
                     ),
                   ],
                 ),
