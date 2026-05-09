@@ -91,9 +91,7 @@ class PetInfoPage extends StatelessWidget {
               GestureDetector(
                 onTap: () async {
                   final Uri url = Uri.parse(petInfo["helpUrl"]);
-                  if (await canLaunchUrl(url)) {
-                    await launchUrl(url);
-                  }
+                  await launchUrl(url, mode: LaunchMode.externalApplication);
                 },
                 child: Text(
                   "General Help Guide",
