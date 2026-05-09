@@ -713,17 +713,28 @@ class _DashboardPageState extends State<DashboardPage> {
       int? selectedPetId = _pets.isNotEmpty ? _pets[_selectedPetIndex]['pet_id'] : null;
       String selectedFrequency = 'once';
 
+      // Pre-fill the vet name if there is a contact specifically linked to this pet.
+      String linkedVetFor(int? petId) {
+        for (final vet in _vetContacts) {
+          if (vet['pet_id'] == petId) {
+            final name = (vet['clinic_name'] ?? vet['name'] ?? '') as String;
+            if (name.isNotEmpty) return name;
+          }
+        }
+        return '';
+      }
+
+      vetController.text = linkedVetFor(selectedPetId);
+
       showDialog(
         context: context,
         builder: (context) => StatefulBuilder(
           builder: (context, setDialogState) {
-            // Build filtered vet list for current pet selection
-            final Map<String, String> filteredVets = {};
+            // Build full vet name list from all saved contacts
+            final Map<String, String> vetNames = {};
             for (var vet in _vetContacts) {
-              if (vet['pet_id'] == selectedPetId || vet['pet_id'] == null) {
-                final name = (vet['clinic_name'] ?? vet['name'] ?? '') as String;
-                if (name.isNotEmpty) filteredVets[name] = name;
-              }
+              final name = (vet['clinic_name'] ?? vet['name'] ?? '') as String;
+              if (name.isNotEmpty) vetNames[name] = name;
             }
 
             return AlertDialog(
@@ -754,43 +765,45 @@ class _DashboardPageState extends State<DashboardPage> {
                       }).toList(),
                       onChanged: (val) => setDialogState(() {
                         selectedPetId = val;
-                        vetController.clear();
+                        vetController.text = linkedVetFor(val);
                       }),
                     ),
                   ),
                   const SizedBox(height: 12),
                 ],
-                // Quick-pick from saved contacts (only shown when contacts exist)
-                if (filteredVets.isNotEmpty) ...[
+                // Vet: text field if no contacts saved, dropdown if contacts exist
+                if (_vetContacts.isEmpty) ...[
+                  TextField(
+                    controller: vetController,
+                    decoration: const InputDecoration(
+                      labelText: 'Vet / Clinic (optional)',
+                      hintText: 'e.g. Happy Paws Veterinary',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ] else ...[
                   InputDecorator(
                     decoration: InputDecoration(
-                      labelText: "Vet Clinic",
+                      labelText: "Vet Clinic (optional)",
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     ),
                     child: DropdownButton<String>(
-                      value: filteredVets.containsKey(vetController.text) ? vetController.text : null,
+                      value: vetNames.containsKey(vetController.text) ? vetController.text : null,
                       isExpanded: true,
                       underline: const SizedBox(),
-                      hint: const Text("Select from saved contacts"),
-                      items: filteredVets.keys.map<DropdownMenuItem<String>>((name) {
-                        return DropdownMenuItem<String>(value: name, child: Text(name));
-                      }).toList(),
+                      hint: const Text("None"),
+                      items: [
+                        const DropdownMenuItem<String>(value: '', child: Text('None')),
+                        ...vetNames.keys.map<DropdownMenuItem<String>>((name) =>
+                            DropdownMenuItem<String>(value: name, child: Text(name))),
+                      ],
                       onChanged: (val) => setDialogState(() => vetController.text = val ?? ''),
                     ),
                   ),
                   const SizedBox(height: 12),
                 ],
-                // Always-visible vet name field
-                TextField(
-                  controller: vetController,
-                  decoration: const InputDecoration(
-                    labelText: 'Vet / Clinic (optional)',
-                    hintText: 'e.g. Happy Paws Veterinary',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 12),
                 TextField(
                   controller: notesController,
                   decoration: const InputDecoration(hintText: "Notes (optional)"),
@@ -959,7 +972,7 @@ class _DashboardPageState extends State<DashboardPage> {
           if (dailyAppts.isEmpty)
             const Text(
               "No appointments today.",
-              style: TextStyle(fontSize: 15, color: Colors.grey),
+              style: TextStyle(fontSize: 15, color: Colors.black),
             )
           else
             ...dailyAppts.map((appt) {
