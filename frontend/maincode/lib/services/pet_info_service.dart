@@ -107,7 +107,7 @@ class PetInfoService {
 
       9: {
         "name": "African Grey",
-        "image": "https://images.unsplash.com/photo-1552728089-57bdde30beb3",
+        "image": "https://images.unsplash.com/photo-1751905206462-101e79c265c0",
         "traits": "Intelligent • Talkative • Sensitive",
         "helpUrl": "https://www.rspca.org.uk/adviceandwelfare/pets/birds",
         "breedInfo": ["• Medium bird", "• 40–60 + years", "• Highly Intelligent", "• Strong Beak"],
