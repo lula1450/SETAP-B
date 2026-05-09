@@ -53,7 +53,7 @@ class _RegisterPageState extends State<RegisterPage> {
 
       if (success) {
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setBool('show_metrics_hint', true);
+        await prefs.setBool('show_photo_hint', true);
         if (!mounted) return;
         Navigator.pushAndRemoveUntil(
           context,

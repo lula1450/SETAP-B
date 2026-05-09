@@ -389,7 +389,7 @@ class _ReportsPageState extends State<ReportsPage> with RouteAware {
         title: Column(
           children: [
             CircleAvatar(
-              radius: 30,
+              radius: 42,
               backgroundColor: Colors.white,
               backgroundImage: (widget.petImagePath != null && widget.petImagePath!.isNotEmpty)
                   ? (widget.petImagePath!.startsWith('http')
@@ -397,7 +397,7 @@ class _ReportsPageState extends State<ReportsPage> with RouteAware {
                       : buildLocalFileImage(widget.petImagePath!))
                   : null,
               child: (widget.petImagePath == null || widget.petImagePath!.isEmpty)
-                  ? Icon(Icons.add_a_photo, size: 25, color: _getPetColor(widget.petIndex))
+                  ? Icon(Icons.add_a_photo, size: 30, color: _getPetColor(widget.petIndex))
                   : null,
             ),
             const SizedBox(height: 8),

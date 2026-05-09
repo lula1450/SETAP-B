@@ -291,7 +291,7 @@ class _MetricsPageState extends State<MetricsPage> {
   String _getUnitForMetric(String metricName) {
     final name = metricName.toLowerCase().trim();
     switch (name) {
-      case "weight":           return "kg";
+      case "weight":           return _displayUnits[metricName] == 'g' ? 'g' : 'kg';
       case "water intake":     return _displayUnits[metricName] == 'L' ? 'L/day' : 'ml/day';
       case "basking time":
       case "wheel activity":   return _displayUnits[metricName] == 'hrs' ? 'hrs/day' : 'mins/day';
@@ -341,10 +341,13 @@ class _MetricsPageState extends State<MetricsPage> {
     final name = title.toLowerCase();
     final isWater = name == 'water intake';
     final isMins = name == 'basking time' || name == 'wheel activity' || _customUnits[title] == 'mins';
+    final isWeight = name == 'weight';
     if (isWater) {
       return _targetUnits[title] == 'L' ? 'L/day' : 'ml/day';
     } else if (isMins) {
       return _targetUnits[title] == 'hrs' ? 'hrs/day' : 'mins/day';
+    } else if (isWeight) {
+      return _targetUnits[title] == 'g' ? 'g' : 'kg';
     }
     return _getUnitForMetric(title);
   }
@@ -357,7 +360,7 @@ class _MetricsPageState extends State<MetricsPage> {
     final deviation = (current - target).abs() / target;
     if (deviation <= 0.15 || deviation > 5.0) return;
 
-    final unit = _getUnitForMetric(title);
+    final targetUnit = _targetDisplayUnit(title);
     final isAbove = current > target;
     final percent = (deviation * 100).toStringAsFixed(0);
 
@@ -374,7 +377,7 @@ class _MetricsPageState extends State<MetricsPage> {
           ],
         ),
         content: Text(
-          "$title is $percent% ${isAbove ? 'above' : 'below'} the target of ${_toDisplayValue(targetValue, unit)} $unit.\n\nConsider speaking to your vet if this continues.",
+          "$title is $percent% ${isAbove ? 'above' : 'below'} the target of ${_toDisplayValue(targetValue, targetUnit)} $targetUnit.\n\nConsider speaking to your vet if this continues.",
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(dlgCtx), child: const Text("Dismiss")),
@@ -599,9 +602,10 @@ class _MetricsPageState extends State<MetricsPage> {
     final bool isMinsMetric = title.toLowerCase() == 'basking time'
         || title.toLowerCase() == 'wheel activity'
         || _customUnits[title] == 'mins';
+    final bool isWeightMetric = title.toLowerCase() == 'weight';
     final bool isScale = unit == '/5';
     final bool isTargetOnly = !showValue && showTarget;
-    final String defaultUnit = isWaterIntake ? 'ml' : 'mins';
+    final String defaultUnit = isWaterIntake ? 'ml' : isWeightMetric ? 'kg' : 'mins';
     String unitToggle = isTargetOnly
         ? (_targetUnits[title] ?? defaultUnit)
         : (_displayUnits[title] ?? defaultUnit);
@@ -616,7 +620,7 @@ class _MetricsPageState extends State<MetricsPage> {
       context: outerCtx,
       builder: (dlgCtx) => StatefulBuilder(
         builder: (dlgCtx, setDialogState) {
-          final String displayUnit = (isWaterIntake || isMinsMetric) ? unitToggle : unit;
+          final String displayUnit = (isWaterIntake || isMinsMetric || isWeightMetric) ? unitToggle : unit;
           return AlertDialog(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
             title: Text(showValue && showTarget ? "Log $title" : showValue ? "Log Current $title" : "Set Target for $title"),
@@ -663,6 +667,25 @@ class _MetricsPageState extends State<MetricsPage> {
                   ),
                   const SizedBox(height: 8),
                 ],
+                if (isWeightMetric) ...[
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      const Text('Unit:', style: TextStyle(fontSize: 13)),
+                      const SizedBox(width: 8),
+                      ToggleButtons(
+                        isSelected: [unitToggle == 'kg', unitToggle == 'g'],
+                        onPressed: (i) => setDialogState(() => unitToggle = i == 0 ? 'kg' : 'g'),
+                        borderRadius: BorderRadius.circular(8),
+                        selectedColor: Colors.white,
+                        fillColor: const Color(0xFF8BAEAE),
+                        constraints: const BoxConstraints(minWidth: 52, minHeight: 32),
+                        children: const [Text('kg'), Text('g')],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                ],
                 if (showTarget) ...[
                   if (isScale) ...[
                     Text("Target $title", style: const TextStyle(fontSize: 13, color: Colors.grey)),
@@ -698,7 +721,9 @@ class _MetricsPageState extends State<MetricsPage> {
                           ? (unitToggle == 'L' ? "e.g. 2.0" : "e.g. 2000")
                           : isMinsMetric
                               ? (unitToggle == 'hrs' ? "e.g. 1.5" : "e.g. 90")
-                              : "e.g. 5.0",
+                              : isWeightMetric
+                                  ? (unitToggle == 'g' ? "e.g. 500" : "e.g. 4.5")
+                                  : "e.g. 5.0",
                       suffixText: displayUnit,
                     ),
                   ),
@@ -739,7 +764,9 @@ class _MetricsPageState extends State<MetricsPage> {
                           ? (unitToggle == 'L' ? "e.g. 1.5" : "e.g. 1500")
                           : isMinsMetric
                               ? (unitToggle == 'hrs' ? "e.g. 1.5" : "e.g. 90")
-                              : "e.g. 4.5",
+                              : isWeightMetric
+                                  ? (unitToggle == 'g' ? "e.g. 500" : "e.g. 4.5")
+                                  : "e.g. 4.5",
                       suffixText: displayUnit,
                     ),
                   ),
@@ -770,6 +797,12 @@ class _MetricsPageState extends State<MetricsPage> {
                         final g = double.tryParse(goalController.text);
                         if (g != null) resolvedGoal = (g * 60).toStringAsFixed(0);
                       }
+                      if (isWeightMetric && unitToggle == 'g') {
+                        final v = double.tryParse(valueController.text);
+                        if (v != null) resolvedValue = (v / 1000).toString();
+                        final g = double.tryParse(goalController.text);
+                        if (g != null) resolvedGoal = (g / 1000).toString();
+                      }
 
                       try {
                         final prefs = await SharedPreferences.getInstance();
@@ -778,7 +811,7 @@ class _MetricsPageState extends State<MetricsPage> {
                         if (isCustom) {
                           final key = title.toLowerCase().replaceAll(" ", "_");
                           if (valueController.text.isNotEmpty) {
-                            await prefs.setString('custom_current_${widget.petId}_$key', valueController.text);
+                            await prefs.setString('custom_current_${widget.petId}_$key', resolvedValue);
                             final histKey = 'custom_history_${widget.petId}_$key';
                             final existing = jsonDecode(prefs.getString(histKey) ?? '[]') as List;
                             final now = DateTime.now();
@@ -787,14 +820,14 @@ class _MetricsPageState extends State<MetricsPage> {
                             existing.insert(0, {
                               'metric': key,
                               'display': title,
-                              'value': valueController.text,
+                              'value': resolvedValue,
                               'unit': _getUnitForMetric(title),
                               'time': timeStr,
                             });
                             await prefs.setString(histKey, jsonEncode(existing));
                           }
                           if (goalController.text.isNotEmpty) {
-                            await prefs.setString('custom_target_${widget.petId}_$key', goalController.text);
+                            await prefs.setString('custom_target_${widget.petId}_$key', resolvedGoal);
                           }
                         } else {
                           if (resolvedValue.isNotEmpty) {
@@ -819,7 +852,7 @@ class _MetricsPageState extends State<MetricsPage> {
                         // Capture existing current value before _refreshAllMetrics clears _latestValues.
                         final existingValue = _latestValues[title]?['value'] ?? '';
                         if (dlgCtx.mounted) Navigator.pop(dlgCtx);
-                        if (isWaterIntake || isMinsMetric) {
+                        if (isWaterIntake || isMinsMetric || isWeightMetric) {
                           if (!isTargetOnly) {
                             final updated = Map<String, String>.from(_displayUnits)..[title] = unitToggle;
                             setState(() => _displayUnits = updated);
@@ -1089,6 +1122,13 @@ class _MetricsPageState extends State<MetricsPage> {
             : hours.toStringAsFixed(hours < 0.1 ? 3 : 2);
       }
     }
+    if (unit == 'g') {
+      final v = double.tryParse(rawValue);
+      if (v != null) {
+        final grams = v * 1000;
+        return grams % 1 == 0 ? grams.toInt().toString() : grams.toStringAsFixed(1);
+      }
+    }
     return rawValue;
   }
 
@@ -1127,7 +1167,7 @@ class _MetricsPageState extends State<MetricsPage> {
         title: Column(
           children: [
             CircleAvatar(
-              radius: 30,
+              radius: 42,
               backgroundColor: Colors.white,
               backgroundImage: (widget.petImagePath != null && widget.petImagePath!.isNotEmpty)
                   ? (widget.petImagePath!.startsWith('http')
@@ -1135,7 +1175,7 @@ class _MetricsPageState extends State<MetricsPage> {
                       : buildLocalFileImage(widget.petImagePath!))
                   : null,
               child: (widget.petImagePath == null || widget.petImagePath!.isEmpty)
-                  ? Icon(Icons.add_a_photo, size: 25, color: petThemeColor)
+                  ? Icon(Icons.add_a_photo, size: 30, color: petThemeColor)
                   : null,
             ),
             const SizedBox(height: 8),

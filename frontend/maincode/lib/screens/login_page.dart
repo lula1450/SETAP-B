@@ -43,6 +43,18 @@ class _LoginPageState extends State<LoginPage> {
         if (ownerId != null) {
           ReminderSyncService().syncReminders(ownerId);
         }
+        await prefs.remove('show_photo_hint');
+        await prefs.remove('show_metrics_hint');
+        await prefs.remove('show_appointment_hint');
+        await prefs.remove('show_advice_hint');
+        await prefs.remove('show_report_hint');
+        await prefs.remove('show_recently_logged_hint');
+        await prefs.remove('show_health_records_hint');
+        await prefs.remove('show_feeding_hint');
+        await prefs.remove('show_vet_hint');
+        await prefs.remove('show_find_out_more_hint');
+        await prefs.remove('show_settings_hint');
+        await prefs.remove('show_change_pet_hint');
         navigator.pushReplacement(
           MaterialPageRoute(builder: (_) => const DashboardPage()),
         );

@@ -86,6 +86,10 @@ class _DashboardPageState extends State<DashboardPage> {
   final LayerLink _changePetLayerLink = LayerLink();
   OverlayEntry? _changePetHintEntry;
 
+  bool _showPhotoHint = false;
+  final LayerLink _photoLayerLink = LayerLink();
+  OverlayEntry? _photoHintEntry;
+
   void _updateDailyFact() {
     if (_pets.isNotEmpty) {
       final currentPet = _pets[_selectedPetIndex];
@@ -574,6 +578,95 @@ class _DashboardPageState extends State<DashboardPage> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('show_change_pet_hint');
     if (mounted) setState(() => _showChangePetHint = false);
+  }
+
+  // ── Photo hint ────────────────────────────────────────────────────────────
+
+  Future<void> _checkPhotoHint() async {
+    final prefs = await SharedPreferences.getInstance();
+    if ((prefs.getBool('show_photo_hint') ?? false) && mounted) {
+      setState(() => _showPhotoHint = true);
+      WidgetsBinding.instance.addPostFrameCallback((_) => _showPhotoHintOverlay());
+    }
+  }
+
+  Future<void> _dismissPhotoHint() async {
+    _photoHintEntry?.remove();
+    _photoHintEntry = null;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('show_photo_hint');
+    await prefs.setBool('show_metrics_hint', true);
+    if (mounted) {
+      setState(() => _showPhotoHint = false);
+      _checkMetricsHint();
+    }
+  }
+
+  void _showPhotoHintOverlay() {
+    if (!mounted) return;
+    const bubbleW = 220.0;
+    const arrowH = 12.0;
+    const followerDx = -60.0;
+    const followerDy = 80.0;
+    const arrowLeftPadding = 72.0;
+
+    _photoHintEntry = OverlayEntry(
+      builder: (_) => Stack(
+        children: [
+          CompositedTransformFollower(
+            link: _photoLayerLink,
+            showWhenUnlinked: false,
+            offset: const Offset(followerDx, followerDy),
+            child: SizedBox(
+              width: bubbleW,
+              child: Material(
+                color: Colors.transparent,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(left: arrowLeftPadding),
+                      child: CustomPaint(
+                        size: const Size(arrowH * 2, arrowH),
+                        painter: _UpArrowPainter(),
+                      ),
+                    ),
+                    Container(
+                      width: bubbleW,
+                      padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 8, offset: Offset(0, 3))],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text("Add a photo!", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          const SizedBox(height: 6),
+                          const Text("Tap this icon to add a profile photo for each of your pets.", style: TextStyle(fontSize: 12, color: Colors.black87)),
+                          const SizedBox(height: 8),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: GestureDetector(
+                              onTap: _dismissPhotoHint,
+                              child: const Text("Got it", style: TextStyle(color: Color(0xFF8BAEAE), fontWeight: FontWeight.bold, fontSize: 12)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    Overlay.of(context).insert(_photoHintEntry!);
   }
 
   void _showChangePetHintOverlay() {
@@ -1315,6 +1408,7 @@ class _DashboardPageState extends State<DashboardPage> {
           });
           _fetchAppointments();
           _fetchVetContacts();
+          _checkPhotoHint();
           _checkMetricsHint();
           _checkAppointmentHint();
           _checkAdviceHint();
@@ -1624,7 +1718,7 @@ class _DashboardPageState extends State<DashboardPage> {
         backgroundColor: const Color.fromARGB(255, 139, 174, 174),
         foregroundColor: Colors.black,
         elevation: 0,
-        toolbarHeight: 120,
+        toolbarHeight: 145,
         centerTitle: true,
         leading: Padding(
           padding: const EdgeInsets.only(left: 8.0),
@@ -1706,7 +1800,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 child: Container(
                   decoration: _showAppointmentHint
                       ? BoxDecoration(
-                          borderRadius: BorderRadius.circular(20),
+                          borderRadius: BorderRadius.circular(15),
                           boxShadow: [BoxShadow(color: Colors.yellow.withValues(alpha: 0.8), blurRadius: 18, spreadRadius: 6)],
                         )
                       : null,
@@ -2010,24 +2104,46 @@ class _DashboardPageState extends State<DashboardPage> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        GestureDetector(
-          onTap: () =>
-              _pickPetImage(currentPet['pet_id']), // Function to pick image
-          child: CircleAvatar(
-            radius: 30,
-            backgroundColor: Colors.white,
-            backgroundImage: (imagePath != null && imagePath.isNotEmpty)
-                ? (imagePath.startsWith('http')
-                    ? NetworkImage(UrlHelper.getImageUrl(imagePath)) as ImageProvider
-                    : buildLocalFileImage(imagePath))
-                : null,
-            child: (imagePath == null || imagePath.isEmpty)
-                ? Icon(
-                    Icons.add_a_photo,
-                    size: 25,
-                    color: _getPetColor(_selectedPetIndex),
-                  )
-                : null,
+        const SizedBox(height: 12),
+        _hintTarget(
+          link: _photoLayerLink,
+          active: _showPhotoHint,
+          child: GestureDetector(
+            onTap: () => _pickPetImage(currentPet['pet_id']),
+            child: Stack(
+              children: [
+                CircleAvatar(
+                  radius: 42,
+                  backgroundColor: Colors.white,
+                  backgroundImage: (imagePath != null && imagePath.isNotEmpty)
+                      ? (imagePath.startsWith('http')
+                          ? NetworkImage(UrlHelper.getImageUrl(imagePath)) as ImageProvider
+                          : buildLocalFileImage(imagePath))
+                      : null,
+                  child: (imagePath == null || imagePath.isEmpty)
+                      ? Icon(
+                          Icons.add_a_photo,
+                          size: 30,
+                          color: _getPetColor(_selectedPetIndex),
+                        )
+                      : null,
+                ),
+                if (imagePath != null && imagePath.isNotEmpty)
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: Container(
+                      width: 20,
+                      height: 20,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF8BAEAE),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.edit, size: 12, color: Colors.white),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
         const SizedBox(height: 8),
@@ -2083,7 +2199,7 @@ class _DashboardPageState extends State<DashboardPage> {
         child: Container(
           height: 380,
           width: double.infinity,
-          margin: const EdgeInsets.symmetric(horizontal: 16),
+          margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.65),
             borderRadius: BorderRadius.circular(12),
@@ -2154,7 +2270,7 @@ class _DashboardPageState extends State<DashboardPage> {
             child: Container(
               decoration: _showAdviceHint
                   ? BoxDecoration(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(15),
                       boxShadow: [BoxShadow(color: Colors.yellow.withValues(alpha: 0.8), blurRadius: 18, spreadRadius: 6)],
                     )
                   : null,
@@ -2509,7 +2625,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(15),
         boxShadow: [
           BoxShadow(
             color: Colors.yellow.withValues(alpha: 0.8),
