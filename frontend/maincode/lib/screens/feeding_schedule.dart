@@ -186,11 +186,10 @@ String _uid() => DateTime.now().microsecondsSinceEpoch.toRadixString(36);
 String _dateKey(DateTime d) =>
     '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
-String _fmt12(TimeOfDay t) {
-  final hour = t.hourOfPeriod == 0 ? 12 : t.hourOfPeriod;
+String _fmt24(TimeOfDay t) {
+  final hour = t.hour.toString().padLeft(2, '0');
   final min = t.minute.toString().padLeft(2, '0');
-  final period = t.period == DayPeriod.am ? 'am' : 'pm';
-  return '$hour:$min $period';
+  return '$hour:$min';
 }
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
@@ -627,7 +626,7 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> with RouteAwa
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
-                          _fmt12(entry.event.time),
+                          _fmt24(entry.event.time),
                           style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.black),
                         ),
                         Text(
@@ -1165,7 +1164,7 @@ class _EventChip extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              _fmt12(event.time),
+              _fmt24(event.time),
               style: const TextStyle(
                 fontSize: 12,
                 color: Colors.black54,
@@ -1471,7 +1470,7 @@ class _EventDialogState extends State<_EventDialog> {
                     const Icon(Icons.access_time,
                         size: 16, color: Color(0xFF888888)),
                     const SizedBox(width: 8),
-                    Text(_fmt12(_time),
+                    Text(_fmt24(_time),
                         style: const TextStyle(fontSize: 14)),
                   ],
                 ),
