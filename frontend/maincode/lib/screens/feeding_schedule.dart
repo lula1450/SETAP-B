@@ -361,6 +361,24 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> with RouteAwa
     });
   }
 
+  Future<void> _pickWeek() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _weekStart,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2030),
+    );
+    if (picked == null || !mounted) return;
+    final today = DateTime.now();
+    final todayMonday = DateTime(today.year, today.month, today.day)
+        .subtract(Duration(days: today.weekday - 1));
+    final pickedMonday = DateTime(picked.year, picked.month, picked.day)
+        .subtract(Duration(days: picked.weekday - 1));
+    setState(() {
+      _weekOffset = pickedMonday.difference(todayMonday).inDays ~/ 7;
+    });
+  }
+
   // ── Event CRUD ────────────────────────────────────────────────────────────
 
   int _weekdayFromKey(String dayKey) {
@@ -781,6 +799,21 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> with RouteAwa
                                   ],
                                 ),
                               ),
+                              GestureDetector(
+                                onTap: _pickWeek,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.5),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: const Text(
+                                    'Pick Week',
+                                    style: TextStyle(fontSize: 14, color: Colors.black54, fontWeight: FontWeight.w600),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
                               GestureDetector(
                                 onTap: () => _shiftWeek(0),
                                 child: Container(
