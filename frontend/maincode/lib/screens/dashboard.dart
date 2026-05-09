@@ -46,6 +46,46 @@ class _DashboardPageState extends State<DashboardPage> {
   final LayerLink _metricsLayerLink = LayerLink();
   OverlayEntry? _metricsHintEntry;
 
+  bool _showAppointmentHint = false;
+  final LayerLink _appointmentLayerLink = LayerLink();
+  OverlayEntry? _appointmentHintEntry;
+
+  bool _showAdviceHint = false;
+  final LayerLink _adviceLayerLink = LayerLink();
+  OverlayEntry? _adviceHintEntry;
+
+  bool _showReportHint = false;
+  final LayerLink _reportLayerLink = LayerLink();
+  OverlayEntry? _reportHintEntry;
+
+  bool _showRecentlyLoggedHint = false;
+  final LayerLink _recentlyLoggedLayerLink = LayerLink();
+  OverlayEntry? _recentlyLoggedHintEntry;
+
+  bool _showHealthRecordsHint = false;
+  final LayerLink _healthRecordsLayerLink = LayerLink();
+  OverlayEntry? _healthRecordsHintEntry;
+
+  bool _showFeedingHint = false;
+  final LayerLink _feedingLayerLink = LayerLink();
+  OverlayEntry? _feedingHintEntry;
+
+  bool _showVetHint = false;
+  final LayerLink _vetLayerLink = LayerLink();
+  OverlayEntry? _vetHintEntry;
+
+  bool _showFindOutMoreHint = false;
+  final LayerLink _findOutMoreLayerLink = LayerLink();
+  OverlayEntry? _findOutMoreHintEntry;
+
+  bool _showSettingsHint = false;
+  final LayerLink _settingsLayerLink = LayerLink();
+  OverlayEntry? _settingsHintEntry;
+
+  bool _showChangePetHint = false;
+  final LayerLink _changePetLayerLink = LayerLink();
+  OverlayEntry? _changePetHintEntry;
+
   void _updateDailyFact() {
     if (_pets.isNotEmpty) {
       final currentPet = _pets[_selectedPetIndex];
@@ -90,7 +130,673 @@ class _DashboardPageState extends State<DashboardPage> {
     _metricsHintEntry = null;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('show_metrics_hint');
-    if (mounted) setState(() => _showMetricsHint = false);
+    await prefs.setBool('show_appointment_hint', true);
+    if (mounted) {
+      setState(() => _showMetricsHint = false);
+      _checkAppointmentHint();
+    }
+  }
+
+  Future<void> _checkAppointmentHint() async {
+    final prefs = await SharedPreferences.getInstance();
+    final show = prefs.getBool('show_appointment_hint') ?? false;
+    if (show && mounted) {
+      setState(() => _showAppointmentHint = true);
+      WidgetsBinding.instance.addPostFrameCallback((_) => _showAppointmentHintOverlay());
+    }
+  }
+
+  Future<void> _dismissAppointmentHint() async {
+    _appointmentHintEntry?.remove();
+    _appointmentHintEntry = null;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('show_appointment_hint');
+    await prefs.setBool('show_advice_hint', true);
+    if (mounted) {
+      setState(() => _showAppointmentHint = false);
+      _checkAdviceHint();
+    }
+  }
+
+  Future<void> _checkAdviceHint() async {
+    final prefs = await SharedPreferences.getInstance();
+    final show = prefs.getBool('show_advice_hint') ?? false;
+    if (show && mounted) {
+      setState(() => _showAdviceHint = true);
+      WidgetsBinding.instance.addPostFrameCallback((_) => _showAdviceHintOverlay());
+    }
+  }
+
+  Future<void> _dismissAdviceHint() async {
+    _adviceHintEntry?.remove();
+    _adviceHintEntry = null;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('show_advice_hint');
+    await prefs.setBool('show_report_hint', true);
+    if (mounted) {
+      setState(() => _showAdviceHint = false);
+      _checkReportHint();
+    }
+  }
+
+  void _showAdviceHintOverlay() {
+    if (!mounted) return;
+
+    const bubbleW = 220.0;
+    const arrowH = 12.0;
+    const estimatedBubbleH = 120.0;
+    // Centre the bubble over the advice box (box is ~full width minus 32px padding).
+    // Offset from the box's top-left corner.
+    const followerDx = 70.0;
+    const followerDy = -(estimatedBubbleH + arrowH + 4);
+    const arrowLeftPadding = bubbleW / 2 - arrowH;
+
+    _adviceHintEntry = OverlayEntry(
+      builder: (_) => Stack(
+        children: [
+          CompositedTransformFollower(
+            link: _adviceLayerLink,
+            showWhenUnlinked: false,
+            offset: const Offset(followerDx, followerDy),
+            child: SizedBox(
+              width: bubbleW,
+              child: Material(
+                color: Colors.transparent,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: bubbleW,
+                      padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 8, offset: Offset(0, 3))],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text("Personalised advice!", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          const SizedBox(height: 6),
+                          const Text("This updates based on the metrics you log for your pet.", style: TextStyle(fontSize: 12, color: Colors.black87)),
+                          const SizedBox(height: 8),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: GestureDetector(
+                              onTap: _dismissAdviceHint,
+                              child: const Text("Got it", style: TextStyle(color: Color(0xFF8BAEAE), fontWeight: FontWeight.bold, fontSize: 12)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(left: arrowLeftPadding),
+                      child: CustomPaint(
+                        size: const Size(arrowH * 2, arrowH),
+                        painter: _DownArrowPainter(),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    Overlay.of(context).insert(_adviceHintEntry!);
+  }
+
+  // ── Shared hint helpers ───────────────────────────────────────────────────
+
+  OverlayEntry _buildHintOverlay({
+    required LayerLink link,
+    required String title,
+    required String body,
+    required VoidCallback onDismiss,
+    double bubbleW = 210.0,
+    double followerDx = 0.0,
+    double followerDy = -130.0,
+    double arrowLeftPadding = 38.0,
+  }) {
+    const arrowH = 12.0;
+    return OverlayEntry(
+      builder: (_) => Stack(
+        children: [
+          CompositedTransformFollower(
+            link: link,
+            showWhenUnlinked: false,
+            offset: Offset(followerDx, followerDy),
+            child: SizedBox(
+              width: bubbleW,
+              child: Material(
+                color: Colors.transparent,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: bubbleW,
+                      padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 8, offset: Offset(0, 3))],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          const SizedBox(height: 6),
+                          Text(body, style: const TextStyle(fontSize: 12, color: Colors.black87)),
+                          const SizedBox(height: 8),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: GestureDetector(
+                              onTap: onDismiss,
+                              child: const Text("Got it", style: TextStyle(color: Color(0xFF8BAEAE), fontWeight: FontWeight.bold, fontSize: 12)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: EdgeInsets.only(left: arrowLeftPadding),
+                      child: CustomPaint(
+                        size: const Size(arrowH * 2, arrowH),
+                        painter: _DownArrowPainter(),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _hintTarget({required Widget child, required LayerLink link, required bool active, double radius = 15}) {
+    final core = CompositedTransformTarget(link: link, child: child);
+    if (!active) return core;
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(radius),
+        boxShadow: [BoxShadow(color: Colors.yellow.withValues(alpha: 0.8), blurRadius: 18, spreadRadius: 6)],
+      ),
+      child: core,
+    );
+  }
+
+  // ── Report hint ───────────────────────────────────────────────────────────
+
+  Future<void> _checkReportHint() async {
+    final prefs = await SharedPreferences.getInstance();
+    if ((prefs.getBool('show_report_hint') ?? false) && mounted) {
+      setState(() => _showReportHint = true);
+      WidgetsBinding.instance.addPostFrameCallback((_) => _showReportHintOverlay());
+    }
+  }
+
+  Future<void> _dismissReportHint() async {
+    _reportHintEntry?.remove();
+    _reportHintEntry = null;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('show_report_hint');
+    await prefs.setBool('show_recently_logged_hint', true);
+    if (mounted) {
+      setState(() => _showReportHint = false);
+      _checkRecentlyLoggedHint();
+    }
+  }
+
+  void _showReportHintOverlay() {
+    if (!mounted) return;
+    _reportHintEntry = _buildHintOverlay(
+      link: _reportLayerLink,
+      title: "View health reports!",
+      body: "Tap Report to see charts and trend analysis for your pet's logged metrics.",
+      onDismiss: _dismissReportHint,
+      followerDx: 0,
+      followerDy: -130,
+      arrowLeftPadding: 38,
+    );
+    Overlay.of(context).insert(_reportHintEntry!);
+  }
+
+  // ── Recently Logged hint ──────────────────────────────────────────────────
+
+  Future<void> _checkRecentlyLoggedHint() async {
+    final prefs = await SharedPreferences.getInstance();
+    if ((prefs.getBool('show_recently_logged_hint') ?? false) && mounted) {
+      setState(() => _showRecentlyLoggedHint = true);
+      WidgetsBinding.instance.addPostFrameCallback((_) => _showRecentlyLoggedHintOverlay());
+    }
+  }
+
+  Future<void> _dismissRecentlyLoggedHint() async {
+    _recentlyLoggedHintEntry?.remove();
+    _recentlyLoggedHintEntry = null;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('show_recently_logged_hint');
+    await prefs.setBool('show_health_records_hint', true);
+    if (mounted) {
+      setState(() => _showRecentlyLoggedHint = false);
+      _checkHealthRecordsHint();
+    }
+  }
+
+  void _showRecentlyLoggedHintOverlay() {
+    if (!mounted) return;
+    _recentlyLoggedHintEntry = _buildHintOverlay(
+      link: _recentlyLoggedLayerLink,
+      title: "See recent logs!",
+      body: "Quickly check the last values you recorded for your pet's health metrics.",
+      onDismiss: _dismissRecentlyLoggedHint,
+      followerDx: -55,
+      followerDy: -130,
+      arrowLeftPadding: 93,
+    );
+    Overlay.of(context).insert(_recentlyLoggedHintEntry!);
+  }
+
+  // ── Health Records hint ───────────────────────────────────────────────────
+
+  Future<void> _checkHealthRecordsHint() async {
+    final prefs = await SharedPreferences.getInstance();
+    if ((prefs.getBool('show_health_records_hint') ?? false) && mounted) {
+      setState(() => _showHealthRecordsHint = true);
+      WidgetsBinding.instance.addPostFrameCallback((_) => _showHealthRecordsHintOverlay());
+    }
+  }
+
+  Future<void> _dismissHealthRecordsHint() async {
+    _healthRecordsHintEntry?.remove();
+    _healthRecordsHintEntry = null;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('show_health_records_hint');
+    await prefs.setBool('show_feeding_hint', true);
+    if (mounted) {
+      setState(() => _showHealthRecordsHint = false);
+      _checkFeedingHint();
+    }
+  }
+
+  void _showHealthRecordsHintOverlay() {
+    if (!mounted) return;
+    _healthRecordsHintEntry = _buildHintOverlay(
+      link: _healthRecordsLayerLink,
+      title: "Health records!",
+      body: "View your pet's full health history, including past vet visits and logged data.",
+      onDismiss: _dismissHealthRecordsHint,
+      followerDx: -55,
+      followerDy: -130,
+      arrowLeftPadding: 93,
+    );
+    Overlay.of(context).insert(_healthRecordsHintEntry!);
+  }
+
+  // ── Feeding Schedule hint ─────────────────────────────────────────────────
+
+  Future<void> _checkFeedingHint() async {
+    final prefs = await SharedPreferences.getInstance();
+    if ((prefs.getBool('show_feeding_hint') ?? false) && mounted) {
+      setState(() => _showFeedingHint = true);
+      WidgetsBinding.instance.addPostFrameCallback((_) => _showFeedingHintOverlay());
+    }
+  }
+
+  Future<void> _dismissFeedingHint() async {
+    _feedingHintEntry?.remove();
+    _feedingHintEntry = null;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('show_feeding_hint');
+    await prefs.setBool('show_vet_hint', true);
+    if (mounted) {
+      setState(() => _showFeedingHint = false);
+      _checkVetHint();
+    }
+  }
+
+  void _showFeedingHintOverlay() {
+    if (!mounted) return;
+    _feedingHintEntry = _buildHintOverlay(
+      link: _feedingLayerLink,
+      title: "Feeding schedule!",
+      body: "Set up daily or weekly feeding reminders for all pets in the household.",
+      onDismiss: _dismissFeedingHint,
+      followerDx: -55,
+      followerDy: -130,
+      arrowLeftPadding: 93,
+    );
+    Overlay.of(context).insert(_feedingHintEntry!);
+  }
+
+  // ── Vet Contacts hint ─────────────────────────────────────────────────────
+
+  Future<void> _checkVetHint() async {
+    final prefs = await SharedPreferences.getInstance();
+    if ((prefs.getBool('show_vet_hint') ?? false) && mounted) {
+      setState(() => _showVetHint = true);
+      WidgetsBinding.instance.addPostFrameCallback((_) => _showVetHintOverlay());
+    }
+  }
+
+  Future<void> _dismissVetHint() async {
+    _vetHintEntry?.remove();
+    _vetHintEntry = null;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('show_vet_hint');
+    await prefs.setBool('show_find_out_more_hint', true);
+    if (mounted) {
+      setState(() => _showVetHint = false);
+      _checkFindOutMoreHint();
+    }
+  }
+
+  void _showVetHintOverlay() {
+    if (!mounted) return;
+    _vetHintEntry = _buildHintOverlay(
+      link: _vetLayerLink,
+      title: "Save vet contacts!",
+      body: "Store your vet clinic details here so they're always easy to find.",
+      onDismiss: _dismissVetHint,
+      followerDx: -110,
+      followerDy: -130,
+      arrowLeftPadding: 148,
+    );
+    Overlay.of(context).insert(_vetHintEntry!);
+  }
+
+  // ── Find Out More hint ────────────────────────────────────────────────────
+
+  Future<void> _checkFindOutMoreHint() async {
+    final prefs = await SharedPreferences.getInstance();
+    if ((prefs.getBool('show_find_out_more_hint') ?? false) && mounted) {
+      setState(() => _showFindOutMoreHint = true);
+      WidgetsBinding.instance.addPostFrameCallback((_) => _showFindOutMoreHintOverlay());
+    }
+  }
+
+  Future<void> _dismissFindOutMoreHint() async {
+    _findOutMoreHintEntry?.remove();
+    _findOutMoreHintEntry = null;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('show_find_out_more_hint');
+    await prefs.setBool('show_settings_hint', true);
+    if (mounted) {
+      setState(() => _showFindOutMoreHint = false);
+      _checkSettingsHint();
+    }
+  }
+
+  // ── Settings hint ─────────────────────────────────────────────────────────
+
+  Future<void> _checkSettingsHint() async {
+    final prefs = await SharedPreferences.getInstance();
+    if ((prefs.getBool('show_settings_hint') ?? false) && mounted) {
+      setState(() => _showSettingsHint = true);
+      WidgetsBinding.instance.addPostFrameCallback((_) => _showSettingsHintOverlay());
+    }
+  }
+
+  Future<void> _dismissSettingsHint() async {
+    _settingsHintEntry?.remove();
+    _settingsHintEntry = null;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('show_settings_hint');
+    await prefs.setBool('show_change_pet_hint', true);
+    if (mounted) {
+      setState(() => _showSettingsHint = false);
+      _checkChangePetHint();
+    }
+  }
+
+  // ── Change Pet hint ───────────────────────────────────────────────────────
+
+  Future<void> _checkChangePetHint() async {
+    final prefs = await SharedPreferences.getInstance();
+    if ((prefs.getBool('show_change_pet_hint') ?? false) && mounted) {
+      setState(() => _showChangePetHint = true);
+      WidgetsBinding.instance.addPostFrameCallback((_) => _showChangePetHintOverlay());
+    }
+  }
+
+  Future<void> _dismissChangePetHint() async {
+    _changePetHintEntry?.remove();
+    _changePetHintEntry = null;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('show_change_pet_hint');
+    if (mounted) setState(() => _showChangePetHint = false);
+  }
+
+  void _showChangePetHintOverlay() {
+    if (!mounted) return;
+    const bubbleW = 200.0;
+    const arrowH = 12.0;
+    const followerDx = 0.0;
+    const followerDy = 85.0; // below the change pet button
+    const arrowLeftPadding = 28.0; // points at button centre (~40px from left)
+
+    _changePetHintEntry = OverlayEntry(
+      builder: (_) => Stack(
+        children: [
+          CompositedTransformFollower(
+            link: _changePetLayerLink,
+            showWhenUnlinked: false,
+            offset: const Offset(followerDx, followerDy),
+            child: SizedBox(
+              width: bubbleW,
+              child: Material(
+                color: Colors.transparent,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(left: arrowLeftPadding),
+                      child: CustomPaint(
+                        size: const Size(arrowH * 2, arrowH),
+                        painter: _UpArrowPainter(),
+                      ),
+                    ),
+                    Container(
+                      width: bubbleW,
+                      padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 8, offset: Offset(0, 3))],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text("Switch pets!", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          const SizedBox(height: 6),
+                          const Text("Tap here to switch between your pets and view their individual dashboards.", style: TextStyle(fontSize: 12, color: Colors.black87)),
+                          const SizedBox(height: 8),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: GestureDetector(
+                              onTap: _dismissChangePetHint,
+                              child: const Text("Got it", style: TextStyle(color: Color(0xFF8BAEAE), fontWeight: FontWeight.bold, fontSize: 12)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    Overlay.of(context).insert(_changePetHintEntry!);
+  }
+
+  void _showSettingsHintOverlay() {
+    if (!mounted) return;
+    const bubbleW = 210.0;
+    const arrowH = 12.0;
+    // Menu button is ~48px wide, right-aligned. Right-align bubble with button.
+    const followerDx = -(bubbleW - 48.0);
+    const followerDy = 48.0; // below the icon button
+    // Arrow tip points at button centre from the bubble's top-right area.
+    const arrowLeftPadding = bubbleW - 48.0 / 2 - arrowH;
+
+    _settingsHintEntry = OverlayEntry(
+      builder: (_) => Stack(
+        children: [
+          CompositedTransformFollower(
+            link: _settingsLayerLink,
+            showWhenUnlinked: false,
+            offset: const Offset(followerDx, followerDy),
+            child: SizedBox(
+              width: bubbleW,
+              child: Material(
+                color: Colors.transparent,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(left: arrowLeftPadding),
+                      child: CustomPaint(
+                        size: const Size(arrowH * 2, arrowH),
+                        painter: _UpArrowPainter(),
+                      ),
+                    ),
+                    Container(
+                      width: bubbleW,
+                      padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 8, offset: Offset(0, 3))],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text("Settings menu!", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          const SizedBox(height: 6),
+                          const Text("Edit your profile, manage notifications, and view your report history here.", style: TextStyle(fontSize: 12, color: Colors.black87)),
+                          const SizedBox(height: 8),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: GestureDetector(
+                              onTap: _dismissSettingsHint,
+                              child: const Text("Got it", style: TextStyle(color: Color(0xFF8BAEAE), fontWeight: FontWeight.bold, fontSize: 12)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    Overlay.of(context).insert(_settingsHintEntry!);
+  }
+
+  void _showFindOutMoreHintOverlay() {
+    if (!mounted) return;
+    _findOutMoreHintEntry = _buildHintOverlay(
+      link: _findOutMoreLayerLink,
+      title: "Learn about your pet!",
+      body: "Get breed-specific facts, diet tips, and care advice for your pet's species.",
+      onDismiss: _dismissFindOutMoreHint,
+      followerDx: -55,
+      followerDy: -130,
+      arrowLeftPadding: 93,
+    );
+    Overlay.of(context).insert(_findOutMoreHintEntry!);
+  }
+
+  void _showAppointmentHintOverlay() {
+    if (!mounted) return;
+
+    const bubbleW = 220.0;
+    const arrowH = 12.0;
+    const buttonW = 48.0;
+    const estimatedBubbleH = 120.0;
+    // Right-align bubble with the button; button is on the right edge.
+    const followerDx = -(bubbleW - buttonW);
+    const followerDy = -(estimatedBubbleH + arrowH + 4);
+    // Arrow points at button centre from within the bubble.
+    const arrowLeftPadding = bubbleW - buttonW / 2 - arrowH;
+
+    _appointmentHintEntry = OverlayEntry(
+      builder: (_) => Stack(
+        children: [
+          CompositedTransformFollower(
+            link: _appointmentLayerLink,
+            showWhenUnlinked: false,
+            offset: const Offset(followerDx, followerDy),
+            child: SizedBox(
+              width: bubbleW,
+              child: Material(
+                color: Colors.transparent,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: bubbleW,
+                      padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 8, offset: Offset(0, 3))],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text("Schedule an appointment!", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          const SizedBox(height: 6),
+                          const Text("Tap + to book a vet visit for any day on the calendar.", style: TextStyle(fontSize: 12, color: Colors.black87)),
+                          const SizedBox(height: 8),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: GestureDetector(
+                              onTap: _dismissAppointmentHint,
+                              child: const Text("Got it", style: TextStyle(color: Color(0xFF8BAEAE), fontWeight: FontWeight.bold, fontSize: 12)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(left: arrowLeftPadding),
+                      child: CustomPaint(
+                        size: const Size(arrowH * 2, arrowH),
+                        painter: _DownArrowPainter(),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    Overlay.of(context).insert(_appointmentHintEntry!);
   }
 
   void _showMetricsHintOverlay() {
@@ -109,12 +815,6 @@ class _DashboardPageState extends State<DashboardPage> {
     _metricsHintEntry = OverlayEntry(
       builder: (_) => Stack(
         children: [
-          Positioned.fill(
-            child: GestureDetector(
-              onTap: _dismissHint,
-              behavior: HitTestBehavior.translucent,
-            ),
-          ),
           CompositedTransformFollower(
             link: _metricsLayerLink,
             showWhenUnlinked: false,
@@ -570,6 +1270,16 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   void dispose() {
     _metricsHintEntry?.remove();
+    _appointmentHintEntry?.remove();
+    _adviceHintEntry?.remove();
+    _reportHintEntry?.remove();
+    _recentlyLoggedHintEntry?.remove();
+    _healthRecordsHintEntry?.remove();
+    _feedingHintEntry?.remove();
+    _vetHintEntry?.remove();
+    _findOutMoreHintEntry?.remove();
+    _settingsHintEntry?.remove();
+    _changePetHintEntry?.remove();
     super.dispose();
   }
 
@@ -606,6 +1316,16 @@ class _DashboardPageState extends State<DashboardPage> {
           _fetchAppointments();
           _fetchVetContacts();
           _checkMetricsHint();
+          _checkAppointmentHint();
+          _checkAdviceHint();
+          _checkReportHint();
+          _checkRecentlyLoggedHint();
+          _checkHealthRecordsHint();
+          _checkFeedingHint();
+          _checkVetHint();
+          _checkFindOutMoreHint();
+          _checkSettingsHint();
+          _checkChangePetHint();
         }
       }
     } catch (e) {
@@ -908,10 +1628,28 @@ class _DashboardPageState extends State<DashboardPage> {
         centerTitle: true,
         leading: Padding(
           padding: const EdgeInsets.only(left: 8.0),
-          child: _changePetButton(),
+          child: _hintTarget(
+            link: _changePetLayerLink,
+            active: _showChangePetHint,
+            radius: 20,
+            child: _changePetButton(),
+          ),
         ),
         leadingWidth: 90,
         title: _appBarTitle(),
+        actions: [
+          Builder(
+            builder: (ctx) => _hintTarget(
+              link: _settingsLayerLink,
+              active: _showSettingsHint,
+              radius: 20,
+              child: IconButton(
+                icon: const Icon(Icons.menu),
+                onPressed: () => Scaffold.of(ctx).openEndDrawer(),
+              ),
+            ),
+          ),
+        ],
       ),
       body: Container(
         width: double.infinity,
@@ -963,9 +1701,23 @@ class _DashboardPageState extends State<DashboardPage> {
                 "Household Schedule: $_selectedDay/${_focusedDay.month}",
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
-              IconButton(
-                icon: const Icon(Icons.add_circle, color: Colors.black),
-                onPressed: () => _showBookingDialog(_selectedDay!),
+              CompositedTransformTarget(
+                link: _appointmentLayerLink,
+                child: Container(
+                  decoration: _showAppointmentHint
+                      ? BoxDecoration(
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [BoxShadow(color: Colors.yellow.withValues(alpha: 0.8), blurRadius: 18, spreadRadius: 6)],
+                        )
+                      : null,
+                  child: IconButton(
+                    icon: const Icon(Icons.add_circle, color: Colors.black),
+                    onPressed: () {
+                      if (_showAppointmentHint) _dismissAppointmentHint();
+                      _showBookingDialog(_selectedDay!);
+                    },
+                  ),
+                ),
               ),
             ],
           ),
@@ -1397,7 +2149,18 @@ class _DashboardPageState extends State<DashboardPage> {
         children: [
           _infoBox("Daily fun fact for $petName:", _dailyFact, petColor),
           const SizedBox(height: 10),
-          _infoBox("Advice for $petName:", _dailyAdvice, petColor),
+          CompositedTransformTarget(
+            link: _adviceLayerLink,
+            child: Container(
+              decoration: _showAdviceHint
+                  ? BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: [BoxShadow(color: Colors.yellow.withValues(alpha: 0.8), blurRadius: 18, spreadRadius: 6)],
+                    )
+                  : null,
+              child: _infoBox("Advice for $petName:", _dailyAdvice, petColor),
+            ),
+          ),
         ],
       ),
     );
@@ -1410,40 +2173,52 @@ class _DashboardPageState extends State<DashboardPage> {
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           _reportPawButton(context, petColor),
-          _gridButton(
-            "$petName's\nHealth Records",
-            petColor,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => HealthRecordsPage(
-                  petId: _pets[_selectedPetIndex]['pet_id'].toString(),
-                  petName: _pets[_selectedPetIndex]['pet_first_name'] as String,
-                  petIndex: _selectedPetIndex,
-                  petImagePath: _pets[_selectedPetIndex]['pet_image_path'] as String?,
+          _hintTarget(
+            link: _healthRecordsLayerLink,
+            active: _showHealthRecordsHint,
+            child: _gridButton(
+              "$petName's\nHealth Records",
+              petColor,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => HealthRecordsPage(
+                    petId: _pets[_selectedPetIndex]['pet_id'].toString(),
+                    petName: _pets[_selectedPetIndex]['pet_first_name'] as String,
+                    petIndex: _selectedPetIndex,
+                    petImagePath: _pets[_selectedPetIndex]['pet_image_path'] as String?,
+                  ),
                 ),
               ),
             ),
           ),
-          _gridButton(
-            "Household\nFeeding Schedule",
-            petColor,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const FeedingSchedulePage(),
+          _hintTarget(
+            link: _feedingLayerLink,
+            active: _showFeedingHint,
+            child: _gridButton(
+              "Household\nFeeding Schedule",
+              petColor,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const FeedingSchedulePage(),
+                ),
               ),
             ),
           ),
-          _gridButton(
-            "Household\nVet Contacts",
-            petColor,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => VetContactsPage(pets: _pets, selectedPetIndex: _selectedPetIndex),
-              ),
-            ).then((_) => _fetchVetContacts()),
+          _hintTarget(
+            link: _vetLayerLink,
+            active: _showVetHint,
+            child: _gridButton(
+              "Household\nVet Contacts",
+              petColor,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => VetContactsPage(pets: _pets, selectedPetIndex: _selectedPetIndex),
+                ),
+              ).then((_) => _fetchVetContacts()),
+            ),
           ),
         ],
       ),
@@ -1508,8 +2283,16 @@ class _DashboardPageState extends State<DashboardPage> {
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           _logMetricPawButton(context, currentPetName, petColor),
-          _actionButton(context, "$currentPetName's recently\nlogged data", petColor),
-          _actionButton(context, "Find out\nmore about $currentPetName", petColor),
+          _hintTarget(
+            link: _recentlyLoggedLayerLink,
+            active: _showRecentlyLoggedHint,
+            child: _actionButton(context, "$currentPetName's recently\nlogged data", petColor),
+          ),
+          _hintTarget(
+            link: _findOutMoreLayerLink,
+            active: _showFindOutMoreHint,
+            child: _actionButton(context, "Find out\nmore about $currentPetName", petColor),
+          ),
           _upcomingAppointmentButton(context, petColor),
         ],
       ),
@@ -1740,7 +2523,7 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Widget _reportPawButton(BuildContext context, Color petColor) {
-    return GestureDetector(
+    final btn = GestureDetector(
       onTap: () {
         if (_pets.isNotEmpty) {
           Navigator.push(
@@ -1780,6 +2563,7 @@ class _DashboardPageState extends State<DashboardPage> {
         ),
       ),
     );
+    return _hintTarget(child: btn, link: _reportLayerLink, active: _showReportHint);
   }
 }
 
@@ -1932,6 +2716,30 @@ class _DownArrowPainter extends CustomPainter {
       ..moveTo(0, 0)
       ..lineTo(size.width, 0)
       ..lineTo(size.width / 2, size.height)
+      ..close();
+    canvas.drawPath(path, paint);
+
+    final shadowPaint = Paint()
+      ..color = Colors.black12
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    canvas.drawPath(path, shadowPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter old) => false;
+}
+
+class _UpArrowPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.fill;
+    final path = Path()
+      ..moveTo(size.width / 2, 0)
+      ..lineTo(0, size.height)
+      ..lineTo(size.width, size.height)
       ..close();
     canvas.drawPath(path, paint);
 
