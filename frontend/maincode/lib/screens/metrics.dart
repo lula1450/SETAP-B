@@ -35,6 +35,8 @@ class _MetricsPageState extends State<MetricsPage> {
   bool _loadingMetrics = true;
   Map<String, String> _customUnits = {};
   List<String> _favorites = [];
+  Map<String, String> _displayUnits = {}; // Maps metric name -> unit preference (ml/L, mins/hrs)
+  Map<String, String> _targetUnits = {}; // Maps metric name -> unit used when target was set
 
   late String _currentPetName; // Track the current pet name
 
@@ -81,6 +83,10 @@ class _MetricsPageState extends State<MetricsPage> {
     final hidden = prefs.getStringList('hidden_metrics_${widget.petId}') ?? [];
     final unitsRaw = prefs.getString('custom_units_${widget.petId}') ?? '{}';
     final unitsMap = Map<String, String>.from(jsonDecode(unitsRaw) as Map);
+    final displayUnitsRaw = prefs.getString('display_units_${widget.petId}') ?? '{}';
+    final displayUnitsMap = Map<String, String>.from(jsonDecode(displayUnitsRaw) as Map);
+    final targetUnitsRaw = prefs.getString('target_units_${widget.petId}') ?? '{}';
+    final targetUnitsMap = Map<String, String>.from(jsonDecode(targetUnitsRaw) as Map);
     if (mounted) {
       setState(() {
         _customMetricNames = List<String>.from(custom);
@@ -89,6 +95,8 @@ class _MetricsPageState extends State<MetricsPage> {
           ...fetched.map(_toDisplayName).where((m) => !hidden.contains(m)),
         ];
         _customUnits = unitsMap;
+        _displayUnits = Map<String, String>.from(displayUnitsMap); // Ensure fresh copy of map
+        _targetUnits = Map<String, String>.from(targetUnitsMap); // Ensure fresh copy of map
         _loadingMetrics = false;
       });
       _refreshAllMetrics();
@@ -141,7 +149,7 @@ class _MetricsPageState extends State<MetricsPage> {
 
   Future<void> _addCustomMetric() async {
     final nameController = TextEditingController();
-    const unitOptions = ["kg", "ml", "mins", "%", "/5", "count", "none"];
+    const unitOptions = ["kg", "ml", "mins", "hrs", "%", "/5", "count", "none"];
     String selectedUnit = "none";
 
     final result = await showDialog<Map<String, String>>(
@@ -284,9 +292,9 @@ class _MetricsPageState extends State<MetricsPage> {
     final name = metricName.toLowerCase().trim();
     switch (name) {
       case "weight":           return "kg";
-      case "water intake":     return "ml/day";
-      case "basking time":     return "mins/day";
-      case "wheel activity":   return "mins/day";
+      case "water intake":     return _displayUnits[metricName] == 'L' ? 'L/day' : 'ml/day';
+      case "basking time":
+      case "wheel activity":   return _displayUnits[metricName] == 'hrs' ? 'hrs/day' : 'mins/day';
       case "humidity level":   return "%";
       case "litter box usage": return "x/day";
       case "grooming frequency": return "x/day";
@@ -301,7 +309,12 @@ class _MetricsPageState extends State<MetricsPage> {
       case "perch activity":   return "/5";
       case "shedding quality": return "/5";
       case "chewing behaviour": return "/5";
-      default: return _customUnits[metricName] == "none" ? "" : (_customUnits[metricName] ?? "");
+      default: {
+        final customUnit = _customUnits[metricName];
+        if (customUnit == null || customUnit == 'none') return '';
+        if (customUnit == 'mins') return _displayUnits[metricName] == 'hrs' ? 'hrs/day' : 'mins';
+        return customUnit;
+      }
     }
   }
 
@@ -324,13 +337,25 @@ class _MetricsPageState extends State<MetricsPage> {
     }
   }
 
+  String _targetDisplayUnit(String title) {
+    final name = title.toLowerCase();
+    final isWater = name == 'water intake';
+    final isMins = name == 'basking time' || name == 'wheel activity' || _customUnits[title] == 'mins';
+    if (isWater) {
+      return _targetUnits[title] == 'L' ? 'L/day' : 'ml/day';
+    } else if (isMins) {
+      return _targetUnits[title] == 'hrs' ? 'hrs/day' : 'mins/day';
+    }
+    return _getUnitForMetric(title);
+  }
+
   void _checkAndWarnDeviation(BuildContext ctx, String title, String enteredValue, String targetValue) async {
     final current = double.tryParse(enteredValue);
     final target = double.tryParse(targetValue);
     if (current == null || target == null || target == 0) return;
 
     final deviation = (current - target).abs() / target;
-    if (deviation <= 0.15) return;
+    if (deviation <= 0.15 || deviation > 5.0) return;
 
     final unit = _getUnitForMetric(title);
     final isAbove = current > target;
@@ -349,7 +374,7 @@ class _MetricsPageState extends State<MetricsPage> {
           ],
         ),
         content: Text(
-          "$title is $percent% ${isAbove ? 'above' : 'below'} the target of $targetValue $unit.\n\nConsider speaking to your vet if this continues.",
+          "$title is $percent% ${isAbove ? 'above' : 'below'} the target of ${_toDisplayValue(targetValue, unit)} $unit.\n\nConsider speaking to your vet if this continues.",
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(dlgCtx), child: const Text("Dismiss")),
@@ -515,7 +540,7 @@ class _MetricsPageState extends State<MetricsPage> {
           children: [
             _infoRow(
               Icons.monitor_heart_outlined, "Current",
-              neverLogged ? 'Not yet logged' : '$currentVal $unit',
+              neverLogged ? 'Not yet logged' : '${_toDisplayValue(currentVal, unit)} $unit',
               onClear: neverLogged ? null : () => clearCurrent(dlgCtx),
             ),
             if (!neverLogged && lastTime.isNotEmpty) ...[
@@ -526,7 +551,7 @@ class _MetricsPageState extends State<MetricsPage> {
               const SizedBox(height: 12),
               _infoRow(
                 Icons.flag_outlined, "Target",
-                targetVal.isEmpty ? 'Not set' : '$targetVal $unit',
+                targetVal.isEmpty ? 'Not set' : '${_toDisplayValue(targetVal, unit)} $unit',
                 onClear: targetVal.isEmpty ? null : () => clearTarget(dlgCtx),
               ),
             ],
@@ -571,8 +596,15 @@ class _MetricsPageState extends State<MetricsPage> {
     final String unit = _getUnitForMetric(title);
     bool isLogging = false;
     final bool isWaterIntake = title.toLowerCase() == 'water intake';
+    final bool isMinsMetric = title.toLowerCase() == 'basking time'
+        || title.toLowerCase() == 'wheel activity'
+        || _customUnits[title] == 'mins';
     final bool isScale = unit == '/5';
-    String waterUnit = 'ml';
+    final bool isTargetOnly = !showValue && showTarget;
+    final String defaultUnit = isWaterIntake ? 'ml' : 'mins';
+    String unitToggle = isTargetOnly
+        ? (_targetUnits[title] ?? defaultUnit)
+        : (_displayUnits[title] ?? defaultUnit);
     double sliderVal = 3.0;
     double goalSliderVal = 5.0;
     if (isScale) {
@@ -584,7 +616,7 @@ class _MetricsPageState extends State<MetricsPage> {
       context: outerCtx,
       builder: (dlgCtx) => StatefulBuilder(
         builder: (dlgCtx, setDialogState) {
-          final String displayUnit = isWaterIntake ? waterUnit : unit;
+          final String displayUnit = (isWaterIntake || isMinsMetric) ? unitToggle : unit;
           return AlertDialog(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
             title: Text(showValue && showTarget ? "Log $title" : showValue ? "Log Current $title" : "Set Target for $title"),
@@ -606,20 +638,26 @@ class _MetricsPageState extends State<MetricsPage> {
                   ),
                   const SizedBox(height: 12),
                 ],
-                if (isWaterIntake) ...[
+                if (isWaterIntake || isMinsMetric) ...[
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       const Text('Unit:', style: TextStyle(fontSize: 13)),
                       const SizedBox(width: 8),
                       ToggleButtons(
-                        isSelected: [waterUnit == 'ml', waterUnit == 'L'],
-                        onPressed: (i) => setDialogState(() => waterUnit = i == 0 ? 'ml' : 'L'),
+                        isSelected: isWaterIntake
+                            ? [unitToggle == 'ml', unitToggle == 'L']
+                            : [unitToggle == 'mins', unitToggle == 'hrs'],
+                        onPressed: (i) => setDialogState(() => unitToggle = isWaterIntake
+                            ? (i == 0 ? 'ml' : 'L')
+                            : (i == 0 ? 'mins' : 'hrs')),
                         borderRadius: BorderRadius.circular(8),
                         selectedColor: Colors.white,
                         fillColor: const Color(0xFF8BAEAE),
-                        constraints: const BoxConstraints(minWidth: 40, minHeight: 32),
-                        children: const [Text('ml'), Text('L')],
+                        constraints: const BoxConstraints(minWidth: 52, minHeight: 32),
+                        children: isWaterIntake
+                            ? const [Text('ml'), Text('L')]
+                            : const [Text('mins'), Text('hrs')],
                       ),
                     ],
                   ),
@@ -656,7 +694,11 @@ class _MetricsPageState extends State<MetricsPage> {
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     decoration: InputDecoration(
                       labelText: "Target Goal",
-                      hintText: isWaterIntake ? (waterUnit == 'L' ? "e.g. 2.0" : "e.g. 2000") : "e.g. 5.0",
+                      hintText: isWaterIntake
+                          ? (unitToggle == 'L' ? "e.g. 2.0" : "e.g. 2000")
+                          : isMinsMetric
+                              ? (unitToggle == 'hrs' ? "e.g. 1.5" : "e.g. 90")
+                              : "e.g. 5.0",
                       suffixText: displayUnit,
                     ),
                   ),
@@ -693,7 +735,11 @@ class _MetricsPageState extends State<MetricsPage> {
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     decoration: InputDecoration(
                       labelText: "Current $title",
-                      hintText: isWaterIntake ? (waterUnit == 'L' ? "e.g. 1.5" : "e.g. 1500") : "e.g. 4.5",
+                      hintText: isWaterIntake
+                          ? (unitToggle == 'L' ? "e.g. 1.5" : "e.g. 1500")
+                          : isMinsMetric
+                              ? (unitToggle == 'hrs' ? "e.g. 1.5" : "e.g. 90")
+                              : "e.g. 4.5",
                       suffixText: displayUnit,
                     ),
                   ),
@@ -710,14 +756,19 @@ class _MetricsPageState extends State<MetricsPage> {
                       setDialogState(() => isLogging = true);
                       String backendName = title.toLowerCase().replaceAll(" ", "_");
 
-                      // Convert L → ml before saving so the backend always receives ml
                       String resolvedValue = valueController.text;
                       String resolvedGoal = goalController.text;
-                      if (isWaterIntake && waterUnit == 'L') {
+                      if (isWaterIntake && unitToggle == 'L') {
                         final v = double.tryParse(valueController.text);
                         if (v != null) resolvedValue = (v * 1000).toStringAsFixed(0);
                         final g = double.tryParse(goalController.text);
                         if (g != null) resolvedGoal = (g * 1000).toStringAsFixed(0);
+                      }
+                      if (isMinsMetric && unitToggle == 'hrs') {
+                        final v = double.tryParse(valueController.text);
+                        if (v != null) resolvedValue = (v * 60).toStringAsFixed(0);
+                        final g = double.tryParse(goalController.text);
+                        if (g != null) resolvedGoal = (g * 60).toStringAsFixed(0);
                       }
 
                       try {
@@ -766,6 +817,19 @@ class _MetricsPageState extends State<MetricsPage> {
                             ? resolvedGoal
                             : (_latestValues[title]?['target'] ?? '');
                         if (dlgCtx.mounted) Navigator.pop(dlgCtx);
+                        if (isWaterIntake || isMinsMetric) {
+                          if (!isTargetOnly) {
+                            final updated = Map<String, String>.from(_displayUnits)..[title] = unitToggle;
+                            setState(() => _displayUnits = updated);
+                            await prefs.setString('display_units_${widget.petId}', jsonEncode(updated));
+                          }
+                          if (isTargetOnly || resolvedGoal.isNotEmpty) {
+                            final updated = Map<String, String>.from(_targetUnits)..[title] = unitToggle;
+                            setState(() => _targetUnits = updated);
+                            await prefs.setString('target_units_${widget.petId}', jsonEncode(updated));
+                          }
+                        }
+                        if (!mounted) return;
                         _refreshAllMetrics();
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(content: Text("Updated $title successfully!"), backgroundColor: Colors.green.shade700),
@@ -776,8 +840,11 @@ class _MetricsPageState extends State<MetricsPage> {
                             '$title|$resolvedValue|$effectiveTarget',
                           );
                         }
-                        if (resolvedValue.isNotEmpty && effectiveTarget.isNotEmpty && mounted) {
-                          _checkAndWarnDeviation(context, title, resolvedValue, effectiveTarget);
+                        final valueForDeviation = resolvedValue.isNotEmpty
+                            ? resolvedValue
+                            : (_latestValues[title]?['value'] ?? '');
+                        if (valueForDeviation.isNotEmpty && valueForDeviation != '---' && effectiveTarget.isNotEmpty && mounted) {
+                          _checkAndWarnDeviation(context, title, valueForDeviation, effectiveTarget);
                         }
                       } catch (e) {
                         setDialogState(() => isLogging = false);
@@ -806,7 +873,7 @@ class _MetricsPageState extends State<MetricsPage> {
     final String unit = _getUnitForMetric(title);
     final String displayVal = unit == '/5'
         ? '${double.tryParse(currentVal)?.round() ?? currentVal} $unit'
-        : '$currentVal $unit';
+        : '${_toDisplayValue(currentVal, unit)} $unit';
 
     showDialog(
       context: context,
@@ -871,9 +938,10 @@ class _MetricsPageState extends State<MetricsPage> {
     }
 
     final String unit = _getUnitForMetric(title);
+    final String targetUnit = _targetDisplayUnit(title);
     final String displayTarget = unit == '/5'
         ? '${double.tryParse(targetVal)?.round() ?? targetVal} $unit'
-        : '$targetVal $unit';
+        : '${_toDisplayValue(targetVal, targetUnit)} $targetUnit';
 
     showDialog(
       context: context,
@@ -978,6 +1046,18 @@ class _MetricsPageState extends State<MetricsPage> {
       success = await _healthService.clearGoal(widget.petId, key);
     }
 
+    // Clear the target unit when target is cleared
+    if (success) {
+      final prefs = await SharedPreferences.getInstance();
+      final updatedTargetUnits = Map<String, String>.from(_targetUnits);
+      updatedTargetUnits.remove(title);
+      setState(() => _targetUnits = updatedTargetUnits);
+      await prefs.setString(
+        'target_units_${widget.petId}',
+        jsonEncode(updatedTargetUnits),
+      );
+    }
+
     if (mounted) {
       _refreshAllMetrics();
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -985,6 +1065,29 @@ class _MetricsPageState extends State<MetricsPage> {
         backgroundColor: success ? Colors.green.shade700 : Colors.red.shade400,
       ));
     }
+  }
+
+  String _toDisplayValue(String rawValue, String unit) {
+    if (rawValue.isEmpty || rawValue == '---' || rawValue == '...') return rawValue;
+    if (unit == 'L/day' || unit == 'L') {
+      final v = double.tryParse(rawValue);
+      if (v != null) {
+        final litres = v / 1000;
+        return litres % 1 == 0
+            ? litres.toInt().toString()
+            : litres.toStringAsFixed(litres < 0.1 ? 3 : 2);
+      }
+    }
+    if (unit == 'hrs/day') {
+      final v = double.tryParse(rawValue);
+      if (v != null) {
+        final hours = v / 60;
+        return hours % 1 == 0
+            ? hours.toInt().toString()
+            : hours.toStringAsFixed(hours < 0.1 ? 3 : 2);
+      }
+    }
+    return rawValue;
   }
 
   Color _getStatusColor(String current, String target) {
@@ -1184,14 +1287,15 @@ class _MetricsPageState extends State<MetricsPage> {
       final d = double.tryParse(current);
       displayCurrent = d != null ? '${d.round()} $unit' : '$current $unit';
     } else {
-      displayCurrent = '$current $unit';
+      displayCurrent = '${_toDisplayValue(current, unit)} $unit';
     }
     String displayGoal;
     if (unit == '/5' && target.isNotEmpty) {
       final d = double.tryParse(target);
       displayGoal = d != null ? '${d.round()} $unit' : '$target $unit';
     } else {
-      displayGoal = target.isNotEmpty ? '$target $unit' : '';
+      final String displayGoalUnit = _targetDisplayUnit(title);
+      displayGoal = target.isNotEmpty ? '${_toDisplayValue(target, displayGoalUnit)} $displayGoalUnit' : '';
     }
 
     return Padding(

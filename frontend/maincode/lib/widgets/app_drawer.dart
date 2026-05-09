@@ -151,7 +151,11 @@ class AppDrawer extends StatelessWidget {
                         final navigator = Navigator.of(context);
                         navigator.pop();
                         final prefs = await SharedPreferences.getInstance();
-                        await prefs.clear();
+                        await prefs.remove('owner_id');
+                        await prefs.remove('owner_email');
+                        await prefs.remove('owner_first_name');
+                        await prefs.remove('owner_last_name');
+                        await prefs.remove('owner_password');
                         navigator.pushReplacement(
                           MaterialPageRoute(builder: (context) => const LoginPage()),
                         );
