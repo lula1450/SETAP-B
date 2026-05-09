@@ -781,22 +781,20 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> with RouteAwa
                                   ],
                                 ),
                               ),
-                              _NavButton(label: '‹', onTap: () => _shiftWeek(-1)),
-                              const SizedBox(width: 6),
                               GestureDetector(
                                 onTap: () => _shiftWeek(0),
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                                   decoration: BoxDecoration(
-                                    color: Colors.white.withValues(alpha: 0.4),
-                                    border: Border.all(color: Colors.white54, width: 0.5),
-                                    borderRadius: BorderRadius.circular(8),
+                                    color: Colors.white.withValues(alpha: 0.5),
+                                    borderRadius: BorderRadius.circular(6),
                                   ),
-                                  child: const Icon(Icons.calendar_today, size: 16, color: Colors.black87),
+                                  child: const Text(
+                                    'Return Current',
+                                    style: TextStyle(fontSize: 14, color: Colors.black54, fontWeight: FontWeight.w600),
+                                  ),
                                 ),
                               ),
-                              const SizedBox(width: 6),
-                              _NavButton(label: '›', onTap: () => _shiftWeek(1)),
                             ],
                           ),
                         ),
@@ -976,17 +974,28 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> with RouteAwa
                                         ),
                                       ),
                                     ),
-                                    // Left arrow
+                                    // Left arrow — scroll left, or go to previous week if at start
                                     Positioned(
                                       left: 0,
                                       top: 0,
                                       bottom: 16,
                                       child: GestureDetector(
-                                        onTap: () => _calendarScroll.animateTo(
-                                          (_calendarScroll.offset - 200).clamp(0, _calendarScroll.position.maxScrollExtent),
-                                          duration: const Duration(milliseconds: 250),
-                                          curve: Curves.easeInOut,
-                                        ),
+                                        onTap: () {
+                                          if (_calendarScroll.hasClients && _calendarScroll.offset <= 0) {
+                                            _shiftWeek(-1);
+                                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                                              if (_calendarScroll.hasClients) {
+                                                _calendarScroll.jumpTo(_calendarScroll.position.maxScrollExtent);
+                                              }
+                                            });
+                                          } else {
+                                            _calendarScroll.animateTo(
+                                              (_calendarScroll.offset - 200).clamp(0, _calendarScroll.position.maxScrollExtent),
+                                              duration: const Duration(milliseconds: 250),
+                                              curve: Curves.easeInOut,
+                                            );
+                                          }
+                                        },
                                         child: Container(
                                           width: 28,
                                           decoration: BoxDecoration(
@@ -1003,17 +1012,28 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> with RouteAwa
                                         ),
                                       ),
                                     ),
-                                    // Right arrow
+                                    // Right arrow — scroll right, or go to next week if at end
                                     Positioned(
                                       right: 0,
                                       top: 0,
                                       bottom: 16,
                                       child: GestureDetector(
-                                        onTap: () => _calendarScroll.animateTo(
-                                          (_calendarScroll.offset + 200).clamp(0, _calendarScroll.position.maxScrollExtent),
-                                          duration: const Duration(milliseconds: 250),
-                                          curve: Curves.easeInOut,
-                                        ),
+                                        onTap: () {
+                                          if (_calendarScroll.hasClients && _calendarScroll.offset >= _calendarScroll.position.maxScrollExtent) {
+                                            _shiftWeek(1);
+                                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                                              if (_calendarScroll.hasClients) {
+                                                _calendarScroll.jumpTo(0);
+                                              }
+                                            });
+                                          } else {
+                                            _calendarScroll.animateTo(
+                                              (_calendarScroll.offset + 200).clamp(0, _calendarScroll.position.maxScrollExtent),
+                                              duration: const Duration(milliseconds: 250),
+                                              curve: Curves.easeInOut,
+                                            );
+                                          }
+                                        },
                                         child: Container(
                                           width: 28,
                                           decoration: BoxDecoration(
@@ -1241,37 +1261,6 @@ class _EventChip extends StatelessWidget {
               ),
             ],
           ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Nav Button ───────────────────────────────────────────────────────────────
-
-class _NavButton extends StatelessWidget {
-  final String label;
-  final VoidCallback onTap;
-
-  const _NavButton({required this.label, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.4),
-          border: Border.all(color: Colors.white54, width: 0.5),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Text(
-          label,
-          style: const TextStyle(
-              fontSize: 13,
-              color: Colors.black87,
-              fontWeight: FontWeight.w500),
         ),
       ),
     );
