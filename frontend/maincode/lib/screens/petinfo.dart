@@ -68,6 +68,19 @@ class PetInfoPage extends StatelessWidget {
                   width: double.infinity,
                   fit: BoxFit.fitWidth,
                   alignment: Alignment.topCenter,
+                  loadingBuilder: (context, child, progress) {
+                    if (progress == null) return child;
+                    return Container(
+                      height: 250,
+                      color: const Color(0xFFB2D3C2),
+                      child: const Center(child: CircularProgressIndicator()),
+                    );
+                  },
+                  errorBuilder: (context, error, stack) => Container(
+                    height: 250,
+                    color: const Color(0xFFB2D3C2),
+                    child: const Icon(Icons.pets, size: 60, color: Colors.white),
+                  ),
                 ),
               ),
               const SizedBox(height: 20),
