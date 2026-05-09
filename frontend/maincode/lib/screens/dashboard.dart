@@ -2221,14 +2221,14 @@ class _DashboardPageState extends State<DashboardPage> {
           shape: const CircleBorder(
             side: BorderSide(color: Colors.white, width: 2),
           ),
-          child: const Icon(Icons.pets, color: Colors.white, size: 24),
+          child: const Icon(Icons.pets, color: Colors.white, size: 27),
         ),
         const SizedBox(height: 4),
         const Text(
-          "CHANGE",
+          "Pets",
           style: TextStyle(
             color: Colors.black,
-            fontSize: 11,
+            fontSize: 14,
             fontWeight: FontWeight.bold,
           ),
         ),
