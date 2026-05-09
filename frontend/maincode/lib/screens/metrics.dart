@@ -816,6 +816,8 @@ class _MetricsPageState extends State<MetricsPage> {
                         final effectiveTarget = resolvedGoal.isNotEmpty
                             ? resolvedGoal
                             : (_latestValues[title]?['target'] ?? '');
+                        // Capture existing current value before _refreshAllMetrics clears _latestValues.
+                        final existingValue = _latestValues[title]?['value'] ?? '';
                         if (dlgCtx.mounted) Navigator.pop(dlgCtx);
                         if (isWaterIntake || isMinsMetric) {
                           if (!isTargetOnly) {
@@ -842,7 +844,7 @@ class _MetricsPageState extends State<MetricsPage> {
                         }
                         final valueForDeviation = resolvedValue.isNotEmpty
                             ? resolvedValue
-                            : (_latestValues[title]?['value'] ?? '');
+                            : existingValue;
                         if (valueForDeviation.isNotEmpty && valueForDeviation != '---' && effectiveTarget.isNotEmpty && mounted) {
                           _checkAndWarnDeviation(context, title, valueForDeviation, effectiveTarget);
                         }
