@@ -210,6 +210,8 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> with RouteAwa
   int? _activePetId;
   int _weekOffset = 0;
   bool _isLoading = true;
+  final ScrollController _calendarScroll = ScrollController();
+  final ScrollController _petTabScroll = ScrollController();
 
   // recurring[petId][weekday 0=Mon..6=Sun] = list of PetEvent (repeats every week)
   final Map<int, Map<int, List<PetEvent>>> _recurring = {};
@@ -229,6 +231,8 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> with RouteAwa
   @override
   void dispose() {
     routeObserver.unsubscribe(this);
+    _calendarScroll.dispose();
+    _petTabScroll.dispose();
     super.dispose();
   }
 
@@ -324,11 +328,24 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> with RouteAwa
       _pets = pets;
       if (pets.isNotEmpty) _activePetId = pets.first.id;
     });
+    _scrollToToday();
   } catch (e) {
     debugPrint('Global load error: $e');
   }
   setState(() => _isLoading = false);
 }
+
+  void _scrollToToday() {
+    if (_weekOffset != 0) return;
+    final dayIndex = DateTime.now().weekday - 1; // 0=Mon..6=Sun
+    if (dayIndex == 0) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_calendarScroll.hasClients) return;
+      const columnWidth = 700.0 / 7;
+      final offset = (dayIndex * columnWidth).clamp(0.0, _calendarScroll.position.maxScrollExtent);
+      _calendarScroll.animateTo(offset, duration: const Duration(milliseconds: 400), curve: Curves.easeInOut);
+    });
+  }
 
   // ── Week helpers ──────────────────────────────────────────────────────────
 
@@ -498,6 +515,136 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> with RouteAwa
     await prefs.setString('offline_feeding_schedule', jsonEncode(flattened));
   }
 
+  // ── Upcoming feedings ─────────────────────────────────────────────────────
+
+  List<({Pet pet, PetEvent event, int daysUntil})> _getUpcomingFeedings() {
+    final now = DateTime.now();
+    final nowMins = now.hour * 60 + now.minute;
+    final result = <({Pet pet, PetEvent event, int daysUntil})>[];
+
+    for (final pet in _pets) {
+      PetEvent? nextEvent;
+      int? nextDays;
+
+      for (int d = 0; d < 7; d++) {
+        final checkDate = now.add(Duration(days: d));
+        final dayKey = _dateKey(DateTime(checkDate.year, checkDate.month, checkDate.day));
+        final events = _eventsForDay(pet.id, dayKey);
+
+        for (final ev in events) {
+          final evMins = ev.time.hour * 60 + ev.time.minute;
+          if (d == 0 && evMins <= nowMins) continue;
+          nextEvent = ev;
+          nextDays = d;
+          break;
+        }
+        if (nextEvent != null) break;
+      }
+
+      if (nextEvent != null) {
+        result.add((pet: pet, event: nextEvent, daysUntil: nextDays!));
+      }
+    }
+
+    result.sort((a, b) {
+      if (a.daysUntil != b.daysUntil) return a.daysUntil.compareTo(b.daysUntil);
+      final aMin = a.event.time.hour * 60 + a.event.time.minute;
+      final bMin = b.event.time.hour * 60 + b.event.time.minute;
+      return aMin.compareTo(bMin);
+    });
+
+    return result;
+  }
+
+  Widget _buildUpcomingSection() {
+    final upcoming = _getUpcomingFeedings();
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+            child: Text(
+              'Upcoming Feedings',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: Colors.black87,
+              ),
+            ),
+          ),
+          if (upcoming.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 4),
+              child: Text(
+                'No upcoming feedings scheduled.',
+                style: TextStyle(fontSize: 13, color: Colors.black54),
+              ),
+            )
+          else
+            ...upcoming.map((entry) {
+              final petIdx = _pets.indexWhere((p) => p.id == entry.pet.id);
+              final petColor = _kPetColors[petIdx % _kPetColors.length];
+              final when = entry.daysUntil == 0
+                  ? 'Today'
+                  : entry.daysUntil == 1
+                      ? 'Tomorrow'
+                      : () {
+                          final d = DateTime.now().add(Duration(days: entry.daysUntil));
+                          return '${d.day} ${months[d.month - 1]}';
+                        }();
+              return Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: petColor.withValues(alpha: 0.65),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: petColor, width: 1.5),
+                ),
+                child: Row(
+                  children: [
+                    Icon(entry.event.type.icon, size: 16, color: Colors.black87),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            entry.pet.name,
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.black),
+                          ),
+                          Text(
+                            entry.event.name,
+                            style: const TextStyle(fontSize: 12, color: Colors.black),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          _fmt12(entry.event.time),
+                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.black),
+                        ),
+                        Text(
+                          when,
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: Colors.black),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            }),
+        ],
+      ),
+    );
+  }
+
   // ── Build ─────────────────────────────────────────────────────────────────
 
   @override
@@ -536,7 +683,7 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> with RouteAwa
       ),
       body: Stack(
         children: [
-          // ── Gradient background (matching ReportHistoryPage) ──
+          // ── Gradient background ──
           Positioned.fill(
             child: Container(
               decoration: const BoxDecoration(
@@ -556,171 +703,271 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> with RouteAwa
           Positioned.fill(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Week nav bar
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 12),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                weekLabel,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 15,
-                                  color: Colors.black87,
+                : SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Week nav bar
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  weekLabel,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 15,
+                                    color: Colors.black87,
+                                  ),
                                 ),
                               ),
-                            ),
-                            _NavButton(
-                                label: '‹', onTap: () => _shiftWeek(-1)),
-                            const SizedBox(width: 6),
-                            _NavButton(
-                                label: 'This Week', onTap: () => _shiftWeek(0)),
-                            const SizedBox(width: 6),
-                            _NavButton(
-                                label: '›', onTap: () => _shiftWeek(1)),
-                          ],
-                        ),
-                      ),
-
-                      // Pet tabs
-                      if (_pets.isNotEmpty)
-                        Padding(
-                          padding:
-                              const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                          child: SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: Row(
-                              children: _pets.asMap().entries.map((entry) {
-                                final idx = entry.key;
-                                final p = entry.value;
-                                final active = p.id == _activePetId;
-                                final petColor = _kPetColors[idx % _kPetColors.length];
-                                return Padding(
-                                  padding: const EdgeInsets.only(right: 8),
-                                  child: GestureDetector(
-                                    onTap: () => setState(
-                                        () => _activePetId = p.id),
-                                    child: AnimatedContainer(
-                                      duration: const Duration(
-                                          milliseconds: 180),
-                                      padding:
-                                          const EdgeInsets.symmetric(
-                                        horizontal: 14,
-                                        vertical: 6,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: active
-                                            ? petColor
-                                            : petColor.withValues(alpha: 0.25),
-                                        borderRadius:
-                                            BorderRadius.circular(20),
-                                        border: Border.all(
-                                          color: active
-                                              ? petColor
-                                              : petColor.withValues(alpha: 0.5),
-                                          width: active ? 2 : 0.5,
-                                        ),
-                                      ),
-                                      child: Text(
-                                        p.species.isNotEmpty
-                                            ? '${p.name} (${p.species})'
-                                            : p.name,
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w600,
-                                          color: Colors.black87,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              }).toList(),
-                            ),
+                              _NavButton(label: '‹', onTap: () => _shiftWeek(-1)),
+                              const SizedBox(width: 6),
+                              _NavButton(label: 'This Week', onTap: () => _shiftWeek(0)),
+                              const SizedBox(width: 6),
+                              _NavButton(label: '›', onTap: () => _shiftWeek(1)),
+                            ],
                           ),
                         ),
 
-                      // Legend
-                      Padding(
-                        padding:
-                            const EdgeInsets.fromLTRB(16, 10, 16, 8),
-                        child: Row(
-                          children: EventType.values
-                              .map(
-                                (t) => Padding(
-                                  padding:
-                                      const EdgeInsets.only(right: 14),
-                                  child: Row(
-                                    children: [
-                                      Container(
-                                        width: 8,
-                                        height: 8,
-                                        decoration: BoxDecoration(
-                                          color: t.textColor,
-                                          shape: BoxShape.circle,
+                        // Pet tabs
+                        if (_pets.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                            child: _pets.length > 4
+                                ? SizedBox(
+                                    height: 42,
+                                    child: Stack(
+                                      children: [
+                                        SingleChildScrollView(
+                                          controller: _petTabScroll,
+                                          scrollDirection: Axis.horizontal,
+                                          physics: const AlwaysScrollableScrollPhysics(),
+                                          child: Row(
+                                            children: _pets.asMap().entries.map((entry) {
+                                              final idx = entry.key;
+                                              final p = entry.value;
+                                              final active = p.id == _activePetId;
+                                              final petColor = _kPetColors[idx % _kPetColors.length];
+                                              return Padding(
+                                                padding: const EdgeInsets.only(right: 8),
+                                                child: GestureDetector(
+                                                  onTap: () => setState(() => _activePetId = p.id),
+                                                  child: AnimatedContainer(
+                                                    duration: const Duration(milliseconds: 180),
+                                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                                                    decoration: BoxDecoration(
+                                                      color: active ? petColor : petColor.withValues(alpha: 0.25),
+                                                      borderRadius: BorderRadius.circular(20),
+                                                      border: Border.all(
+                                                        color: active ? petColor : petColor.withValues(alpha: 0.5),
+                                                        width: active ? 2 : 0.5,
+                                                      ),
+                                                    ),
+                                                    child: Text(
+                                                      p.species.isNotEmpty ? '${p.name} (${p.species})' : p.name,
+                                                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.black87),
+                                                    ),
+                                                  ),
+                                                ),
+                                              );
+                                            }).toList(),
+                                          ),
                                         ),
-                                      ),
-                                      const SizedBox(width: 5),
-                                      Text(
-                                        t.label,
-                                        style: const TextStyle(
-                                          fontSize: 11,
-                                          color: Colors.black54,
-                                          fontWeight: FontWeight.w500,
+                                        Positioned(
+                                          left: 0, top: 0, bottom: 0,
+                                          child: GestureDetector(
+                                            onTap: () => _petTabScroll.animateTo(
+                                              (_petTabScroll.offset - 150).clamp(0, _petTabScroll.position.maxScrollExtent),
+                                              duration: const Duration(milliseconds: 200),
+                                              curve: Curves.easeInOut,
+                                            ),
+                                            child: Container(
+                                              width: 24,
+                                              decoration: BoxDecoration(
+                                                gradient: LinearGradient(
+                                                  colors: [const Color(0xFF8BAEAE).withValues(alpha: 0.35), Colors.transparent],
+                                                ),
+                                              ),
+                                              child: const Icon(Icons.chevron_left, size: 20, color: Colors.black),
+                                            ),
+                                          ),
                                         ),
-                                      ),
-                                    ],
+                                        Positioned(
+                                          right: 0, top: 0, bottom: 0,
+                                          child: GestureDetector(
+                                            onTap: () => _petTabScroll.animateTo(
+                                              (_petTabScroll.offset + 150).clamp(0, _petTabScroll.position.maxScrollExtent),
+                                              duration: const Duration(milliseconds: 200),
+                                              curve: Curves.easeInOut,
+                                            ),
+                                            child: Container(
+                                              width: 24,
+                                              decoration: BoxDecoration(
+                                                gradient: LinearGradient(
+                                                  begin: Alignment.centerRight,
+                                                  end: Alignment.centerLeft,
+                                                  colors: [const Color(0xFF8BAEAE).withValues(alpha: 0.35), Colors.transparent],
+                                                ),
+                                              ),
+                                              child: const Icon(Icons.chevron_right, size: 20, color: Colors.black),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  )
+                                : SingleChildScrollView(
+                                    scrollDirection: Axis.horizontal,
+                                    child: Row(
+                                      children: _pets.asMap().entries.map((entry) {
+                                        final idx = entry.key;
+                                        final p = entry.value;
+                                        final active = p.id == _activePetId;
+                                        final petColor = _kPetColors[idx % _kPetColors.length];
+                                        return Padding(
+                                          padding: const EdgeInsets.only(right: 8),
+                                          child: GestureDetector(
+                                            onTap: () => setState(() => _activePetId = p.id),
+                                            child: AnimatedContainer(
+                                              duration: const Duration(milliseconds: 180),
+                                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                                              decoration: BoxDecoration(
+                                                color: active ? petColor : petColor.withValues(alpha: 0.25),
+                                                borderRadius: BorderRadius.circular(20),
+                                                border: Border.all(
+                                                  color: active ? petColor : petColor.withValues(alpha: 0.5),
+                                                  width: active ? 2 : 0.5,
+                                                ),
+                                              ),
+                                              child: Text(
+                                                p.species.isNotEmpty ? '${p.name} (${p.species})' : p.name,
+                                                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.black87),
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      }).toList(),
+                                    ),
                                   ),
-                                ),
-                              )
-                              .toList(),
-                        ),
-                      ),
+                          ),
 
-                      // Calendar grid
-                      Expanded(
-                        child: _activePetId == null
-                            ? const Center(
-                                child: Text(
-                                  'No pets found.\nMake sure your account has pets registered.',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(color: Colors.black54),
-                                ),
-                              )
-                            : SingleChildScrollView(
-                                padding: const EdgeInsets.fromLTRB(
-                                    12, 0, 12, 16),
-                                scrollDirection: Axis.horizontal,
-                                child: SizedBox(
-                                  width: MediaQuery.of(context)
-                                              .size
-                                              .width >
-                                          700
-                                      ? MediaQuery.of(context)
-                                              .size
-                                              .width -
-                                          24
-                                      : 700,
-                                  child: _CalendarGrid(
-                                    weekStart: ws,
-                                    activePetId: _activePetId!,
-                                    petColorIndex: _pets.indexWhere((p) => p.id == _activePetId),
-                                    eventsForDay: _eventsForDay,
-                                    onAddTap: (dayKey) =>
-                                        _openEventDialog(dayKey: dayKey),
-                                    onEventTap: (ev, dayKey) =>
-                                        _openEventDialog(
-                                            existing: ev,
-                                            dayKey: dayKey),
+                        // Legend
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+                          child: Row(
+                            children: EventType.values.map((t) => Padding(
+                              padding: const EdgeInsets.only(right: 14),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 8,
+                                    height: 8,
+                                    decoration: BoxDecoration(color: t.textColor, shape: BoxShape.circle),
                                   ),
-                                ),
+                                  const SizedBox(width: 5),
+                                  Text(t.label, style: const TextStyle(fontSize: 11, color: Colors.black54, fontWeight: FontWeight.w500)),
+                                ],
                               ),
-                      ),
-                    ],
+                            )).toList(),
+                          ),
+                        ),
+
+                        // Calendar grid — fixed height, horizontal scroll with arrows
+                        SizedBox(
+                          height: 340,
+                          child: _activePetId == null
+                              ? const Center(
+                                  child: Text(
+                                    'No pets found.\nMake sure your account has pets registered.',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(color: Colors.black54),
+                                  ),
+                                )
+                              : Stack(
+                                  children: [
+                                    SingleChildScrollView(
+                                      controller: _calendarScroll,
+                                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+                                      scrollDirection: Axis.horizontal,
+                                      physics: const AlwaysScrollableScrollPhysics(),
+                                      child: SizedBox(
+                                        width: MediaQuery.of(context).size.width > 700
+                                            ? MediaQuery.of(context).size.width - 24
+                                            : 700,
+                                        child: _CalendarGrid(
+                                          weekStart: ws,
+                                          activePetId: _activePetId!,
+                                          petColorIndex: _pets.indexWhere((p) => p.id == _activePetId),
+                                          eventsForDay: _eventsForDay,
+                                          onAddTap: (dayKey) => _openEventDialog(dayKey: dayKey),
+                                          onEventTap: (ev, dayKey) => _openEventDialog(existing: ev, dayKey: dayKey),
+                                        ),
+                                      ),
+                                    ),
+                                    // Left arrow
+                                    Positioned(
+                                      left: 0,
+                                      top: 0,
+                                      bottom: 16,
+                                      child: GestureDetector(
+                                        onTap: () => _calendarScroll.animateTo(
+                                          (_calendarScroll.offset - 200).clamp(0, _calendarScroll.position.maxScrollExtent),
+                                          duration: const Duration(milliseconds: 250),
+                                          curve: Curves.easeInOut,
+                                        ),
+                                        child: Container(
+                                          width: 28,
+                                          decoration: BoxDecoration(
+                                            gradient: LinearGradient(
+                                              begin: Alignment.centerLeft,
+                                              end: Alignment.centerRight,
+                                              colors: [
+                                                const Color(0xFF8BAEAE).withValues(alpha: 0.35),
+                                                Colors.transparent,
+                                              ],
+                                            ),
+                                          ),
+                                          child: const Icon(Icons.chevron_left, size: 28, color: Colors.black),
+                                        ),
+                                      ),
+                                    ),
+                                    // Right arrow
+                                    Positioned(
+                                      right: 0,
+                                      top: 0,
+                                      bottom: 16,
+                                      child: GestureDetector(
+                                        onTap: () => _calendarScroll.animateTo(
+                                          (_calendarScroll.offset + 200).clamp(0, _calendarScroll.position.maxScrollExtent),
+                                          duration: const Duration(milliseconds: 250),
+                                          curve: Curves.easeInOut,
+                                        ),
+                                        child: Container(
+                                          width: 28,
+                                          decoration: BoxDecoration(
+                                            gradient: LinearGradient(
+                                              begin: Alignment.centerRight,
+                                              end: Alignment.centerLeft,
+                                              colors: [
+                                                const Color(0xFF8BAEAE).withValues(alpha: 0.35),
+                                                Colors.transparent,
+                                              ],
+                                            ),
+                                          ),
+                                          child: const Icon(Icons.chevron_right, size: 28, color: Colors.black),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                        ),
+
+                        // Upcoming feedings
+                        _buildUpcomingSection(),
+                      ],
+                    ),
                   ),
           ),
         ],
@@ -776,7 +1023,7 @@ class _CalendarGrid extends StatelessWidget {
                       days[i],
                       textAlign: TextAlign.center,
                       style: const TextStyle(
-                        fontSize: 11,
+                        fontSize: 13,
                         color: Colors.black54,
                         fontWeight: FontWeight.w500,
                       ),
@@ -803,7 +1050,7 @@ class _CalendarGrid extends StatelessWidget {
                       child: Text(
                         '${d.day}',
                         style: TextStyle(
-                          fontSize: 14,
+                          fontSize: 16,
                           fontWeight: FontWeight.w700,
                           color: isToday
                               ? const Color(0xFF8BAEAE)
@@ -887,20 +1134,20 @@ class _EventChip extends StatelessWidget {
             Text(
               _fmt12(event.time),
               style: const TextStyle(
-                fontSize: 10,
+                fontSize: 12,
                 color: Colors.black54,
               ),
             ),
             const SizedBox(height: 1),
             Row(
               children: [
-                Icon(t.icon, size: 10, color: Colors.black87),
+                Icon(t.icon, size: 12, color: Colors.black87),
                 const SizedBox(width: 3),
                 Expanded(
                   child: Text(
                     event.name,
                     style: const TextStyle(
-                      fontSize: 11,
+                      fontSize: 13,
                       fontWeight: FontWeight.w600,
                       color: Colors.black87,
                     ),
@@ -1084,7 +1331,7 @@ class _EventDialogState extends State<_EventDialog> {
             // Type
             _Label('Event Type'),
             DropdownButtonFormField<EventType>(
-              value: _type,
+              initialValue: _type,
               decoration: _inputDeco(),
               items: EventType.values
                   .map(
@@ -1111,7 +1358,7 @@ class _EventDialogState extends State<_EventDialog> {
             if (widget.pets.length > 1) ...[
               _Label('Pet'),
               DropdownButtonFormField<int>(
-                value: _petId,
+                initialValue: _petId,
                 decoration: _inputDeco(),
                 items: widget.pets
                     .map(
