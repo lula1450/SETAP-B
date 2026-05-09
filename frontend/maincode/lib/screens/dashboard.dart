@@ -42,6 +42,10 @@ class _DashboardPageState extends State<DashboardPage> {
   final AdviceService _adviceService = AdviceService();
   String _dailyAdvice = "";
 
+  bool _showMetricsHint = false;
+  final LayerLink _metricsLayerLink = LayerLink();
+  OverlayEntry? _metricsHintEntry;
+
   void _updateDailyFact() {
     if (_pets.isNotEmpty) {
       final currentPet = _pets[_selectedPetIndex];
@@ -70,6 +74,121 @@ class _DashboardPageState extends State<DashboardPage> {
       }
       if (mounted) setState(() => _dailyAdvice = advice);
     }
+  }
+
+  Future<void> _checkMetricsHint() async {
+    final prefs = await SharedPreferences.getInstance();
+    final show = prefs.getBool('show_metrics_hint') ?? false;
+    if (show && mounted) {
+      setState(() => _showMetricsHint = true);
+      WidgetsBinding.instance.addPostFrameCallback((_) => _showMetricsHintOverlay());
+    }
+  }
+
+  Future<void> _dismissHint() async {
+    _metricsHintEntry?.remove();
+    _metricsHintEntry = null;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('show_metrics_hint');
+    if (mounted) setState(() => _showMetricsHint = false);
+  }
+
+  void _showMetricsHintOverlay() {
+    if (!mounted) return;
+
+    // Align bubble's left edge with button's left edge so it never goes off screen.
+    // Arrow is offset to the button's centre (buttonW/2) within the bubble.
+    const bubbleW = 210.0;
+    const arrowH = 12.0;
+    const buttonW = 100.0;
+    const estimatedBubbleH = 118.0;
+    const followerDx = 0.0; // bubble left == button left
+    const followerDy = -(estimatedBubbleH + arrowH + 4);
+    const arrowLeftPadding = buttonW / 2 - arrowH; // points at button centre
+
+    _metricsHintEntry = OverlayEntry(
+      builder: (_) => Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: _dismissHint,
+              behavior: HitTestBehavior.translucent,
+            ),
+          ),
+          CompositedTransformFollower(
+            link: _metricsLayerLink,
+            showWhenUnlinked: false,
+            offset: const Offset(followerDx, followerDy),
+            child: SizedBox(
+              width: bubbleW,
+              child: Material(
+                color: Colors.transparent,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: bubbleW,
+                      padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Colors.black26,
+                            blurRadius: 8,
+                            offset: Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text(
+                            "Log your first metric!",
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                          ),
+                          const SizedBox(height: 6),
+                          const Text(
+                            "Tap the Metrics paw button to start tracking your pet's health.",
+                            style: TextStyle(fontSize: 12, color: Colors.black87),
+                          ),
+                          const SizedBox(height: 8),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: GestureDetector(
+                              onTap: _dismissHint,
+                              child: const Text(
+                                "Got it",
+                                style: TextStyle(
+                                  color: Color(0xFF8BAEAE),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(left: arrowLeftPadding),
+                      child: CustomPaint(
+                        size: const Size(arrowH * 2, arrowH),
+                        painter: _DownArrowPainter(),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    Overlay.of(context).insert(_metricsHintEntry!);
   }
 
   void _deleteAppointment(dynamic appt) async {
@@ -448,6 +567,12 @@ class _DashboardPageState extends State<DashboardPage> {
     _fetchPets();
   }
 
+  @override
+  void dispose() {
+    _metricsHintEntry?.remove();
+    super.dispose();
+  }
+
   // --- LOGIC FUNCTIONS ---
 
   Future<void> _fetchPets() async {
@@ -480,6 +605,7 @@ class _DashboardPageState extends State<DashboardPage> {
           });
           _fetchAppointments();
           _fetchVetContacts();
+          _checkMetricsHint();
         }
       }
     } catch (e) {
@@ -1536,9 +1662,10 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Widget _logMetricPawButton(BuildContext context, String petName, Color petColor) {
-    return GestureDetector(
+    final inner = GestureDetector(
       onTap: () {
         if (_pets.isEmpty) return;
+        if (_showMetricsHint) _dismissHint();
         final currentPet = _pets[_selectedPetIndex];
         Navigator.push(
           context,
@@ -1556,7 +1683,11 @@ class _DashboardPageState extends State<DashboardPage> {
         width: 100,
         height: 90,
         child: CustomPaint(
-          painter: _PawPainter(color: petColor.withValues(alpha: 0.35)),
+          painter: _PawPainter(
+            color: _showMetricsHint
+                ? petColor.withValues(alpha: 0.7)
+                : petColor.withValues(alpha: 0.35),
+          ),
           child: Center(
             child: Padding(
               padding: const EdgeInsets.only(top: 32),
@@ -1569,6 +1700,29 @@ class _DashboardPageState extends State<DashboardPage> {
           ),
         ),
       ),
+    );
+
+    // CompositedTransformTarget is always present so the overlay can track the
+    // button's position through any scroll movement.
+    final tracked = CompositedTransformTarget(
+      link: _metricsLayerLink,
+      child: inner,
+    );
+
+    if (!_showMetricsHint) return tracked;
+
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.yellow.withValues(alpha: 0.8),
+            blurRadius: 18,
+            spreadRadius: 6,
+          ),
+        ],
+      ),
+      child: tracked,
     );
   }
 
@@ -1753,4 +1907,28 @@ class _PawPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_PawPainter old) => old.color != color || old.showBorder != showBorder;
+}
+
+class _DownArrowPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.fill;
+    final path = Path()
+      ..moveTo(0, 0)
+      ..lineTo(size.width, 0)
+      ..lineTo(size.width / 2, size.height)
+      ..close();
+    canvas.drawPath(path, paint);
+
+    final shadowPaint = Paint()
+      ..color = Colors.black12
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    canvas.drawPath(path, shadowPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter old) => false;
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:maincode/screens/add_pet.dart';
 import 'package:maincode/services/auth_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -51,6 +52,9 @@ class _RegisterPageState extends State<RegisterPage> {
       setState(() => _isLoading = false);
 
       if (success) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('show_metrics_hint', true);
+        if (!mounted) return;
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (context) => const AddPetPage()),
