@@ -85,6 +85,13 @@ class _ReportsPageState extends State<ReportsPage> with RouteAware {
   // Initialize page: fetch which metrics have logged data, pick a sensible default, then load data
   Future<void> _initializePage() async {
     setState(() => _isLoading = true);
+    if (_selectedDateRange == null) {
+      final now = DateTime.now();
+      _selectedDateRange = DateTimeRange(
+        start: now.subtract(const Duration(days: 7)),
+        end: now,
+      );
+    }
     try {
       final metrics = await _service.getLoggedMetrics(widget.petId);
 
@@ -207,6 +214,19 @@ class _ReportsPageState extends State<ReportsPage> with RouteAware {
                 child: Text('Filter by Date', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               ),
               ListTile(
+                leading: const Icon(Icons.history, color: Color(0xFF8BAEAE)),
+                title: const Text('Last 7 Days'),
+                onTap: () {
+                  final now = DateTime.now();
+                  Navigator.pop(ctx);
+                  setState(() => _selectedDateRange = DateTimeRange(
+                    start: now.subtract(const Duration(days: 7)),
+                    end: now,
+                  ));
+                  _loadData();
+                },
+              ),
+              ListTile(
                 leading: const Icon(Icons.view_week, color: Color(0xFF8BAEAE)),
                 title: const Text('This Week'),
                 onTap: () {
@@ -293,6 +313,8 @@ class _ReportsPageState extends State<ReportsPage> with RouteAware {
     final monday = now.subtract(Duration(days: now.weekday - 1));
     final weekStart = DateTime(monday.year, monday.month, monday.day);
     final monthStart = DateTime(now.year, now.month, 1);
+    final last7 = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 7));
+    if (start.year == last7.year && start.month == last7.month && start.day == last7.day) return 'Last 7 Days';
     if (start == weekStart) return 'This Week';
     if (start == monthStart) return 'This Month';
     return "${start.day}/${start.month} - ${_selectedDateRange!.end.day}/${_selectedDateRange!.end.month}";
@@ -588,7 +610,7 @@ class _ReportsPageState extends State<ReportsPage> with RouteAware {
     List<FlSpot> spots = points.map((p) => FlSpot(p['x'].toDouble(), p['y'].toDouble())).toList();
 
     return Container(
-      height: 320,
+      height: 360,
       padding: const EdgeInsets.only(left: 8, right: 20, top: 20, bottom: 8),
       child: LineChart(
         LineChartData(
@@ -611,13 +633,24 @@ class _ReportsPageState extends State<ReportsPage> with RouteAware {
             bottomTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
-                reservedSize: 30,
+                reservedSize: 36,
                 getTitlesWidget: (value, meta) {
                   final points = _analysisData['points'] as List<dynamic>? ?? [];
                   final int idx = value.toInt();
-                  if (points.isNotEmpty && idx % 5 == 0 && idx < points.length) {
+                  final int interval = (points.length / 6).ceil().clamp(1, 999);
+                  if (points.isNotEmpty && idx % interval == 0 && idx < points.length) {
                     final dateStr = points[idx]['date']?.toString() ?? '';
-                    return Text(dateStr.split(',')[0], style: const TextStyle(fontSize: 10));
+                    final parts = dateStr.split(',')[0].trim().split(' ');
+                    final day = parts.isNotEmpty ? parts[0] : '';
+                    final month = parts.length > 1 ? parts[1] : '';
+                    return Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const SizedBox(height: 4),
+                        Text(day, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500)),
+                        Text(month, style: const TextStyle(fontSize: 8, color: Colors.grey)),
+                      ],
+                    );
                   }
                   return const SizedBox();
                 },
@@ -631,8 +664,9 @@ class _ReportsPageState extends State<ReportsPage> with RouteAware {
             LineChartBarData(
               spots: spots,
               isCurved: true,
+              curveSmoothness: 0.25,
               color: isRisk ? Colors.red : Colors.teal,
-              barWidth: 5,
+              barWidth: 2,
               belowBarData: BarAreaData(
                 show: true,
                 color: (isRisk ? Colors.red : Colors.teal).withValues(alpha: 0.1),
