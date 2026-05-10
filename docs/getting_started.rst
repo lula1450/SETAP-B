@@ -6,16 +6,13 @@ Installation
 
 Backend Setup
 ~~~~~~~~~~~~~
-
 1. Clone the repository:
-
    .. code-block:: bash
 
       git clone https://github.com/lula1450/SETAP-B.git
       cd SETAP-B
 
 2. Create a virtual environment:
-
    .. code-block:: bash
 
       cd petsync_backend
@@ -23,20 +20,17 @@ Backend Setup
       source venv/bin/activate
 
 3. Install dependencies:
-
    .. code-block:: bash
 
       pip install -r requirement.txt
 
 4. Run the backend server:
-
    .. code-block:: bash
 
       python main.py
 
 Frontend Setup
 ~~~~~~~~~~~~~~
-
 1. Navigate to the frontend directory:
 
    .. code-block:: bash
@@ -50,7 +44,6 @@ Frontend Setup
       flutter pub get
 
 3. Run the application:
-
    .. code-block:: bash
 
       # iOS
@@ -61,7 +54,6 @@ Frontend Setup
 
 Project Structure
 -----------------
-
 ::
 
    SETAP-B/

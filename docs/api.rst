@@ -20,7 +20,6 @@ Authentication
 ~~~~~~~~~~~~~~
 Routes under:
 ::
-
    /auth
 
 Used for:

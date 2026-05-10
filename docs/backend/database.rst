@@ -2,7 +2,7 @@ Database Documentation
 ======================
 
 System Overview
---------
+---------------
 This module provides the necessary functionality for configuring and managing the database for the backend of PetSync. 
 It is responisble for initializing the database, managing sessions and providing communication between the application
 and the database.
