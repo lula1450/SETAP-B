@@ -202,39 +202,36 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final metric = log['metric'] as String;
-      final key = 'custom_history_${widget.petId}_$metric';
-      final histRaw = prefs.getString(key) ?? '[]';
-      
-      debugPrint('Attempting to delete: metric=$metric, key=$key');
-      debugPrint('Current storage: $histRaw');
-      
+      final histKey = 'custom_history_${widget.petId}_$metric';
+      final histRaw = prefs.getString(histKey) ?? '[]';
+
       final entries = List<Map<String, dynamic>>.from(
         (jsonDecode(histRaw) as List).map((e) => Map<String, dynamic>.from(e as Map)),
       );
-      
+
       final initialLength = entries.length;
-      debugPrint('Entries before delete: $initialLength');
-      
-      entries.removeWhere((e) {
-        final matches = e['time'] == log['time'] && 
-               e['value'].toString() == log['value'].toString() &&
-               e['metric'] == metric;
-        if (matches) {
-          debugPrint('Found match: $e');
-        }
-        return matches;
-      });
-      
-      debugPrint('Entries after delete: ${entries.length}');
-      
+      entries.removeWhere((e) =>
+          e['time'] == log['time'] &&
+          e['value'].toString() == log['value'].toString() &&
+          e['metric'] == metric);
+
       if (entries.length < initialLength) {
-        await prefs.setString(key, jsonEncode(entries));
-        debugPrint('Successfully deleted and saved');
+        await prefs.setString(histKey, jsonEncode(entries));
+
+        if (entries.isEmpty) {
+          await prefs.remove('custom_current_${widget.petId}_$metric');
+        } else {
+          final sorted = List<Map<String, dynamic>>.from(entries)
+            ..sort((a, b) => (b['time'] ?? '').toString().compareTo((a['time'] ?? '').toString()));
+          await prefs.setString(
+            'custom_current_${widget.petId}_$metric',
+            sorted.first['value'].toString(),
+          );
+        }
+
         return true;
-      } else {
-        debugPrint('No entries were deleted');
-        return false;
       }
+      return false;
     } catch (e) {
       debugPrint('Error deleting custom log: $e');
       return false;
@@ -340,6 +337,8 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
             onPressed: () async {
               final raw = valueController.text.trim();
               final newValue = num.tryParse(raw) ?? raw;
+              final nav = Navigator.of(ctx);
+              final messenger = ScaffoldMessenger.of(context);
 
               bool success;
               if (isCustom) {
@@ -355,7 +354,7 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
               }
 
               if (!mounted) return;
-              Navigator.pop(ctx);
+              nav.pop();
 
               if (success) {
                 setState(() {
@@ -364,11 +363,11 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
                     'value': newValue,
                   };
                 });
-                ScaffoldMessenger.of(context).showSnackBar(
+                messenger.showSnackBar(
                   const SnackBar(content: Text('Entry updated')),
                 );
               } else {
-                ScaffoldMessenger.of(context).showSnackBar(
+                messenger.showSnackBar(
                   const SnackBar(content: Text('Failed to update entry')),
                 );
               }

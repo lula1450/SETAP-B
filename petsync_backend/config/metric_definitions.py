@@ -9,7 +9,6 @@ UNIT_MAPPING = {
     MetricName.energy_level: MetricUnit.scale_1_5,
     MetricName.appetite: MetricUnit.scale_1_5,
     MetricName.litter_box_usage: MetricUnit.count_day,
-    MetricName.grooming_frequency: MetricUnit.count_day,
     MetricName.vomit_events: MetricUnit.count_day,
     MetricName.feather_condition: MetricUnit.scale_1_5,
     MetricName.wing_strength: MetricUnit.scale_1_5,
@@ -26,20 +25,20 @@ SPECIES_METRICS = {
     SpeciesType.dog: [
         MetricName.weight, MetricName.energy_level, MetricName.appetite,
         MetricName.water_intake, MetricName.stool_quality,
-        MetricName.grooming_frequency, MetricName.vomit_events,
+        MetricName.vomit_events,
     ],
     SpeciesType.cat: [
         MetricName.weight, MetricName.energy_level, MetricName.appetite,
         MetricName.water_intake, MetricName.stool_quality,
-        MetricName.litter_box_usage, MetricName.grooming_frequency, MetricName.vomit_events,
+        MetricName.litter_box_usage, MetricName.vomit_events,
     ],
     SpeciesType.rabbit: [
         MetricName.weight, MetricName.appetite, MetricName.water_intake,
-        MetricName.stool_pellets, MetricName.chewing_behaviour, MetricName.grooming_frequency,
+        MetricName.stool_pellets, MetricName.chewing_behaviour,
     ],
     SpeciesType.hamster: [
         MetricName.weight, MetricName.water_intake, MetricName.wheel_activity,
-        MetricName.chewing_behaviour, MetricName.grooming_frequency,
+        MetricName.chewing_behaviour,
     ],
     SpeciesType.bird: [
         MetricName.weight, MetricName.appetite, MetricName.water_intake,

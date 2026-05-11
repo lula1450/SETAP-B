@@ -309,7 +309,6 @@ class _MetricsPageState extends State<MetricsPage> with RouteAware {
       case "wheel activity":   return _displayUnits[metricName] == 'hrs' ? 'hrs/day' : 'mins/day';
       case "humidity level":   return "%";
       case "litter box usage": return "x/day";
-      case "grooming frequency": return "x/day";
       case "vomit events":     return "x/day";
       case "stool pellets":    return "pellets/day";
       case "stool quality":    return "/5";
@@ -343,7 +342,6 @@ class _MetricsPageState extends State<MetricsPage> with RouteAware {
       case 'chewing behaviour':  return '1 = not chewing  ·  5 = chewing actively and normally';
       case 'vomit events':       return 'Count of vomiting episodes today — 0 is ideal';
       case 'stool pellets':      return 'Total number of droppings passed today';
-      case 'grooming frequency': return 'Number of times you groomed your pet today';
       case 'litter box usage':   return 'Number of litter box visits today';
       default: return null;
     }
@@ -460,150 +458,6 @@ class _MetricsPageState extends State<MetricsPage> with RouteAware {
     return nameColors[index % nameColors.length];
   }
 
-  void _showInfoDialog(BuildContext ctx, String title) {
-    final String unit = _getUnitForMetric(title);
-    final String currentVal = _latestValues[title]?['value'] ?? '---';
-    final String targetVal = _latestValues[title]?['target'] ?? '';
-    final String lastTime = _latestValues[title]?['time'] ?? '';
-    final String entryId = _latestValues[title]?['id'] ?? '';
-    final bool hasTarget = !_noTargetMetrics.contains(title);
-    final bool neverLogged = currentVal == '---' || currentVal == '...';
-    final bool isCustom = _customMetricNames.contains(title);
-    final String key = title.toLowerCase().replaceAll(' ', '_');
-
-    Future<void> clearCurrent(BuildContext dlgCtx) async {
-      final confirmed = await showDialog<bool>(
-        context: dlgCtx,
-        builder: (confirmCtx) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-          title: const Text('Remove latest entry?'),
-          content: Text(
-            'The most recent log entry for $title will be permanently removed.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(confirmCtx, false),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(confirmCtx, true),
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade400, foregroundColor: Colors.white),
-              child: const Text('Remove'),
-            ),
-          ],
-        ),
-      );
-      if (confirmed != true) return;
-      if (dlgCtx.mounted) Navigator.pop(dlgCtx);
-      bool success = false;
-      if (isCustom) {
-        final prefs = await SharedPreferences.getInstance();
-        final histKey = 'custom_history_${widget.petId}_$key';
-        final histRaw = prefs.getString(histKey) ?? '[]';
-        final entries = List<Map<String, dynamic>>.from(
-          (jsonDecode(histRaw) as List).map((e) => Map<String, dynamic>.from(e as Map)),
-        );
-        if (entries.isNotEmpty) {
-          entries.sort((a, b) => (b['time'] ?? '').toString().compareTo((a['time'] ?? '').toString()));
-          entries.removeAt(0);
-          await prefs.setString(histKey, jsonEncode(entries));
-          if (entries.isEmpty) {
-            await prefs.remove('custom_current_${widget.petId}_$key');
-          } else {
-            await prefs.setString('custom_current_${widget.petId}_$key', jsonEncode(entries.first));
-          }
-        }
-        success = true;
-      } else if (entryId.isNotEmpty) {
-        success = await _healthService.deleteEntry(widget.petId, int.parse(entryId));
-      }
-      if (mounted) {
-        _refreshAllMetrics();
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(success ? 'Current value cleared.' : 'Could not clear value.'),
-          backgroundColor: success ? Colors.green.shade700 : Colors.red.shade400,
-        ));
-      }
-    }
-
-    Future<void> clearTarget(BuildContext dlgCtx) async {
-      Navigator.pop(dlgCtx);
-      bool success = false;
-      if (isCustom) {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.remove('custom_target_${widget.petId}_$key');
-        success = true;
-      } else {
-        success = await _healthService.clearGoal(widget.petId, key);
-      }
-      if (mounted) {
-        _refreshAllMetrics();
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(success ? 'Target cleared.' : 'Could not clear target.'),
-          backgroundColor: success ? Colors.green.shade700 : Colors.red.shade400,
-        ));
-      }
-    }
-
-    showDialog(
-      context: ctx,
-      builder: (dlgCtx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _infoRow(
-              Icons.monitor_heart_outlined, "Current",
-              neverLogged ? 'Not yet logged' : '${_toDisplayValue(currentVal, unit)} $unit',
-              onClear: neverLogged ? null : () => clearCurrent(dlgCtx),
-            ),
-            if (!neverLogged && lastTime.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              _infoRow(Icons.access_time, "Last logged", lastTime),
-            ],
-            if (hasTarget) ...[
-              const SizedBox(height: 12),
-              _infoRow(
-                Icons.flag_outlined, "Target",
-                targetVal.isEmpty ? 'Not set' : '${_toDisplayValue(targetVal, unit)} $unit',
-                onClear: targetVal.isEmpty ? null : () => clearTarget(dlgCtx),
-              ),
-            ],
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dlgCtx), child: const Text("Close")),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(dlgCtx);
-              _showEditDialog(ctx, title, showValue: true, showTarget: false);
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF8BAEAE)),
-            child: const Text("Log Value", style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _infoRow(IconData icon, String label, String value, {VoidCallback? onClear}) {
-    return Row(
-      children: [
-        Icon(icon, size: 18, color: const Color(0xFF8BAEAE)),
-        const SizedBox(width: 8),
-        Text('$label: ', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-        Flexible(child: Text(value, style: const TextStyle(fontSize: 14))),
-        if (onClear != null)
-          IconButton(
-            icon: const Icon(Icons.highlight_off, size: 18, color: Colors.red),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-            onPressed: onClear,
-          ),
-      ],
-    );
-  }
 
   void _showEditDialog(BuildContext outerCtx, String title, {bool showValue = true, bool showTarget = true}) {
     final TextEditingController valueController = TextEditingController();

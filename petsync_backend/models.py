@@ -65,7 +65,6 @@ class MetricName(enum.Enum):
     appetite = "appetite"
     water_intake = "water_intake"
     litter_box_usage = "litter_box_usage"
-    grooming_frequency = "grooming_frequency"
     vomit_events = "vomit_events"
     feather_condition = "feather_condition"
     wing_strength = "wing_strength"
