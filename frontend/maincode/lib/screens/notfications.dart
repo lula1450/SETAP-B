@@ -102,6 +102,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
           'label': label,
           'repeatDaily': repeatDaily,
           'endDate': endDate,
+          'weekday': item['weekday'] as int? ?? 0,
         };
       }
     }
@@ -131,10 +132,16 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
       final label = s['food_name'] as String? ?? 'Feeding';
       final isWeekly = label.toLowerCase().contains('weekly');
       final timeStr = '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+      int backendWeekday = 0;
+      try {
+        final dt = DateTime.parse(s['feeding_time'] as String? ?? '');
+        backendWeekday = dt.weekday - 1;
+      } catch (_) {}
       merged[scheduleId] = {
         'time': timeStr,
         'label': label,
         'repeatDaily': !isWeekly,
+        'weekday': backendWeekday,
       };
     }
   } catch (e) {
@@ -149,6 +156,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
         'label': entry.value['label'] as String,
         'repeatDaily': entry.value['repeatDaily'] as bool? ?? true,
         'endDate': entry.value['endDate'],
+        'weekday': entry.value['weekday'] as int? ?? 0,
       };
     }
   }
@@ -167,6 +175,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
       'baseId': entry.key,
       'repeatDaily': entry.value['repeatDaily'] as bool? ?? true,
       'endDate': entry.value['endDate'],
+      'weekday': entry.value['weekday'] as int? ?? 0,
     });
   }
 
@@ -308,9 +317,10 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
       });
     }
   } else {
+    final int weekday = slot['weekday'] as int? ?? 0;
     entries.add({
       'petId': petId,
-      'weekday': 0, // Or current weekday
+      'weekday': weekday,
       'event': {
         'id': baseId,
         'type': 0,

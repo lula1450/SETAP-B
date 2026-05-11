@@ -1340,7 +1340,7 @@ class _EventDialogState extends State<_EventDialog> {
     _petId = ev?.petId ?? widget.activePetId;
     _nameCtrl = TextEditingController(text: ev?.name ?? '');
     _time = ev?.time ?? const TimeOfDay(hour: 8, minute: 0);
-    _repeatDaily = ev?.repeatDaily ?? false;
+    _repeatDaily = ev?.repeatDaily ?? true;
     _endDate = ev?.endDate;
     _hasEndDate = ev?.endDate != null;
   }
