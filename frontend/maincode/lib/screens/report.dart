@@ -101,6 +101,7 @@ class _ReportsPageState extends State<ReportsPage> with RouteAware {
 
       final customNames = prefs.getStringList('custom_metrics_${widget.petId}') ?? [];
       final customKeys = <String>[];
+      _customMetrics.clear();
       for (final name in customNames) {
         final key = name.toLowerCase().replaceAll(' ', '_');
         final histRaw = prefs.getString('custom_history_${widget.petId}_$key') ?? '[]';
