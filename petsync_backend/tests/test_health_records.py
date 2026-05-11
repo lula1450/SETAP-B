@@ -52,6 +52,7 @@ def setup(db_session):
     db_session.add_all([
         MetricDefinition(species_id=species.species_id, metric_name=MetricName.weight, metric_unit=MetricUnit.kg),
         MetricDefinition(species_id=species.species_id, metric_name=MetricName.notes, metric_unit=MetricUnit.text),
+        MetricDefinition(species_id=species.species_id, metric_name=MetricName.energy_level, metric_unit=MetricUnit.scale_1_5),
     ])
     db_session.commit()
 
@@ -157,14 +158,16 @@ async def test_history_contains_multiple_metric_types(setup):
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         await ac.post("/health/log", json={"pet_id": pet_id, "metric_name": "weight", "value": 2.0})
         await ac.post("/health/log", json={"pet_id": pet_id, "metric_name": "notes", "value": "Eating well"})
+        await ac.post("/health/log", json={"pet_id": pet_id, "metric_name": "energy_level", "value": 4})
 
         response = await ac.get(f"/health/history/{pet_id}")
         assert response.status_code == 200
         metrics = [e["metric"] for e in response.json()]
         assert "weight" in metrics
         assert "notes" in metrics
- 
- 
+        assert "energy_level" in metrics
+
+
 @pytest.mark.asyncio
 async def test_delete_entry_wrong_pet(setup):
     """Deleting a log entry using a mismatched pet ID returns 404."""
@@ -176,3 +179,19 @@ async def test_delete_entry_wrong_pet(setup):
  
         response = await ac.delete(f"/health/history/entry/99999/{entry_id}")
         assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_deleting_one_metric_does_not_affect_others(setup):
+    """Clearing all entries for weight does not remove entries for other metrics."""
+    _, pet_id = setup
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        await ac.post("/health/log", json={"pet_id": pet_id, "metric_name": "weight", "value": 2.0})
+        await ac.post("/health/log", json={"pet_id": pet_id, "metric_name": "notes", "value": "Eating well"})
+
+        await ac.delete(f"/health/all/{pet_id}/weight")
+
+        history = await ac.get(f"/health/history/{pet_id}")
+        metrics = [e["metric"] for e in history.json()]
+        assert "weight" not in metrics
+        assert "notes" in metrics
