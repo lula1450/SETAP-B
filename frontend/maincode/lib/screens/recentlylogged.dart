@@ -259,7 +259,7 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
             const SizedBox(height: 4),
             Text('Logged: ${log['time']}', style: const TextStyle(color: Colors.grey)),
             const SizedBox(height: 24),
-            if (log['id'] != null && !isCustom)
+            if (log['id'] != null || isCustom)
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
@@ -275,7 +275,7 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
                   },
                 ),
               ),
-            if (log['id'] != null && !isCustom) const SizedBox(height: 8),
+            if (log['id'] != null || isCustom) const SizedBox(height: 8),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
@@ -300,6 +300,7 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
   void _showEditDialog(BuildContext context, Map<String, dynamic> log, int index) {
     final valueController = TextEditingController(text: '${log['value']}');
     final notesController = TextEditingController(text: log['notes']?.toString() ?? '');
+    final isCustom = log['isCustom'] == true;
 
     showDialog(
       context: context,
@@ -317,14 +318,16 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
                 border: const OutlineInputBorder(),
               ),
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: notesController,
-              decoration: const InputDecoration(
-                labelText: 'Notes (optional)',
-                border: OutlineInputBorder(),
+            if (!isCustom) ...[
+              const SizedBox(height: 12),
+              TextField(
+                controller: notesController,
+                decoration: const InputDecoration(
+                  labelText: 'Notes (optional)',
+                  border: OutlineInputBorder(),
+                ),
               ),
-            ),
+            ],
           ],
         ),
         actions: [
@@ -337,14 +340,19 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
             onPressed: () async {
               final raw = valueController.text.trim();
               final newValue = num.tryParse(raw) ?? raw;
-              final newNotes = notesController.text.trim().isEmpty ? null : notesController.text.trim();
 
-              final success = await _service.updateHealthLog(
-                widget.petId,
-                log['id'] as int,
-                value: newValue,
-                notes: newNotes,
-              );
+              bool success;
+              if (isCustom) {
+                success = await _editCustomLog(log, newValue);
+              } else {
+                final newNotes = notesController.text.trim().isEmpty ? null : notesController.text.trim();
+                success = await _service.updateHealthLog(
+                  widget.petId,
+                  log['id'] as int,
+                  value: newValue,
+                  notes: newNotes,
+                );
+              }
 
               if (!mounted) return;
               Navigator.pop(ctx);
@@ -354,7 +362,6 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
                   _loadedLogs[index] = {
                     ..._loadedLogs[index],
                     'value': newValue,
-                    'notes': newNotes,
                   };
                 });
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -371,6 +378,54 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
         ],
       ),
     );
+  }
+
+  Future<bool> _editCustomLog(Map<String, dynamic> log, dynamic newValue) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final metric = log['metric'] as String;
+      final histKey = 'custom_history_${widget.petId}_$metric';
+      final histRaw = prefs.getString(histKey) ?? '[]';
+      final entries = List<Map<String, dynamic>>.from(
+        (jsonDecode(histRaw) as List).map((e) => Map<String, dynamic>.from(e as Map)),
+      );
+
+      final targetTime = log['time']?.toString() ?? '';
+      final targetValue = log['value']?.toString() ?? '';
+
+      int foundIndex = -1;
+      for (int i = 0; i < entries.length; i++) {
+        if (entries[i]['time']?.toString() == targetTime &&
+            entries[i]['value']?.toString() == targetValue) {
+          foundIndex = i;
+          break;
+        }
+      }
+
+      if (foundIndex == -1) return false;
+
+      entries[foundIndex] = {
+        ...entries[foundIndex],
+        'value': newValue.toString(),
+      };
+
+      await prefs.setString(histKey, jsonEncode(entries));
+
+      // Update custom_current if the edited entry is the most recent
+      final sorted = List<Map<String, dynamic>>.from(entries)
+        ..sort((a, b) => (b['time'] ?? '').toString().compareTo((a['time'] ?? '').toString()));
+      if (sorted.isNotEmpty) {
+        await prefs.setString(
+          'custom_current_${widget.petId}_$metric',
+          sorted.first['value'].toString(),
+        );
+      }
+
+      return true;
+    } catch (e) {
+      debugPrint('Error editing custom log: $e');
+      return false;
+    }
   }
 
   Color _getPetColor(int index) {
