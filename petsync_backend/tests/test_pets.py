@@ -175,3 +175,17 @@ async def test_pet_species_returned(db_session):
         response = await ac.get(f"/pets/{pet_id}")
         assert response.status_code == 200
         assert "cat" in response.json().get("species_name", "").lower()
+
+
+@pytest.mark.asyncio
+async def test_create_pet_missing_name(db_session):
+    """Creating a pet without a name returns 422."""
+    owner = make_owner(db_session)
+    species = make_species(db_session)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        response = await ac.post("/pets/create", json={
+            "species_id": species.species_id,
+            "owner_id": owner.owner_id,
+            "pet_first_name": ""
+        })
+        assert response.status_code == 422
