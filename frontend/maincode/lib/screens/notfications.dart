@@ -1148,6 +1148,17 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
         appt['repeat_type'] = result['repeat'];
         appt['lead_days'] = result['lead_days'];
       });
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        'reminder_${appt['pet_appointment_id']}',
+        jsonEncode({
+          'enabled': true,
+          'time': result['time'],
+          'date': result['date'],
+          'repeat': result['repeat'],
+          'lead_days': result['lead_days'],
+        }),
+      );
       if (_appointments) _scheduleAppointment(appt);
     }
   }

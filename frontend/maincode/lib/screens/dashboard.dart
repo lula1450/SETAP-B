@@ -17,6 +17,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:maincode/widgets/app_drawer.dart';
 import 'package:maincode/utils/url_helper.dart';
 import 'package:maincode/utils/image_provider_helper.dart';
+import 'package:maincode/screens/route_observer.dart';
 
 class DashboardPage extends StatefulWidget {
   final int? initialPetId;
@@ -26,7 +27,7 @@ class DashboardPage extends StatefulWidget {
   State<DashboardPage> createState() => _DashboardPageState();
 }
 
-class _DashboardPageState extends State<DashboardPage> {
+class _DashboardPageState extends State<DashboardPage> with RouteAware {
   int _selectedPetIndex = 0;
   final PetService _petService = PetService();
   List<dynamic> _pets = [];
@@ -1405,7 +1406,20 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   @override
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    routeObserver.subscribe(this, ModalRoute.of(context)!);
+  }
+
+  @override
+  void didPopNext() {
+    _fetchAppointments();
+  }
+
+  @override
   void dispose() {
+    routeObserver.unsubscribe(this);
     _photoHintEntry?.remove();
     _metricsHintEntry?.remove();
     _appointmentHintEntry?.remove();
@@ -1498,6 +1512,19 @@ class _DashboardPageState extends State<DashboardPage> {
     final prefs = await SharedPreferences.getInstance();
     final int ownerId = prefs.getInt('owner_id') ?? 0;
     final appts = await _petService.getAllAppointments(ownerId);
+    for (var a in appts) {
+      final saved = prefs.getString('reminder_${a['pet_appointment_id']}');
+      if (saved != null) {
+        final decoded = jsonDecode(saved) as Map<String, dynamic>;
+        a['reminder_enabled'] = decoded['enabled'];
+        a['reminder_time'] = decoded['time'];
+        a['reminder_date'] = decoded['date'];
+        a['repeat_type'] = decoded['repeat'];
+        a['lead_days'] = decoded['lead_days'];
+      } else {
+        a['reminder_enabled'] = false;
+      }
+    }
     if (mounted) {
       setState(() {
         _appointments = appts;
@@ -1758,7 +1785,7 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      endDrawer: const AppDrawer(),
+      endDrawer: AppDrawer(onNotificationsPagePopped: _fetchAppointments),
       appBar: AppBar(
         backgroundColor: const Color.fromARGB(255, 139, 174, 174),
         foregroundColor: Colors.black,
@@ -1900,7 +1927,16 @@ class _DashboardPageState extends State<DashboardPage> {
                       final min = t.substring(3, 5);
                       final period = h >= 12 ? 'pm' : 'am';
                       final hour = h == 0 ? 12 : (h > 12 ? h - 12 : h);
-                      return '$hour:$min$period';
+                      final apptTime = '$hour:$min$period';
+                      if (appt['reminder_enabled'] == true && appt['reminder_time'] != null) {
+                        final rt = appt['reminder_time'] as String;
+                        final rh = int.parse(rt.substring(0, 2));
+                        final rm = rt.substring(3, 5);
+                        final rperiod = rh >= 12 ? 'pm' : 'am';
+                        final rhour = rh == 0 ? 12 : (rh > 12 ? rh - 12 : rh);
+                        return '$apptTime • reminder $rhour:$rm$rperiod';
+                      }
+                      return apptTime;
                     }(),
                     style: const TextStyle(fontSize: 13),
                   ),
@@ -1916,9 +1952,13 @@ class _DashboardPageState extends State<DashboardPage> {
                         onPressed: () => _editAppointment(appt),
                       ),
                       IconButton(
-                        icon: const Icon(
-                          Icons.notifications_outlined,
-                          color: Colors.orange,
+                        icon: Icon(
+                          appt['reminder_enabled'] == true
+                              ? Icons.notifications
+                              : Icons.notifications_outlined,
+                          color: appt['reminder_enabled'] == true
+                              ? Colors.orange
+                              : Colors.grey,
                           size: 18,
                         ),
                         onPressed: () => _setAppointmentReminder(appt),

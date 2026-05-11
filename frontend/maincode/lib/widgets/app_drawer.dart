@@ -7,7 +7,9 @@ import 'package:maincode/services/auth_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AppDrawer extends StatelessWidget {
-  const AppDrawer({super.key});
+  final VoidCallback? onNotificationsPagePopped;
+
+  const AppDrawer({super.key, this.onNotificationsPagePopped});
 
   void _showDeleteConfirmation(BuildContext context) {
     showDialog(
@@ -114,7 +116,7 @@ class AppDrawer extends StatelessWidget {
                 MaterialPageRoute(
                   builder: (context) => const NotificationSettingsPage(),
                 ),
-              );
+              ).then((_) => onNotificationsPagePopped?.call());
             },
           ),
           _drawerTile(
