@@ -5,7 +5,7 @@ from petsync_backend.utils.calculations import check_15_percent_deviation, calcu
 export PYTHONPATH=$PYTHONPATH:. && pytest petsync_backend/routers/tests/test_calculations.py -vv
 """
 
-# --- check_15_percent_deviation ---
+# check_15_percent_deviation
 
 def test_deviation_single_entry_no_flag():
     """With only one historical entry, no risk flag is raised."""
@@ -35,7 +35,7 @@ def test_zero_baseline_safe():
     assert baseline == 0.0
 
 
-# --- calculate_daily_mean ---
+# calculate_daily_mean
 
 def test_daily_mean_empty_returns_zero():
     """Empty metric data returns 0.0."""
@@ -54,3 +54,8 @@ def test_daily_mean_floats():
     """The mean handles floating point values correctly."""
     result = calculate_daily_mean([{"value": 15.5}, {"value": 24.5}])
     assert result == 20.0
+
+def test_exactly_15_percent_change_not_flagged():
+    """A change of exactly 15% should not trigger a flag — only above 15% triggers it."""
+    is_risk, _ = check_15_percent_deviation([10.0, 10.0, 10.0], 11.5)
+    assert is_risk == False
