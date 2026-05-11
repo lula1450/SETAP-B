@@ -106,3 +106,20 @@ async def test_attack_pattern_matching_is_case_insensitive():
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         response = await ac.post("/health/log", json={"cmd": "UNION SELECT secret FROM owners"})
         assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_xss_injection_blocked():
+    """XSS script tag in a query param is blocked."""
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        response = await ac.get("/pets?name=<script>alert('xss')</script>")
+        assert response.status_code == 403
+        assert "detail" in response.json()
+
+@pytest.mark.asyncio
+async def test_path_traversal_with_dots_is_blocked():
+    """Directory traversal using ../ sequences is blocked."""
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        response = await ac.get("/pets/../../etc/passwd")
+        assert response.status_code == 403
+        assert "detail" in response.json()
