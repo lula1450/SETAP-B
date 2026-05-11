@@ -5,6 +5,8 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:maincode/widgets/app_drawer.dart';
 import 'package:maincode/utils/image_provider_helper.dart';
+import 'package:maincode/services/auth_service.dart';
+import 'package:maincode/screens/route_observer.dart';
 
 class MetricsPage extends StatefulWidget {
   final int petId;
@@ -24,7 +26,7 @@ class MetricsPage extends StatefulWidget {
   State<MetricsPage> createState() => _MetricsPageState();
 }
 
-class _MetricsPageState extends State<MetricsPage> {
+class _MetricsPageState extends State<MetricsPage> with RouteAware {
   final HealthService _healthService = HealthService();
   Map<String, Map<String, String>> _latestValues = {};
   final TextEditingController _searchController = TextEditingController();
@@ -69,11 +71,21 @@ class _MetricsPageState extends State<MetricsPage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Sync pet name when page comes back from other routes
-    // Use a post-frame callback to avoid setState during build
+    routeObserver.subscribe(this, ModalRoute.of(context)!);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _syncPetName();
     });
+  }
+
+  @override
+  void dispose() {
+    routeObserver.unsubscribe(this);
+    super.dispose();
+  }
+
+  @override
+  void didPopNext() {
+    _refreshAllMetrics();
   }
 
   Future<void> _loadMetricsThenRefresh() async {
@@ -1424,9 +1436,10 @@ class HealthService {
   Future<Map<String, dynamic>> logMetric({required int petId, required String metricName, required dynamic value}) async {
     final url = Uri.parse("$baseUrl/health/log");
     var formattedValue = double.tryParse(value.toString()) ?? value.toString();
+    final headers = await AuthService.authHeaders();
     final response = await http.post(
       url,
-      headers: {"Content-Type": "application/json"},
+      headers: headers,
       body: jsonEncode({"pet_id": petId, "metric_name": metricName, "value": formattedValue}),
     );
     if (response.statusCode != 200) {
@@ -1438,7 +1451,8 @@ class HealthService {
   Future<List<String>> getAvailableMetrics(int petId) async {
     final url = Uri.parse("$baseUrl/health/metrics/$petId");
     try {
-      final response = await http.get(url);
+      final headers = await AuthService.authHeaders();
+      final response = await http.get(url, headers: headers);
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
         return data.map<String>((d) => d['name'] as String).toList();
@@ -1450,7 +1464,8 @@ class HealthService {
   Future<Map<String, String>> getLatestMetricData(int petId, String metricName) async {
     final url = Uri.parse("$baseUrl/health/latest?pet_id=$petId&metric_name=$metricName");
     try {
-      final response = await http.get(url);
+      final headers = await AuthService.authHeaders();
+      final response = await http.get(url, headers: headers);
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return {
@@ -1466,8 +1481,10 @@ class HealthService {
 
   Future<bool> deleteEntry(int petId, int entryId) async {
     try {
+      final headers = await AuthService.authHeaders();
       final response = await http.delete(
         Uri.parse("$baseUrl/health/history/entry/$petId/$entryId"),
+        headers: headers,
       );
       return response.statusCode == 200;
     } catch (_) {
@@ -1477,8 +1494,10 @@ class HealthService {
 
   Future<bool> deleteAllEntries(int petId, String metricName) async {
     try {
+      final headers = await AuthService.authHeaders();
       final response = await http.delete(
         Uri.parse("$baseUrl/health/all/$petId/$metricName"),
+        headers: headers,
       );
       return response.statusCode == 200;
     } catch (_) {
@@ -1488,8 +1507,10 @@ class HealthService {
 
   Future<bool> clearGoal(int petId, String metricName) async {
     try {
+      final headers = await AuthService.authHeaders();
       final response = await http.delete(
         Uri.parse("$baseUrl/health/goal/$petId/$metricName"),
+        headers: headers,
       );
       return response.statusCode == 200;
     } catch (_) {
@@ -1503,7 +1524,8 @@ class HealthService {
       "metric_name": metricName,
       "goal": goal,
     });
-    final response = await http.post(uri);
+    final headers = await AuthService.authHeaders();
+    final response = await http.post(uri, headers: headers);
     if (response.statusCode != 200) throw Exception("Failed to sync goal");
   }
 }
