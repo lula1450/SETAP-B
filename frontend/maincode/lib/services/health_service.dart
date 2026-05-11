@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:maincode/services/auth_service.dart';
 
 class HealthService {
   static String get baseUrl {
@@ -25,9 +26,10 @@ class HealthService {
 
     try {
       debugPrint("DEBUG: Sending Pet ID: $petId for Metric: $metricName");
+      final headers = await AuthService.authHeaders();
       final response = await http.post(
         url,
-        headers: {"Content-Type": "application/json"},
+        headers: headers,
         body: jsonEncode({
           "pet_id": petId,
           "metric_name": metricName,
@@ -51,7 +53,8 @@ class HealthService {
   Future<Map<String, String>> getLatestMetric(int petId, String metricName) async {
     final url = Uri.parse("$baseUrl/health/latest?pet_id=$petId&metric_name=$metricName");
     try {
-      final response = await http.get(url);
+      final headers = await AuthService.authHeaders();
+      final response = await http.get(url, headers: headers);
       if (response.statusCode == 200) {
        final data = jsonDecode(response.body);
         return {
@@ -70,7 +73,8 @@ class HealthService {
     // Note: Ensure your backend route accepts these as query parameters
     final url = Uri.parse("$baseUrl/health/goal?pet_id=$petId&metric_name=$metricName&goal=$goal");
     try {
-      final response = await http.post(url);
+      final headers = await AuthService.authHeaders();
+      final response = await http.post(url, headers: headers);
       if (response.statusCode != 200) {
         debugPrint("Backend rejected goal update: ${response.statusCode}");
       }

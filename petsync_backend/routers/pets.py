@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from petsync_backend import models, schemas
 from petsync_backend.database import get_db
-from datetime import datetime  # Add this import at the top
+from petsync_backend.utils.auth_utils import get_current_owner_id
+from datetime import datetime
 
 
 
@@ -51,10 +52,10 @@ def delete_appointment(appointment_id: int, db: Session = Depends(get_db)):
 
 
 
-# Create a pet profile
-# Create a pet profile
-@router.post("/create", response_model=schemas.PetResponse) # Changed from "/" to "/create"
-def create_pet(pet: schemas.PetCreate, db: Session = Depends(get_db)):
+@router.post("/create", response_model=schemas.PetResponse)
+def create_pet(pet: schemas.PetCreate, current_owner_id: int = Depends(get_current_owner_id), db: Session = Depends(get_db)):
+    if current_owner_id != pet.owner_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
     owner = db.query(models.Owner).filter(models.Owner.owner_id == pet.owner_id).first()
     if not owner:
         raise HTTPException(status_code=404, detail="Owner not found")
@@ -82,10 +83,12 @@ def create_pet(pet: schemas.PetCreate, db: Session = Depends(get_db)):
 
 # Get a single pet with its species info
 @router.get("/{pet_id}", response_model=schemas.PetResponse)
-def get_pet(pet_id: int, db: Session = Depends(get_db)):
+def get_pet(pet_id: int, current_owner_id: int = Depends(get_current_owner_id), db: Session = Depends(get_db)):
     pet = db.query(models.Pet).filter(models.Pet.pet_id == pet_id).first()
     if not pet:
         raise HTTPException(status_code=404, detail="Pet not found")
+    if pet.owner_id != current_owner_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
 
     species = db.query(models.Species_config).filter(
         models.Species_config.species_id == pet.species_id
@@ -105,9 +108,13 @@ def get_pet(pet_id: int, db: Session = Depends(get_db)):
     )
 
 
-# 3️⃣ List all the owner's pets
 @router.get("/owner/{owner_id}", response_model=list[schemas.PetResponse])
-def list_all_pets(owner_id: int, db: Session = Depends(get_db)):
+def list_all_pets(owner_id: int, current_owner_id: int = Depends(get_current_owner_id), db: Session = Depends(get_db)):
+    owner = db.query(models.Owner).filter(models.Owner.owner_id == owner_id).first()
+    if not owner:
+        raise HTTPException(status_code=404, detail="Owner not found")
+    if current_owner_id != owner_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
     pets = db.query(models.Pet).filter(models.Pet.owner_id == owner_id).all()
     if not pets:
         raise HTTPException(status_code=404, detail="No pets found for this owner")
@@ -133,10 +140,12 @@ def list_all_pets(owner_id: int, db: Session = Depends(get_db)):
 
 # Update pet profile
 @router.put("/{pet_id}", response_model=schemas.PetResponse)
-def update_pet(pet_id: int, pet_update: schemas.PetCreate, db: Session = Depends(get_db)):
+def update_pet(pet_id: int, pet_update: schemas.PetCreate, current_owner_id: int = Depends(get_current_owner_id), db: Session = Depends(get_db)):
     db_pet = db.query(models.Pet).filter(models.Pet.pet_id == pet_id).first()
     if not db_pet:
         raise HTTPException(status_code=404, detail="Pet not found")
+    if db_pet.owner_id != current_owner_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
 
     db_pet.pet_first_name = pet_update.pet_first_name
     db_pet.pet_last_name = pet_update.pet_last_name
@@ -148,10 +157,12 @@ def update_pet(pet_id: int, pet_update: schemas.PetCreate, db: Session = Depends
 # petsync_backend/routers/pets.py
 
 @router.delete("/{pet_id}")
-def delete_pet(pet_id: int, db: Session = Depends(get_db)):
+def delete_pet(pet_id: int, current_owner_id: int = Depends(get_current_owner_id), db: Session = Depends(get_db)):
     db_pet = db.query(models.Pet).filter(models.Pet.pet_id == pet_id).first()
     if not db_pet:
         raise HTTPException(status_code=404, detail="Pet not found")
+    if db_pet.owner_id != current_owner_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
     
     db.delete(db_pet)
     db.commit()
@@ -163,8 +174,12 @@ def delete_pet(pet_id: int, db: Session = Depends(get_db)):
 # petsync_backend/routers/pets.py (or main.py)
 
 @router.put("/{pet_id}/image")
-async def update_pet_image(pet_id: int, image_url: str, db: Session = Depends(get_db)):
+async def update_pet_image(pet_id: int, image_url: str, current_owner_id: int = Depends(get_current_owner_id), db: Session = Depends(get_db)):
     pet = db.query(models.Pet).filter(models.Pet.pet_id == pet_id).first()
+    if not pet:
+        raise HTTPException(status_code=404, detail="Pet not found")
+    if pet.owner_id != current_owner_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
     pet.pet_image_path = image_url
     db.commit()
     return {"message": "Image updated"}

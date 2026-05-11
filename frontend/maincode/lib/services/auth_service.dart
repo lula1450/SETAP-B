@@ -25,11 +25,11 @@ class AuthService {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('auth_token', data['token'] ?? "");
         await prefs.setInt('owner_id', data['owner_id']);
         await prefs.setString('owner_email', data['owner_email'] ?? "");
         await prefs.setString('owner_first_name', data['owner_first_name'] ?? "");
         await prefs.setString('owner_last_name', data['owner_last_name'] ?? "");
-        await prefs.setString('owner_password', password);
         return true;
       }
       return false;
@@ -61,11 +61,11 @@ class AuthService {
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = jsonDecode(response.body);
         final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('auth_token', data['token'] ?? "");
         await prefs.setInt('owner_id', data['owner_id']);
         await prefs.setString('owner_email', email);
         await prefs.setString('owner_first_name', firstName);
         await prefs.setString('owner_last_name', lastName);
-        await prefs.setString('owner_password', password);
         return true;
       }
       return false;
@@ -75,12 +75,24 @@ class AuthService {
     }
   }
 
+  // --- AUTH HEADERS ---
+  static Future<Map<String, String>> authHeaders() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('auth_token') ?? '';
+    return {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer $token",
+    };
+  }
+
   // --- DELETE ACCOUNT ---
   // Returns the scheduled purge date string, or null on failure.
   Future<String?> deleteAccount(int ownerId) async {
     try {
+      final headers = await AuthService.authHeaders();
       final response = await http.delete(
         Uri.parse("$baseUrl/owners/$ownerId"),
+        headers: headers,
       );
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);

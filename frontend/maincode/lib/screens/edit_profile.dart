@@ -53,10 +53,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
     await prefs.setString('owner_last_name', _lastNameController.text.trim());
     await prefs.setString('owner_email', _emailController.text.trim());
 
-    final password = _passwordController.text.trim();
-    if (password.isNotEmpty && password != '••••••••') {
-      await prefs.setString('owner_password', password);
-    }
 
     if (!mounted) return;
     setState(() {
@@ -121,13 +117,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
                       child: const Text("Save Changes", style: TextStyle(color: Colors.white)),
                     )
                   : ElevatedButton(
-                      onPressed: () async {
-                        final prefs = await SharedPreferences.getInstance();
-                        final currentPassword = prefs.getString('owner_password') ?? '';
+                      onPressed: () {
                         setState(() {
                           _isEditing = true;
                           _showPassword = false;
-                          _passwordController.text = currentPassword;
+                          _passwordController.text = '';
                         });
                       },
                       style: ElevatedButton.styleFrom(

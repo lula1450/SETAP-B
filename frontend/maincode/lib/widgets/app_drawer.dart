@@ -155,7 +155,7 @@ class AppDrawer extends StatelessWidget {
                         await prefs.remove('owner_email');
                         await prefs.remove('owner_first_name');
                         await prefs.remove('owner_last_name');
-                        await prefs.remove('owner_password');
+                        await prefs.remove('auth_token');
                         await prefs.remove('show_photo_hint');
                         await prefs.remove('show_metrics_hint');
                         await prefs.remove('show_appointment_hint');

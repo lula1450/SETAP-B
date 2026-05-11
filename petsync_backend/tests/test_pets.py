@@ -2,6 +2,7 @@ import pytest
 from httpx import AsyncClient, ASGITransport
 from petsync_backend.main import app
 from petsync_backend import models
+from petsync_backend.tests._test_state import _current_test_owner_id
 import uuid
 
 """
@@ -24,6 +25,7 @@ def make_owner(db_session, suffix=""):
     db_session.add(owner)
     db_session.commit()
     db_session.refresh(owner)
+    _current_test_owner_id[0] = owner.owner_id
     return owner
 
 def make_species(db_session, species_type=models.SpeciesType.dog, breed="Golden Retriever"):
@@ -61,6 +63,7 @@ async def test_create_pet(db_session):
 @pytest.mark.asyncio
 async def test_create_pet_invalid_owner():
     """Creating a pet with a non-existent owner returns 404."""
+    _current_test_owner_id[0] = 99999  # auth as the non-existent owner so IDOR check passes
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         response = await ac.post("/pets/create", json={
             "species_id": 1,

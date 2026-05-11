@@ -4,6 +4,16 @@ from datetime import datetime
 from petsync_backend.database import get_db
 from petsync_backend.models import HealthMetric, MetricDefinition, MetricName, MetricUnit, Pet, PetGoal
 from petsync_backend import schemas
+from petsync_backend.utils.auth_utils import get_current_owner_id
+
+
+def _require_pet_owner(pet_id: int, current_owner_id: int, db: Session) -> Pet:
+    pet = db.query(Pet).filter(Pet.pet_id == pet_id).first()
+    if not pet:
+        raise HTTPException(status_code=404, detail="Pet not found")
+    if pet.owner_id != current_owner_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    return pet
 
 router = APIRouter(
     prefix="",
@@ -63,20 +73,16 @@ async def analyze_health_metric(pet_id, metric_name, current_value, metric_def, 
 # --- 3. ROUTES ---
 
 @router.get("/metrics/{pet_id}")
-def get_available_metrics(pet_id: int, db: Session = Depends(get_db)):
-    pet = db.query(Pet).filter(Pet.pet_id == pet_id).first()
-    if not pet:
-        raise HTTPException(status_code=404, detail="Pet not found")
+def get_available_metrics(pet_id: int, current_owner_id: int = Depends(get_current_owner_id), db: Session = Depends(get_db)):
+    pet = _require_pet_owner(pet_id, current_owner_id, db)
     definitions = db.query(MetricDefinition).filter(
         MetricDefinition.species_id == pet.species_id
     ).all()
     return [{"name": d.metric_name.value, "unit": d.metric_unit.value} for d in definitions]
 
 @router.post("/log", response_model=schemas.HealthMetricLogResponse)
-async def log_health_metric(log: schemas.HealthMetricLogCreate, db: Session = Depends(get_db)):
-    pet = db.query(Pet).filter(Pet.pet_id == log.pet_id).first()
-    if not pet:
-        raise HTTPException(status_code=404, detail="Pet not found.")
+async def log_health_metric(log: schemas.HealthMetricLogCreate, current_owner_id: int = Depends(get_current_owner_id), db: Session = Depends(get_db)):
+    pet = _require_pet_owner(log.pet_id, current_owner_id, db)
     
     metric_def = db.query(MetricDefinition).filter(
         MetricDefinition.metric_name == log.metric_name,
@@ -124,10 +130,8 @@ async def log_health_metric(log: schemas.HealthMetricLogCreate, db: Session = De
     return {"status": "Logged", "analysis": analysis}
 
 @router.get("/latest")
-def get_latest_metric(pet_id: int, metric_name: str, db: Session = Depends(get_db)):
-    pet = db.query(Pet).filter(Pet.pet_id == pet_id).first()
-    if not pet:
-        raise HTTPException(status_code=404, detail="Pet not found")
+def get_latest_metric(pet_id: int, metric_name: str, current_owner_id: int = Depends(get_current_owner_id), db: Session = Depends(get_db)):
+    pet = _require_pet_owner(pet_id, current_owner_id, db)
     
     metric_def = db.query(MetricDefinition).filter(
         MetricDefinition.species_id == pet.species_id,
@@ -156,10 +160,8 @@ def get_latest_metric(pet_id: int, metric_name: str, db: Session = Depends(get_d
     }
 
 @router.post("/goal")
-def set_metric_goal(pet_id: int, metric_name: str, goal: str, db: Session = Depends(get_db)):
-    pet = db.query(Pet).filter(Pet.pet_id == pet_id).first()
-    if not pet:
-        raise HTTPException(status_code=404, detail="Pet not found")
+def set_metric_goal(pet_id: int, metric_name: str, goal: str, current_owner_id: int = Depends(get_current_owner_id), db: Session = Depends(get_db)):
+    pet = _require_pet_owner(pet_id, current_owner_id, db)
         
     metric_def = db.query(MetricDefinition).filter(
         MetricDefinition.species_id == pet.species_id,
@@ -188,10 +190,8 @@ def set_metric_goal(pet_id: int, metric_name: str, goal: str, db: Session = Depe
     return {"status": "success", "message": f"Goal updated for {metric_name}."}
 
 @router.delete("/all/{pet_id}/{metric_name}")
-def delete_all_entries(pet_id: int, metric_name: str, db: Session = Depends(get_db)):
-    pet = db.query(Pet).filter(Pet.pet_id == pet_id).first()
-    if not pet:
-        raise HTTPException(status_code=404, detail="Pet not found")
+def delete_all_entries(pet_id: int, metric_name: str, current_owner_id: int = Depends(get_current_owner_id), db: Session = Depends(get_db)):
+    pet = _require_pet_owner(pet_id, current_owner_id, db)
     metric_def = db.query(MetricDefinition).filter(
         MetricDefinition.species_id == pet.species_id,
         MetricDefinition.metric_name == MetricName(metric_name)
@@ -206,10 +206,8 @@ def delete_all_entries(pet_id: int, metric_name: str, db: Session = Depends(get_
     return {"status": "deleted"}
 
 @router.delete("/goal/{pet_id}/{metric_name}")
-def delete_metric_goal(pet_id: int, metric_name: str, db: Session = Depends(get_db)):
-    pet = db.query(Pet).filter(Pet.pet_id == pet_id).first()
-    if not pet:
-        raise HTTPException(status_code=404, detail="Pet not found")
+def delete_metric_goal(pet_id: int, metric_name: str, current_owner_id: int = Depends(get_current_owner_id), db: Session = Depends(get_db)):
+    pet = _require_pet_owner(pet_id, current_owner_id, db)
     metric_def = db.query(MetricDefinition).filter(
         MetricDefinition.species_id == pet.species_id,
         MetricDefinition.metric_name == MetricName(metric_name)
@@ -226,7 +224,8 @@ def delete_metric_goal(pet_id: int, metric_name: str, db: Session = Depends(get_
     return {"status": "deleted"}
 
 @router.put("/history/entry/{pet_id}/{metric_id}")
-def update_health_entry(pet_id: int, metric_id: int, update: schemas.HealthMetricUpdate, db: Session = Depends(get_db)):
+def update_health_entry(pet_id: int, metric_id: int, update: schemas.HealthMetricUpdate, current_owner_id: int = Depends(get_current_owner_id), db: Session = Depends(get_db)):
+    _require_pet_owner(pet_id, current_owner_id, db)
     entry = db.query(HealthMetric).filter(
         HealthMetric.health_metric_id == metric_id,
         HealthMetric.pet_id == pet_id
@@ -241,7 +240,8 @@ def update_health_entry(pet_id: int, metric_id: int, update: schemas.HealthMetri
 
 
 @router.delete("/history/entry/{pet_id}/{metric_id}")
-def delete_health_entry(pet_id: int, metric_id: int, db: Session = Depends(get_db)):
+def delete_health_entry(pet_id: int, metric_id: int, current_owner_id: int = Depends(get_current_owner_id), db: Session = Depends(get_db)):
+    _require_pet_owner(pet_id, current_owner_id, db)
     entry = db.query(HealthMetric).filter(
         HealthMetric.health_metric_id == metric_id,
         HealthMetric.pet_id == pet_id
@@ -253,7 +253,8 @@ def delete_health_entry(pet_id: int, metric_id: int, db: Session = Depends(get_d
     return {"status": "deleted"}
 
 @router.get("/history/{pet_id}")
-async def get_pet_history(pet_id: int, db: Session = Depends(get_db)):
+async def get_pet_history(pet_id: int, current_owner_id: int = Depends(get_current_owner_id), db: Session = Depends(get_db)):
+    _require_pet_owner(pet_id, current_owner_id, db)
     # Join HealthMetric with MetricDefinition to get the name and unit
     history = db.query(
         HealthMetric.health_metric_id,

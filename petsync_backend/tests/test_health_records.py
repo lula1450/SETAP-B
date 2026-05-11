@@ -5,6 +5,7 @@ from petsync_backend.models import (
     MetricDefinition, MetricName, MetricUnit,
     Species_config, SpeciesType, Pet, Owner
 )
+from petsync_backend.tests._test_state import _current_test_owner_id
 import uuid
 
 """
@@ -30,6 +31,7 @@ def setup(db_session):
     db_session.add(owner)
     db_session.commit()
     db_session.refresh(owner)
+    _current_test_owner_id[0] = owner.owner_id
 
     species = Species_config(
         species_name=SpeciesType.rabbit,

@@ -6,6 +6,7 @@ import bcrypt
 from petsync_backend.database import get_db
 from petsync_backend import models, schemas
 from petsync_backend.routers.owners import DELETION_GRACE_DAYS
+from petsync_backend.utils.auth_utils import create_access_token
 
 router = APIRouter(prefix="", tags=["Auth"])
 
@@ -30,6 +31,7 @@ def login(details: schemas.LoginRequest, db: Session = Depends(get_db)):
 
     response = {
         "status": "success",
+        "token": create_access_token(owner.owner_id),
         "owner_id": owner.owner_id,
         "owner_email": owner.owner_email,
         "owner_first_name": owner.owner_first_name,
@@ -62,6 +64,7 @@ def signup(owner: schemas.OwnerCreate, db: Session = Depends(get_db)):
 
     return {
         "status": "success",
+        "token": create_access_token(new_owner.owner_id),
         "owner_id": new_owner.owner_id,
         "owner_email": new_owner.owner_email,
         "owner_first_name": new_owner.owner_first_name,

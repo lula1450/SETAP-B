@@ -4,6 +4,7 @@ from typing import List
 from datetime import datetime, timedelta
 import bcrypt
 from petsync_backend import models, schemas, database
+from petsync_backend.utils.auth_utils import get_current_owner_id
 
 router = APIRouter()
 
@@ -59,18 +60,22 @@ def create_owner(owner: schemas.OwnerCreate, db: Session = Depends(database.get_
     return new_owner
 
 @router.get("/{owner_id}", response_model=schemas.OwnerResponse)
-def get_owner(owner_id: int, db: Session = Depends(database.get_db)):
+def get_owner(owner_id: int, current_owner_id: int = Depends(get_current_owner_id), db: Session = Depends(database.get_db)):
     owner = db.query(models.Owner).filter(models.Owner.owner_id == owner_id).first()
     if not owner:
         raise HTTPException(status_code=404, detail="Owner not found")
+    if current_owner_id != owner_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
     return owner
 
 
 @router.delete("/{owner_id}")
-def delete_owner(owner_id: int, db: Session = Depends(database.get_db)):
+def delete_owner(owner_id: int, current_owner_id: int = Depends(get_current_owner_id), db: Session = Depends(database.get_db)):
     owner = db.query(models.Owner).filter(models.Owner.owner_id == owner_id).first()
     if not owner:
         raise HTTPException(status_code=404, detail="Owner not found")
+    if current_owner_id != owner_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
 
     if owner.deletion_requested_at:
         purge_at = owner.deletion_requested_at + timedelta(days=DELETION_GRACE_DAYS)
@@ -91,10 +96,12 @@ def delete_owner(owner_id: int, db: Session = Depends(database.get_db)):
 
 
 @router.post("/{owner_id}/cancel-deletion")
-def cancel_deletion(owner_id: int, db: Session = Depends(database.get_db)):
+def cancel_deletion(owner_id: int, current_owner_id: int = Depends(get_current_owner_id), db: Session = Depends(database.get_db)):
     owner = db.query(models.Owner).filter(models.Owner.owner_id == owner_id).first()
     if not owner:
         raise HTTPException(status_code=404, detail="Owner not found")
+    if current_owner_id != owner_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
     if not owner.deletion_requested_at:
         raise HTTPException(status_code=400, detail="No pending deletion request for this account.")
 
@@ -104,10 +111,12 @@ def cancel_deletion(owner_id: int, db: Session = Depends(database.get_db)):
 
 
 @router.put("/{owner_id}", response_model=schemas.OwnerResponse)
-async def update_owner(owner_id: int, owner_data: schemas.OwnerUpdate, db: Session = Depends(database.get_db)):
+async def update_owner(owner_id: int, owner_data: schemas.OwnerUpdate, current_owner_id: int = Depends(get_current_owner_id), db: Session = Depends(database.get_db)):
     db_owner = db.query(models.Owner).filter(models.Owner.owner_id == owner_id).first()
     if not db_owner:
         raise HTTPException(status_code=404, detail="Owner not found")
+    if current_owner_id != owner_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
 
     update_data = owner_data.model_dump(exclude_unset=True)
     if "password" in update_data and update_data["password"] is not None:

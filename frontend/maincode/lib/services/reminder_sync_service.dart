@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:maincode/services/auth_service.dart';
 import 'package:maincode/services/notification_service.dart';
 
 class ReminderSyncService {
@@ -12,8 +13,10 @@ class ReminderSyncService {
   Future<void> syncReminders(int ownerId) async {
     if (kIsWeb) return;
     try {
+      final headers = await AuthService.authHeaders();
       final response = await http.get(
         Uri.parse('$_baseUrl/schedule/reminders/pending/$ownerId'),
+        headers: headers,
       );
       if (response.statusCode != 200) return;
 
@@ -51,7 +54,7 @@ class ReminderSyncService {
 
         await http.patch(
           Uri.parse('$_baseUrl/schedule/reminders/$reminderId/status'),
-          headers: {'Content-Type': 'application/json'},
+          headers: await AuthService.authHeaders(),
           body: jsonEncode({'status': 'sent'}),
         );
       }

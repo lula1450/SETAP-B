@@ -1,11 +1,11 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:flutter/foundation.dart'; 
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:maincode/services/auth_service.dart';
 
 class PetService {
   String get baseUrl {
-    // Use localhost for web, 10.0.2.2 for Android emulator
     if (kIsWeb) {
       return "http://localhost:8000";
     }
@@ -14,21 +14,22 @@ class PetService {
 
   // --- 1. GET OWNER PETS ---
   Future<List<dynamic>> getOwnerPets(int ownerId) async {
+    final headers = await AuthService.authHeaders();
     final response = await http.get(
       Uri.parse('$baseUrl/pets/owner/$ownerId'),
+      headers: headers,
     );
 
     if (response.statusCode == 200) {
       return json.decode(response.body);
     } else if (response.statusCode == 404) {
-      return []; 
+      return [];
     } else {
       throw Exception('Failed to load pets');
     }
   }
 
   // --- 2. CREATE PET ---
-  // Returns the new pet's ID on success, or -1 on failure.
   Future<int> createPet({
     required String pet_first_name,
     required String pet_last_name,
@@ -43,9 +44,10 @@ class PetService {
     }
 
     try {
+      final headers = await AuthService.authHeaders();
       final response = await http.post(
         Uri.parse("$baseUrl/pets/create"),
-        headers: {"Content-Type": "application/json"},
+        headers: headers,
         body: jsonEncode({
           "pet_first_name": pet_first_name,
           "pet_last_name": pet_last_name,
@@ -76,9 +78,10 @@ class PetService {
     String reminderFrequency = 'once',
   }) async {
     try {
+      final headers = await AuthService.authHeaders();
       final response = await http.post(
         Uri.parse("$baseUrl/schedule/appointments"),
-        headers: {"Content-Type": "application/json"},
+        headers: headers,
         body: jsonEncode({
           "pet_id": petId,
           "appointment_date": date,
@@ -94,11 +97,13 @@ class PetService {
     }
   }
 
-  // --- 4. FETCH ALL APPOINTMENTS FOR HOUSEHOLD (Shared Calendar) ---
+  // --- 4. FETCH ALL APPOINTMENTS FOR HOUSEHOLD ---
   Future<List<dynamic>> getAllAppointments(int ownerId) async {
     try {
+      final headers = await AuthService.authHeaders();
       final response = await http.get(
-        Uri.parse("$baseUrl/schedule/appointments/owner/$ownerId")
+        Uri.parse("$baseUrl/schedule/appointments/owner/$ownerId"),
+        headers: headers,
       );
       if (response.statusCode == 200) return json.decode(response.body);
     } catch (e) {
@@ -109,26 +114,29 @@ class PetService {
 
   // --- 5. DELETE OWNER ---
   Future<bool> deleteOwner(int ownerId) async {
-  try {
-    final response = await http.delete(Uri.parse("$baseUrl/owners/$ownerId"));
-    return response.statusCode == 200;
-  } catch (e) {
-    debugPrint("Delete Error: $e");
-    return false;
+    try {
+      final headers = await AuthService.authHeaders();
+      final response = await http.delete(
+        Uri.parse("$baseUrl/owners/$ownerId"),
+        headers: headers,
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint("Delete Error: $e");
+      return false;
+    }
   }
-}
 
-  // Inside your PetService class
   Future<Map<String, dynamic>> getMetricAnalysis(int petId, String metric, {String? startDate, String? endDate}) async {
     try {
-      // Build URI with optional query parameters for date filtering
       Uri uri = Uri.parse('$baseUrl/reports/analysis/$petId/$metric');
       final Map<String, String> queryParams = {};
       if (startDate != null) queryParams['start_date'] = startDate;
       if (endDate != null) queryParams['end_date'] = endDate;
       if (queryParams.isNotEmpty) uri = uri.replace(queryParameters: queryParams);
 
-      final response = await http.get(uri);
+      final headers = await AuthService.authHeaders();
+      final response = await http.get(uri, headers: headers);
 
       if (response.statusCode == 200) {
         return json.decode(response.body);
@@ -136,38 +144,48 @@ class PetService {
         throw Exception('Failed to load analysis');
       }
     } catch (e) {
-      print("Error fetching analysis: $e");
+      debugPrint("Error fetching analysis: $e");
       return {"is_risk": false, "points": [], "message": "Connection error"};
     }
   }
 
-  // New: Fetch the list of metric names that have logged data for a pet
   Future<List<String>> getLoggedMetrics(int petId) async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/reports/logged-metrics/$petId'));
+      final headers = await AuthService.authHeaders();
+      final response = await http.get(
+        Uri.parse('$baseUrl/reports/logged-metrics/$petId'),
+        headers: headers,
+      );
       if (response.statusCode == 200) {
         return List<String>.from(json.decode(response.body));
       }
     } catch (e) {
       debugPrint('Error fetching logged metrics: $e');
     }
-    // Fallback
     return ['weight'];
   }
 
   Future<List<dynamic>> getPetHistory(int petId) async {
-    final response = await http.get(Uri.parse('$baseUrl/health/history/$petId'));
-      if (response.statusCode == 200) {
-        return json.decode(response.body);
-      } else {
-        throw Exception('Failed to load history');
-      }
+    final headers = await AuthService.authHeaders();
+    final response = await http.get(
+      Uri.parse('$baseUrl/health/history/$petId'),
+      headers: headers,
+    );
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    } else {
+      throw Exception('Failed to load history');
     }
+  }
 
   // --- 6. GET REPORT HISTORY ---
   Future<List<dynamic>> getPetReportHistory(int petId) async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/reports/history/$petId'));
+      final headers = await AuthService.authHeaders();
+      final response = await http.get(
+        Uri.parse('$baseUrl/reports/history/$petId'),
+        headers: headers,
+      );
       if (response.statusCode == 200) {
         return json.decode(response.body);
       } else if (response.statusCode == 404) {
@@ -180,61 +198,57 @@ class PetService {
       return [];
     }
   }
-  // lib/services/pet_service.dart
-  // lib/services/pet_service.dart
-
-  // lib/services/pet_service.dart
-
-  // lib/services/pet_service.dart
 
   Future<void> deleteAppointmentSeries(int seriesId) async {
+    final headers = await AuthService.authHeaders();
     final url = Uri.parse('$baseUrl/schedule/appointments/series/$seriesId');
-    final response = await http.delete(url, headers: {"Content-Type": "application/json"});
+    final response = await http.delete(url, headers: headers);
     if (response.statusCode != 204) {
       throw Exception("Failed to delete appointment series");
     }
   }
 
-  Future<void> deleteAppointment(int appointmentId) async { 
+  Future<void> deleteAppointment(int appointmentId) async {
+    final headers = await AuthService.authHeaders();
     final url = Uri.parse('$baseUrl/schedule/appointments/$appointmentId');
-  
+
     debugPrint("DEBUG: Sending DELETE request to $url");
-  
-    final response = await http.delete(
-      url,
-      headers: {"Content-Type": "application/json"},
-    );
+
+    final response = await http.delete(url, headers: headers);
 
     if (response.statusCode != 204) {
       debugPrint("Backend responded with: ${response.statusCode}");
-      throw Exception("Failed to delete appointment"); 
+      throw Exception("Failed to delete appointment");
     }
   }
 
   Future<void> updateAppointment({
-   required int appointmentId,
-   required String date,
-   required String time,
-   required String notes,
- }) async {
-   final response = await http.put(
-     Uri.parse('$baseUrl/schedule/appointments/$appointmentId'),
-     headers: {"Content-Type": "application/json"},
-     body: jsonEncode({
-       "new_date": date,
-       "new_time": time,
-       "notes": notes,
-     }),
-   );
+    required int appointmentId,
+    required String date,
+    required String time,
+    required String notes,
+  }) async {
+    final headers = await AuthService.authHeaders();
+    final response = await http.put(
+      Uri.parse('$baseUrl/schedule/appointments/$appointmentId'),
+      headers: headers,
+      body: jsonEncode({
+        "new_date": date,
+        "new_time": time,
+        "notes": notes,
+      }),
+    );
 
-   if (response.statusCode != 200) {
-     throw Exception('Failed to update appointment: ${response.body}');
-   }
- }
+    if (response.statusCode != 200) {
+      throw Exception('Failed to update appointment: ${response.body}');
+    }
+  }
 
   Future<List<dynamic>> getFeedingSchedules(int petId) async {
+    final headers = await AuthService.authHeaders();
     final response = await http.get(
       Uri.parse('$baseUrl/schedule/feeding-schedules/pet/$petId'),
+      headers: headers,
     );
     if (response.statusCode == 200) return json.decode(response.body);
     return [];
@@ -242,8 +256,10 @@ class PetService {
 
   Future<bool> deleteFeedingSchedule(int scheduleId) async {
     try {
+      final headers = await AuthService.authHeaders();
       final response = await http.delete(
         Uri.parse('$baseUrl/schedule/feeding-schedules/$scheduleId'),
+        headers: headers,
       );
       return response.statusCode == 200 || response.statusCode == 204;
     } catch (e) {
@@ -254,9 +270,10 @@ class PetService {
 
   Future<bool> updateHealthLog(int petId, int metricId, {required dynamic value, String? notes}) async {
     try {
+      final headers = await AuthService.authHeaders();
       final response = await http.put(
         Uri.parse('$baseUrl/health/history/entry/$petId/$metricId'),
-        headers: {"Content-Type": "application/json"},
+        headers: headers,
         body: jsonEncode({"value": value, "notes": notes}),
       );
       return response.statusCode == 200;
@@ -268,8 +285,10 @@ class PetService {
 
   Future<bool> deleteHealthLog(int petId, int metricId) async {
     try {
+      final headers = await AuthService.authHeaders();
       final response = await http.delete(
         Uri.parse('$baseUrl/health/history/entry/$petId/$metricId'),
+        headers: headers,
       );
       return response.statusCode == 200;
     } catch (e) {
@@ -279,20 +298,25 @@ class PetService {
   }
 
   Future<bool> deletePet(int petId) async {
-  try {
-    final response = await http.delete(Uri.parse("$baseUrl/pets/$petId"));
-    return response.statusCode == 200;
-  } catch (e) {
-    debugPrint("Delete pet error: $e");
-    return false;
+    try {
+      final headers = await AuthService.authHeaders();
+      final response = await http.delete(
+        Uri.parse("$baseUrl/pets/$petId"),
+        headers: headers,
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint("Delete pet error: $e");
+      return false;
+    }
   }
-}
 
   Future<bool> renamePet(int petId, Map<String, dynamic> petData, String newFirstName, String newLastName) async {
     try {
+      final headers = await AuthService.authHeaders();
       final response = await http.put(
         Uri.parse('$baseUrl/pets/$petId'),
-        headers: {"Content-Type": "application/json"},
+        headers: headers,
         body: jsonEncode({
           "pet_first_name": newFirstName,
           "pet_last_name": newLastName,
@@ -311,16 +335,20 @@ class PetService {
   }
 
   Future<bool> updatePetImage(int petId, String imagePath) async {
-   final response = await http.put(
-     Uri.parse('$baseUrl/pets/$petId/image?image_url=$imagePath'),
-   );
-   return response.statusCode == 200;
- }
+    final headers = await AuthService.authHeaders();
+    final response = await http.put(
+      Uri.parse('$baseUrl/pets/$petId/image?image_url=$imagePath'),
+      headers: headers,
+    );
+    return response.statusCode == 200;
+  }
 
   // --- GET VET CONTACTS ---
   Future<List<dynamic>> getOwnerVetContacts(int ownerId) async {
+    final headers = await AuthService.authHeaders();
     final response = await http.get(
       Uri.parse('$baseUrl/vets/owner/$ownerId'),
+      headers: headers,
     );
 
     if (response.statusCode == 200) {
@@ -342,9 +370,10 @@ class PetService {
     required String address,
   }) async {
     try {
+      final headers = await AuthService.authHeaders();
       final response = await http.post(
         Uri.parse("$baseUrl/vets/create"),
-        headers: {"Content-Type": "application/json"},
+        headers: headers,
         body: jsonEncode({
           "owner_id": ownerId,
           "pet_id": petId,
@@ -379,9 +408,10 @@ class PetService {
     required String address,
   }) async {
     try {
+      final headers = await AuthService.authHeaders();
       final response = await http.put(
         Uri.parse("$baseUrl/vets/$vetId"),
-        headers: {"Content-Type": "application/json"},
+        headers: headers,
         body: jsonEncode({
           "pet_id": petId,
           "clinic_name": clinicName,
@@ -407,7 +437,11 @@ class PetService {
   // --- GET AVAILABLE METRICS FOR PET ---
   Future<List<String>> getAvailableMetrics(int petId) async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/health/metrics/$petId'));
+      final headers = await AuthService.authHeaders();
+      final response = await http.get(
+        Uri.parse('$baseUrl/health/metrics/$petId'),
+        headers: headers,
+      );
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
         return data.map<String>((d) => d['name'] as String).toList();
@@ -419,8 +453,10 @@ class PetService {
   // --- DELETE VET CONTACT ---
   Future<bool> deleteVetContact(int vetId) async {
     try {
+      final headers = await AuthService.authHeaders();
       final response = await http.delete(
         Uri.parse("$baseUrl/vets/$vetId"),
+        headers: headers,
       );
 
       if (response.statusCode == 200) {
