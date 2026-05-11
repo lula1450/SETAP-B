@@ -6,16 +6,66 @@ from typing import List
 
 from petsync_backend import models, schemas
 from petsync_backend.database import get_db
+from petsync_backend.utils.auth_utils import get_current_owner_id
 
 router = APIRouter(
     prefix="",
     tags=["Scheduling & Reminders"]
 )
 
+
+def _require_pet_owner(pet_id: int, current_owner_id: int, db: Session) -> models.Pet:
+    pet = db.query(models.Pet).filter(models.Pet.pet_id == pet_id).first()
+    if not pet:
+        raise HTTPException(status_code=404, detail="Pet not found")
+    if pet.owner_id != current_owner_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    return pet
+
+
+def _require_owner_for_appt(appointment_id: int, current_owner_id: int, db: Session) -> models.PetAppointment:
+    appointment = db.query(models.PetAppointment).filter(
+        models.PetAppointment.pet_appointment_id == appointment_id
+    ).first()
+    if not appointment:
+        raise HTTPException(status_code=404, detail="Appointment not found")
+    pet = db.query(models.Pet).filter(models.Pet.pet_id == appointment.pet_id).first()
+    if not pet or pet.owner_id != current_owner_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    return appointment
+
+
+def _require_owner_for_reminder(reminder_id: int, current_owner_id: int, db: Session) -> models.Reminder:
+    reminder = db.query(models.Reminder).filter(models.Reminder.reminder_id == reminder_id).first()
+    if not reminder:
+        raise HTTPException(status_code=404, detail="Reminder not found")
+    pet = None
+    if reminder.pet_appointment_id:
+        appt = db.query(models.PetAppointment).filter(
+            models.PetAppointment.pet_appointment_id == reminder.pet_appointment_id
+        ).first()
+        if appt:
+            pet = db.query(models.Pet).filter(models.Pet.pet_id == appt.pet_id).first()
+    elif reminder.feeding_schedule_id:
+        sched = db.query(models.FeedingSchedule).filter(
+            models.FeedingSchedule.feeding_schedule_id == reminder.feeding_schedule_id
+        ).first()
+        if sched:
+            pet = db.query(models.Pet).filter(models.Pet.pet_id == sched.pet_id).first()
+    if not pet or pet.owner_id != current_owner_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    return reminder
+
+
 # --- CREATE ---
 
 @router.post("/appointments", status_code=status.HTTP_201_CREATED)
-def create_pet_appointment(appointment: schemas.AppointmentCreate, db: Session = Depends(get_db)):
+def create_pet_appointment(
+    appointment: schemas.AppointmentCreate,
+    db: Session = Depends(get_db),
+    current_owner_id: int = Depends(get_current_owner_id),
+):
+    _require_pet_owner(appointment.pet_id, current_owner_id, db)
     try:
         freq = models.AppointmentReminderFrequency[appointment.reminder_frequency]
     except KeyError:
@@ -65,7 +115,12 @@ def create_pet_appointment(appointment: schemas.AppointmentCreate, db: Session =
 
 
 @router.post("/feeding-schedules", status_code=status.HTTP_201_CREATED)
-def create_feeding_schedule(schedule: schemas.FeedingScheduleCreate, db: Session = Depends(get_db)):
+def create_feeding_schedule(
+    schedule: schemas.FeedingScheduleCreate,
+    db: Session = Depends(get_db),
+    current_owner_id: int = Depends(get_current_owner_id),
+):
+    _require_pet_owner(schedule.pet_id, current_owner_id, db)
     feeding_dt = datetime.combine(date.today(), schedule.feeding_time)
     new_schedule = models.FeedingSchedule(
         pet_id=schedule.pet_id,
@@ -92,7 +147,16 @@ def create_feeding_schedule(schedule: schemas.FeedingScheduleCreate, db: Session
 # --- READ ---
 
 @router.get("/appointments/owner/{owner_id}")
-def get_all_owner_appointments(owner_id: int, db: Session = Depends(get_db)):
+def get_all_owner_appointments(
+    owner_id: int,
+    db: Session = Depends(get_db),
+    current_owner_id: int = Depends(get_current_owner_id),
+):
+    owner = db.query(models.Owner).filter(models.Owner.owner_id == owner_id).first()
+    if not owner:
+        raise HTTPException(status_code=404, detail="Owner not found")
+    if current_owner_id != owner_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
     return (
         db.query(models.PetAppointment)
         .join(models.Pet)
@@ -102,12 +166,23 @@ def get_all_owner_appointments(owner_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/feeding-schedules/pet/{pet_id}")
-def get_feeding_schedules(pet_id: int, db: Session = Depends(get_db)):
+def get_feeding_schedules(
+    pet_id: int,
+    db: Session = Depends(get_db),
+    current_owner_id: int = Depends(get_current_owner_id),
+):
+    _require_pet_owner(pet_id, current_owner_id, db)
     return db.query(models.FeedingSchedule).filter(models.FeedingSchedule.pet_id == pet_id).all()
 
 
 @router.get("/reminders/pending/{owner_id}", response_model=List[schemas.ReminderPending])
-def get_pending_reminders(owner_id: int, db: Session = Depends(get_db)):
+def get_pending_reminders(
+    owner_id: int,
+    db: Session = Depends(get_db),
+    current_owner_id: int = Depends(get_current_owner_id),
+):
+    if current_owner_id != owner_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
     results = []
 
     # Appointment reminders
@@ -167,18 +242,18 @@ def get_pending_reminders(owner_id: int, db: Session = Depends(get_db)):
 # --- UPDATE ---
 
 @router.put("/appointments/{appointment_id}")
-def update_pet_appointment(appointment_id: int, update: schemas.AppointmentUpdate, db: Session = Depends(get_db)):
-    appointment = db.query(models.PetAppointment).filter(
-        models.PetAppointment.pet_appointment_id == appointment_id
-    ).first()
-    if not appointment:
-        raise HTTPException(status_code=404, detail="Appointment not found")
+def update_pet_appointment(
+    appointment_id: int,
+    update: schemas.AppointmentUpdate,
+    db: Session = Depends(get_db),
+    current_owner_id: int = Depends(get_current_owner_id),
+):
+    appointment = _require_owner_for_appt(appointment_id, current_owner_id, db)
 
     appointment.pet_appointment_date = update.new_date
     appointment.pet_appointment_time = update.new_time
     appointment.appointment_notes = update.notes
 
-    # Reschedule the reminder to 24h before the new time
     new_appt_dt = datetime.combine(update.new_date, update.new_time)
     reminder = db.query(models.Reminder).filter(
         models.Reminder.pet_appointment_id == appointment_id
@@ -193,10 +268,13 @@ def update_pet_appointment(appointment_id: int, update: schemas.AppointmentUpdat
 
 
 @router.patch("/reminders/{reminder_id}/status")
-def update_reminder_status(reminder_id: int, update: schemas.ReminderStatusUpdate, db: Session = Depends(get_db)):
-    reminder = db.query(models.Reminder).filter(models.Reminder.reminder_id == reminder_id).first()
-    if not reminder:
-        raise HTTPException(status_code=404, detail="Reminder not found")
+def update_reminder_status(
+    reminder_id: int,
+    update: schemas.ReminderStatusUpdate,
+    db: Session = Depends(get_db),
+    current_owner_id: int = Depends(get_current_owner_id),
+):
+    reminder = _require_owner_for_reminder(reminder_id, current_owner_id, db)
     try:
         reminder.reminder_status = models.ReminderStatus[update.status]
     except KeyError:
@@ -208,12 +286,19 @@ def update_reminder_status(reminder_id: int, update: schemas.ReminderStatusUpdat
 # --- DELETE ---
 
 @router.delete("/appointments/series/{series_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_appointment_series(series_id: int, db: Session = Depends(get_db)):
+def delete_appointment_series(
+    series_id: int,
+    db: Session = Depends(get_db),
+    current_owner_id: int = Depends(get_current_owner_id),
+):
     appointments = db.query(models.PetAppointment).filter(
         models.PetAppointment.series_id == series_id
     ).all()
     if not appointments:
         raise HTTPException(status_code=404, detail="Series not found")
+    pet = db.query(models.Pet).filter(models.Pet.pet_id == appointments[0].pet_id).first()
+    if not pet or pet.owner_id != current_owner_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
     for appt in appointments:
         db.query(models.Reminder).filter(
             models.Reminder.pet_appointment_id == appt.pet_appointment_id
@@ -224,13 +309,12 @@ def delete_appointment_series(series_id: int, db: Session = Depends(get_db)):
 
 
 @router.delete("/appointments/{appointment_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_pet_appointment(appointment_id: int, db: Session = Depends(get_db)):
-    appointment = db.query(models.PetAppointment).filter(
-        models.PetAppointment.pet_appointment_id == appointment_id
-    ).first()
-    if not appointment:
-        raise HTTPException(status_code=404, detail="Appointment not found")
-
+def delete_pet_appointment(
+    appointment_id: int,
+    db: Session = Depends(get_db),
+    current_owner_id: int = Depends(get_current_owner_id),
+):
+    appointment = _require_owner_for_appt(appointment_id, current_owner_id, db)
     db.query(models.Reminder).filter(
         models.Reminder.pet_appointment_id == appointment_id
     ).delete()

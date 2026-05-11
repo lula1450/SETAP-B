@@ -2,6 +2,7 @@ import pytest
 from httpx import AsyncClient, ASGITransport
 from petsync_backend.main import app
 from petsync_backend import models
+from petsync_backend.tests._test_state import _current_test_owner_id
 import uuid
 
 """
@@ -45,6 +46,7 @@ def pet_in_db(db_session):
     db_session.commit()
     db_session.refresh(pet)
 
+    _current_test_owner_id[0] = owner.owner_id
     return owner, pet
 
 
