@@ -5,7 +5,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart' show DateTimeRange;
 
 class PdfHelper {
-  static Future<void> generateReport(String petName, Map<String, dynamic> data, Uint8List chartImage, {DateTimeRange? dateRange}) async {
+  static Future<void> generateReport(String petName, String metricName, Map<String, dynamic> data, Uint8List chartImage, {DateTimeRange? dateRange}) async {
     final pdf = pw.Document();
     final image = pw.MemoryImage(chartImage);
 
@@ -22,8 +22,15 @@ class PdfHelper {
             pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
               children: [
-                pw.Text("Clinical Health Report: $petName",
-                  style: pw.TextStyle(fontSize: 22, fontWeight: pw.FontWeight.bold, color: PdfColors.teal900)),
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text("Clinical Health Report: $petName",
+                      style: pw.TextStyle(fontSize: 22, fontWeight: pw.FontWeight.bold, color: PdfColors.teal900)),
+                    pw.Text(metricName.replaceAll('_', ' ').toUpperCase(),
+                      style: pw.TextStyle(fontSize: 13, color: PdfColors.teal700, fontWeight: pw.FontWeight.bold)),
+                  ],
+                ),
                 pw.Text(DateTime.now().toString().substring(0, 10), style: const pw.TextStyle(color: PdfColors.grey700)),
               ],
             ),

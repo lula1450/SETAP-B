@@ -495,7 +495,7 @@ class _ReportsPageState extends State<ReportsPage> with RouteAware {
                         // Capture the chart image from the RepaintBoundary
                         Uint8List chartImage = await _capturePng();
                         // Generate and preview the PDF with the captured image
-                        await PdfHelper.generateReport(_currentPetName, _analysisData, chartImage, dateRange: _selectedDateRange);
+                        await PdfHelper.generateReport(_currentPetName, _selectedMetric, _analysisData, chartImage, dateRange: _selectedDateRange);
                       } catch (e) {
                         debugPrint('PDF preview error: $e');
                         if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not generate preview')));
