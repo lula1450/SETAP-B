@@ -48,6 +48,12 @@ class _MetricsPageState extends State<MetricsPage> with RouteAware {
     'Stool Quality',
     'Stool Pellets',
     'Shedding Quality',
+    'Energy Level',
+    'Feather Condition',
+    'Wing Strength',
+    'Perch Activity',
+    'Vocalisation Level',
+    'Chewing Behaviour',
   };
 
   @override
@@ -477,10 +483,6 @@ class _MetricsPageState extends State<MetricsPage> with RouteAware {
         : (_displayUnits[title] ?? defaultUnit);
     double sliderVal = 3.0;
     double goalSliderVal = 5.0;
-    if (isScale) {
-      valueController.text = sliderVal.round().toString();
-      goalController.text = goalSliderVal.round().toString();
-    }
 
     showDialog(
       context: outerCtx,
