@@ -8,8 +8,8 @@ import 'package:maincode/services/notification_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await NotificationService().init();
-  await NotificationService().requestPermissions();
   runApp(const MyApp());
+  NotificationService().requestPermissions();
 }
 
 class MyApp extends StatelessWidget {
