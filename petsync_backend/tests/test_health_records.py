@@ -138,3 +138,41 @@ async def test_delete_nonexistent_entry(setup):
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         response = await ac.delete(f"/health/history/entry/{pet_id}/99999")
         assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_history_empty_before_any_logs(setup):
+    """History returns an empty list when no metrics have been logged yet."""
+    _, pet_id = setup
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        response = await ac.get(f"/health/history/{pet_id}")
+        assert response.status_code == 200
+        assert response.json() == []
+ 
+ 
+@pytest.mark.asyncio
+async def test_history_contains_multiple_metric_types(setup):
+    """History includes entries from different metric types."""
+    _, pet_id = setup
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        await ac.post("/health/log", json={"pet_id": pet_id, "metric_name": "weight", "value": 2.0})
+        await ac.post("/health/log", json={"pet_id": pet_id, "metric_name": "notes", "value": "Eating well"})
+
+        response = await ac.get(f"/health/history/{pet_id}")
+        assert response.status_code == 200
+        metrics = [e["metric"] for e in response.json()]
+        assert "weight" in metrics
+        assert "notes" in metrics
+ 
+ 
+@pytest.mark.asyncio
+async def test_delete_entry_wrong_pet(setup):
+    """Deleting a log entry using a mismatched pet ID returns 404."""
+    _, pet_id = setup
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        await ac.post("/health/log", json={"pet_id": pet_id, "metric_name": "weight", "value": 2.4})
+        history = await ac.get(f"/health/history/{pet_id}")
+        entry_id = history.json()[0]["id"]
+ 
+        response = await ac.delete(f"/health/history/entry/99999/{entry_id}")
+        assert response.status_code == 404

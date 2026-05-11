@@ -101,6 +101,7 @@ async def test_update_owner(create_owner):
 
 @pytest.mark.asyncio
 async def test_delete_owner(create_owner):
+    """An owner deletion is scheduled and a confirmation message is returned."""
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         response = await ac.delete(f"/owners/{create_owner.owner_id}")
         assert response.status_code == 200
@@ -112,4 +113,26 @@ async def test_delete_nonexistent_owner():
     """Deleting an owner that doesn't exist returns 404."""
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         response = await ac.delete("/owners/99999")
+        assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_update_owner_email(create_owner):
+    """An owner's email address can be updated."""
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        new_email = f"updated_{uuid.uuid4().hex[:8]}@example.com"
+        response = await ac.put(f"/owners/{create_owner.owner_id}", json={
+            "owner_email": new_email
+        })
+        assert response.status_code == 200
+        assert response.json()["owner_email"] == new_email
+
+
+@pytest.mark.asyncio
+async def test_update_nonexistent_owner():
+    """Updating an owner that doesn't exist returns 404."""
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        response = await ac.put("/owners/99999", json={
+            "owner_first_name": "Ghost"
+        })
         assert response.status_code == 404
