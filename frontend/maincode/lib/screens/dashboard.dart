@@ -1304,82 +1304,6 @@ class _DashboardPageState extends State<DashboardPage> with RouteAware {
     }
   }
 
-  /// Renames a pet and syncs the new name to SharedPreferences so it's immediately
-  /// reflected across all screens (metrics, reports, etc.) that read from prefs.
-  void _renamePetDialog(Map<String, dynamic> pet) async {
-    _dismissAllOverlays();
-    final firstNameController = TextEditingController(text: pet['pet_first_name'] ?? '');
-    final lastNameController = TextEditingController(text: pet['pet_last_name'] ?? '');
-    final messenger = ScaffoldMessenger.of(context);
-
-    await showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-        title: const Text("Edit Pet Name"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: firstNameController,
-              decoration: InputDecoration(
-                labelText: "First Name",
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: lastNameController,
-              decoration: InputDecoration(
-                labelText: "Last Name (Optional)",
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Cancel"),
-          ),
-          TextButton(
-            onPressed: () async {
-              final newFirst = firstNameController.text.trim();
-              if (newFirst.isEmpty) return;
-              Navigator.pop(context);
-              final success = await _petService.renamePet(
-                pet['pet_id'],
-                pet,
-                newFirst,
-                lastNameController.text.trim(),
-              );
-              if (success) {
-                // Store the pet name change in SharedPreferences for all pages to access
-                final prefs = await SharedPreferences.getInstance();
-                await prefs.setString('pet_name_${pet['pet_id']}', newFirst);
-                if (lastNameController.text.trim().isNotEmpty) {
-                  await prefs.setString('pet_last_name_${pet['pet_id']}', lastNameController.text.trim());
-                }
-                
-                _fetchPets();
-                messenger.showSnackBar(
-                  SnackBar(content: Text("${pet['pet_first_name']} renamed to $newFirst")),
-                );
-              } else {
-                messenger.showSnackBar(
-                  const SnackBar(content: Text("Failed to rename pet")),
-                );
-              }
-            },
-            child: const Text("Save"),
-          ),
-        ],
-      ),
-    );
-
-    firstNameController.dispose();
-    lastNameController.dispose();
-  }
 
   @override
   void initState() {
@@ -1388,48 +1312,6 @@ class _DashboardPageState extends State<DashboardPage> with RouteAware {
     _fetchPets();
   }
 
-  void _dismissAllOverlays() {
-    _photoHintEntry?.remove();
-    _photoHintEntry = null;
-    _metricsHintEntry?.remove();
-    _metricsHintEntry = null;
-    _appointmentHintEntry?.remove();
-    _appointmentHintEntry = null;
-    _adviceHintEntry?.remove();
-    _adviceHintEntry = null;
-    _reportHintEntry?.remove();
-    _reportHintEntry = null;
-    _recentlyLoggedHintEntry?.remove();
-    _recentlyLoggedHintEntry = null;
-    _healthRecordsHintEntry?.remove();
-    _healthRecordsHintEntry = null;
-    _feedingHintEntry?.remove();
-    _feedingHintEntry = null;
-    _vetHintEntry?.remove();
-    _vetHintEntry = null;
-    _findOutMoreHintEntry?.remove();
-    _findOutMoreHintEntry = null;
-    _settingsHintEntry?.remove();
-    _settingsHintEntry = null;
-    _changePetHintEntry?.remove();
-    _changePetHintEntry = null;
-    if (mounted) {
-      setState(() {
-        _showPhotoHint = false;
-        _showMetricsHint = false;
-        _showAppointmentHint = false;
-        _showAdviceHint = false;
-        _showReportHint = false;
-        _showRecentlyLoggedHint = false;
-        _showHealthRecordsHint = false;
-        _showFeedingHint = false;
-        _showVetHint = false;
-        _showFindOutMoreHint = false;
-        _showSettingsHint = false;
-        _showChangePetHint = false;
-      });
-    }
-  }
 
   @override
   @override
@@ -2186,23 +2068,11 @@ class _DashboardPageState extends State<DashboardPage> with RouteAware {
               Navigator.pop(context);
               _fetchAppointments();
             },
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.edit_outlined, color: Colors.blueGrey, size: 20),
-                  onPressed: () {
-                    Navigator.pop(context);
-                    _renamePetDialog(pet);
-                  },
-                ),
-                IconButton(
-                  icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
-                  onPressed: () {
-                    _deletePet(pet['pet_id'], pet['pet_first_name']);
-                  },
-                ),
-              ],
+            trailing: IconButton(
+              icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+              onPressed: () {
+                _deletePet(pet['pet_id'], pet['pet_first_name']);
+              },
             ),
           );
         },
