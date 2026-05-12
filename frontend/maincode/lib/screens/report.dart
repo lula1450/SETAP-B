@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart'; // Make sure to run 'flutter pub add fl_chart'
 import 'package:maincode/services/pet_service.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:maincode/utils/pdf_helper.dart';
 import 'package:maincode/utils/url_helper.dart';
 import 'package:maincode/utils/image_provider_helper.dart';
@@ -338,44 +337,6 @@ class _ReportsPageState extends State<ReportsPage> with RouteAware {
     });
   }
 
-  // Build a dropdown from the dynamically fetched metrics (safe fallback if empty)
-  Widget _buildMetricDropdown() {
-    if (_availableMetrics.isEmpty) {
-      return DropdownButton<String>(
-        value: _selectedMetric,
-        items: [
-          DropdownMenuItem(
-            value: _selectedMetric,
-            child: Text(_selectedMetric.replaceAll('_', ' ').toUpperCase()),
-          ),
-        ],
-        onChanged: (val) {
-          if (val != null) {
-            setState(() => _selectedMetric = val);
-            _loadData();
-          }
-        },
-      );
-    }
-
-    return DropdownButton<String>(
-      value: _selectedMetric,
-      isExpanded: true,
-      items: _availableMetrics.map((String value) {
-        return DropdownMenuItem<String>(
-          value: value,
-          child: Text(value.replaceAll('_', ' ').toUpperCase()),
-        );
-      }).toList(),
-      onChanged: (val) {
-        if (val != null) {
-          setState(() => _selectedMetric = val);
-          _loadData();
-        }
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final bool isRisk = _analysisData['is_risk'] == true;
@@ -491,14 +452,13 @@ class _ReportsPageState extends State<ReportsPage> with RouteAware {
                       foregroundColor: Colors.white,
                     ),
                     onPressed: () async {
+                      final messenger = ScaffoldMessenger.of(context);
                       try {
-                        // Capture the chart image from the RepaintBoundary
                         Uint8List chartImage = await _capturePng();
-                        // Generate and preview the PDF with the captured image
                         await PdfHelper.generateReport(_currentPetName, _selectedMetric, _analysisData, chartImage, dateRange: _selectedDateRange);
                       } catch (e) {
                         debugPrint('PDF preview error: $e');
-                        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not generate preview')));
+                        messenger.showSnackBar(const SnackBar(content: Text('Could not generate preview')));
                       }
                     },
                   ),
