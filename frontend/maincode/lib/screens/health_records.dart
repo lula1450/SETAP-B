@@ -1,3 +1,11 @@
+/// Health Records Page
+/// 
+/// This screen displays and manages a pet's complete medical history including medications,
+/// allergies, injuries/conditions, and medical documents. All records are stored locally in
+/// SharedPreferences with per-pet storage keys. Supports document upload with platform-specific
+/// handling (web stores metadata only; native platforms store files to device storage).
+/// Pet name syncing ensures the header updates when the pet is renamed from other screens.
+
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -181,6 +189,9 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
 
   // Persistence
 
+  /// Loads all health records (medications, allergies, conditions, documents) from SharedPreferences
+  /// and populates the state. Records are stored as JSON arrays with per-pet keys.
+  /// Sets _isLoading to false after all data is decoded and converted to model instances.
   Future<void> _loadData() async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -266,6 +277,10 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
     });
   }
 
+  /// Syncs the pet name from SharedPreferences to detect renames made on other screens.
+  /// Parses petId as int to construct the key (pet_name_<id>), compares with current name,
+  /// and triggers setState if different. Checks mounted before async operations to prevent
+  /// setState calls on unmounted widgets.
   Future<void> _syncPetName() async {
     // Try to get petId as int if possible
     final petIdInt = int.tryParse(widget.petId);
@@ -282,6 +297,10 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
 
   // Document upload flow
 
+  /// Opens file picker for medical documents (PDF, images, Office files, etc.) and handles
+  /// platform-specific storage: web only stores metadata (no file system access), while native
+  /// platforms save files to device storage via saveDocumentToStorage(). Shows document metadata
+  /// dialog after successful selection. Mounted check after async operations prevents setState issues.
   Future<void> _pickAndSaveDocument() async {
     final result = await FilePicker.platform.pickFiles(
       allowMultiple: false,
@@ -313,6 +332,10 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
     }
   }
 
+  /// Shows a dialog to collect document metadata (custom label and category selection).
+  /// Extracts base filename (without extension) as default label. On confirm, creates
+  /// _MedicalDocument with current timestamp and persists to SharedPreferences via _saveDocuments().
+  /// Uses StatefulBuilder for dialog state (label/category) independent from page state.
   Future<void> _showDocumentMetaDialog(
     String savedPath,
     String originalName,
@@ -398,6 +421,10 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
     );
   }
 
+  /// Opens a medical document file using the system handler (iOS Mail, Android default app, etc.).
+  /// On web, shows error snackbar since file opening is not supported. On native, validates that
+  /// file exists before opening; shows error snackbar if file has been deleted/moved. Mounted
+  /// checks prevent UI updates after navigation away.
   void _openDocument(_MedicalDocument doc) async {
     if (kIsWeb) {
       if (mounted) {

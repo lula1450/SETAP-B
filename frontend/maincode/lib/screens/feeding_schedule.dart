@@ -1,3 +1,8 @@
+// This page displays and manages a household feeding schedule across all pets.
+// Supports daily or weekly recurring feeding events with optional end dates.
+// Merges backend seeded data with user modifications stored locally, with proper conflict resolution.
+// Features calendar view, week navigation, upcoming feedings preview, and notification scheduling.
+
 import 'package:flutter/material.dart';
 import 'package:maincode/screens/route_observer.dart';
 import 'package:maincode/widgets/app_drawer.dart';
@@ -242,6 +247,10 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> with RouteAwa
 
   // ── Data loading ──────────────────────────────────────────────────────────
 
+  /// Loads pets and feeding schedules from backend, then overlays local modifications from SharedPreferences.
+  /// Merges two data sources: (1) backend seeded schedules, (2) user offline edits stored locally.
+  /// Backend duplicates are removed when a local version with same ID exists (local takes precedence).
+  /// Tracks deleted backend entries to prevent re-insertion on reload.
   Future<void> _loadPets() async {
   setState(() => _isLoading = true);
   try {
@@ -257,6 +266,7 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> with RouteAwa
     final deletedIds = prefs.getStringList('deleted_feeding_ids') ?? [];
 
     // --- STEP 1: LOAD BACKEND SEEDED DATA ---
+    // Backend sends repeating schedules with food_name indicating daily vs weekly (contains "weekly")
     for (final p in pets) {
       _recurring.putIfAbsent(p.id, () => {});
       try {
@@ -268,7 +278,7 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> with RouteAwa
           int weekday = 0; 
           
           try {
-            // Backend often sends "YYYY-MM-DDTHH:mm:ss"
+            // Backend often sends "YYYY-MM-DDTHH:mm:ss" format
             final dt = DateTime.parse(raw);
             t = TimeOfDay(hour: dt.hour, minute: dt.minute);
             weekday = dt.weekday - 1; // 1=Mon→0, 7=Sun→6
@@ -280,7 +290,7 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> with RouteAwa
             } catch (_) {}
           }
 
-          // Seeded data logic: daily vs specific weekday
+          // Seeded data logic: daily vs specific weekday based on food_name
           final foodName = (s['food_name'] as String? ?? '').toLowerCase();
           final isWeekly = foodName.contains('weekly');
           final event = PetEvent(
@@ -292,6 +302,7 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> with RouteAwa
             repeatDaily: !isWeekly,
           );
 
+          // If weekly: insert only on specific weekday; if daily: insert on all 7 days
           if (isWeekly) {
             _recurring[p.id]!.putIfAbsent(weekday, () => []).add(event);
           } else {
@@ -306,6 +317,7 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> with RouteAwa
     }
 
     // --- STEP 2: OVERLAY LOCAL STORAGE (USER MODIFICATIONS) ---
+    // User edits are stored locally and take precedence over backend dupes
     final localData = prefs.getString('offline_feeding_schedule');
     if (localData != null) {
       final List<dynamic> decoded = jsonDecode(localData);
@@ -317,7 +329,7 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> with RouteAwa
         _recurring.putIfAbsent(petId, () => {});
         _recurring[petId]!.putIfAbsent(weekday, () => []);
 
-        // Prevent duplicates: If a local version exists, it overwrites backend duplicate
+        // Conflict resolution: If a local version exists, it overwrites backend duplicate with same ID
         _recurring[petId]![weekday]!.removeWhere((e) => e.id == event.id);
         _recurring[petId]![weekday]!.add(event);
       }
@@ -392,14 +404,18 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> with RouteAwa
     return DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
   }
 
+  /// Filters events for a specific day by: (1) extracting weekday from dayKey,
+  /// (2) checking end date hasn't passed, (3) sorting by time ascending.
   List<PetEvent> _eventsForDay(int petId, String dayKey) {
     final weekday = _weekdayFromKey(dayKey);
     final date = _dateFromKey(dayKey);
     final petMap = _recurring[petId];
     final raw = petMap == null ? <PetEvent>[] : (petMap[weekday] ?? <PetEvent>[]);
+    // Filter out events whose end date has passed
     final list = raw
         .where((e) => e.endDate == null || !date.isAfter(e.endDate!))
         .toList();
+    // Sort events by time (earliest first)
     list.sort((a, b) {
       final aMin = a.time.hour * 60 + a.time.minute;
       final bMin = b.time.hour * 60 + b.time.minute;
@@ -408,17 +424,17 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> with RouteAwa
     return list;
   }
 
+  /// Inserts or updates an event by: (1) extracting base ID (removing weekday suffix),
+  /// (2) removing all copies from all weekdays, (3) re-inserting based on repeat mode,
+  /// (4) persisting to SharedPreferences, (5) scheduling end-date notification.
   void _upsertEvent(PetEvent ev, String dayKey) {
     final String baseId = ev.id.replaceAll(RegExp(r'_[0-6]$'), '');
 
     setState(() {
       final petMap = _recurring[ev.petId] ??= {};
 
+      // Remove all copies of this event from every weekday slot
       // Strip the weekday suffix (_0 … _6) to get the base ID.
-      // Only strip a single digit 0-6, so 'backend_42_3' → 'backend_42'
-      // without accidentally stripping the schedule ID from 'backend_42'.
-
-      // Remove all copies of this event from every weekday slot.
       petMap.forEach((weekday, list) {
         list.removeWhere((existingEvent) {
           final existingBase = existingEvent.id.replaceAll(RegExp(r'_[0-6]$'), '');
@@ -426,22 +442,22 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> with RouteAwa
         });
       });
 
-      // 3. Re-insert the updated event
+      // Re-insert the updated event based on repeat mode
       if (ev.repeatDaily) {
-        // If daily, insert into all 7 days (0-6)
+        // If daily, insert into all 7 days (0-6) with weekday suffix
         for (int d = 0; d < 7; d++) {
           petMap.putIfAbsent(d, () => []).add(
             ev.copyWith(id: '${baseId}_$d')
           );
         }
       } else {
-        // If weekly, only insert into the current weekday
+        // If weekly, only insert into the current weekday without suffix
         final weekday = _weekdayFromKey(dayKey);
         petMap.putIfAbsent(weekday, () => []).add(ev.copyWith(id: baseId));
       }
     });
 
-    // 4. Persist changes to local storage
+    // Persist changes to local storage
     _saveToLocal();
     _scheduleEndDateNotification(ev, baseId);
   }
@@ -463,10 +479,13 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> with RouteAwa
     }
   }
 
+  /// Deletes an event: (1) finds it before removal to get notification details,
+  /// (2) if backend event, deletes from server and stores ID in deleted list,
+  /// (3) cancels scheduled notifications, (4) removes from state, (5) persists changes.
   void _deleteEvent(int petId, String dayKey, String eventId) async {
     final String baseId = eventId.replaceAll(RegExp(r'_[0-6]$'), '');
 
-    // Find the event before removing it so we can cancel its notification.
+    // Find the event before removing it so we can cancel its notification
     PetEvent? found;
     _recurring[petId]?.forEach((_, list) {
       for (final e in list) {
@@ -479,8 +498,7 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> with RouteAwa
 
     final prefs = await SharedPreferences.getInstance();
 
-    // If it's a backend event, delete from the server and store the ID locally
-    // so it doesn't come back on reload even if the API call fails.
+    // If backend event: delete from server and mark locally so it doesn't re-appear on reload
     if (baseId.startsWith('backend_')) {
       final scheduleId = int.tryParse(baseId.replaceFirst('backend_', ''));
       if (scheduleId != null) {
@@ -493,7 +511,7 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> with RouteAwa
       }
     }
 
-    // Cancel the corresponding notification.
+    // Cancel scheduled notifications for this feeding event
     if (found != null) {
       final timeStr =
           '${found!.time.hour.toString().padLeft(2, '0')}:${found!.time.minute.toString().padLeft(2, '0')}';
@@ -502,6 +520,7 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> with RouteAwa
       await prefs.remove('feeding_notif_${petId}_$timeStr');
     }
 
+    // Remove from state and persist
     setState(() {
       _recurring[petId]?.forEach((_, list) {
         list.removeWhere((e) =>
@@ -531,10 +550,12 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> with RouteAwa
     );
   }
 
+  /// Flattens the 2D recurring map (petId→weekday→events) into a flat array for JSON storage.
+  /// Persists to SharedPreferences for offline access and backup of user modifications.
   Future<void> _saveToLocal() async {
     final prefs = await SharedPreferences.getInstance();
   
-  // We flatten the map for easier storage
+  // Flatten the nested map structure for easier storage
     final List<Map<String, dynamic>> flattened = [];
   
     _recurring.forEach((petId, weekdayMap) {
@@ -554,6 +575,9 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> with RouteAwa
 
   // ── Upcoming feedings ─────────────────────────────────────────────────────
 
+  /// Scans all pets and finds the next upcoming feeding event.
+  /// Returns list of (pet, event, daysUntil) tuples sorted by daysUntil then by time.
+  /// Skips today's events that have already passed.
   List<({Pet pet, PetEvent event, int daysUntil})> _getUpcomingFeedings() {
     final now = DateTime.now();
     final nowMins = now.hour * 60 + now.minute;
@@ -563,6 +587,7 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> with RouteAwa
       PetEvent? nextEvent;
       int? nextDays;
 
+      // Look ahead up to 7 days to find next event
       for (int d = 0; d < 7; d++) {
         final checkDate = now.add(Duration(days: d));
         final dayKey = _dateKey(DateTime(checkDate.year, checkDate.month, checkDate.day));
@@ -570,6 +595,7 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> with RouteAwa
 
         for (final ev in events) {
           final evMins = ev.time.hour * 60 + ev.time.minute;
+          // Skip today's events that have already passed
           if (d == 0 && evMins <= nowMins) continue;
           nextEvent = ev;
           nextDays = d;
@@ -583,6 +609,7 @@ class _FeedingSchedulePageState extends State<FeedingSchedulePage> with RouteAwa
       }
     }
 
+    // Sort by daysUntil ascending, then by time ascending
     result.sort((a, b) {
       if (a.daysUntil != b.daysUntil) return a.daysUntil.compareTo(b.daysUntil);
       final aMin = a.event.time.hour * 60 + a.event.time.minute;
