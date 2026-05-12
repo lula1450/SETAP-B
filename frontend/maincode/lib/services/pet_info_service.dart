@@ -1,6 +1,6 @@
+// Provides static breed info (traits, care tips, diet, health, environment) for each species.
 class PetInfoService {
-  Map<String, dynamic> getPetInfo(int speciesId) {
-    final Map<int, Map<String, dynamic>> petData = {
+  static final Map<int, Map<String, dynamic>> _petData = {
       1: {
         "name": "Labrador",
         "image": "https://images.unsplash.com/photo-1518717758536-85ae29035b6d?w=800&auto=format&fit=crop",
@@ -10,7 +10,7 @@ class PetInfoService {
         "careTips": ["• Daily exercise", "• Loves water", "• Regular brushing", "• Needs attention"],
         "personality": ["• Friendly", "• Loyal", "• Good with families", "• Playful"],
         "diet": ["• High-Quality protein", "• Omega-3 for healthy Coat","• Balanced diet", "• Avoid overfeeding"],
-        "health": ["• Prone to hip dysplasia", "• Obesity risk", "• Ear Infections", "• Regular Vet Chekups"],
+        "health": ["• Prone to hip dysplasia", "• Obesity risk", "• Ear Infections", "• Regular Vet Checkups"],
         "environment": ["• Needs large spaces", "• Loves outdoor activity", "• Great for families", "• Not ideal for small apartments"],
       },
 
@@ -22,9 +22,9 @@ class PetInfoService {
         "breedInfo": ["• Large", "• 10–12 years", "• High energy", "• Excellent training"],
         "careTips": ["• Daily exercise", "• Brush 2–3x weekly", "• Needs attention", "• Regular Vet Checkups"],
         "personality": ["• Gentle", "• Social", "• Playful", "• Intelligent"],
-        "diet": ["• High protein", "• Joint support nutrients", "• Healthy fats for Coat", "• Portion Cotrol"],
+        "diet": ["• High protein", "• Joint support nutrients", "• Healthy fats for Coat", "• Portion Control"],
         "health":["• Hip & Elbow dypsplasia", "• Heart Issues", "• Sensitive Skin", "• Needs regular vet care"],
-        "environment":["• Needs space to roam", "• Family-friendly home", "• Not suited for isloation", "• Enjoys outdoor environments"],
+        "environment":["• Needs space to roam", "• Family-friendly home", "• Not suited for isolation", "• Enjoys outdoor environments"],
       },
 
       3: {
@@ -37,7 +37,7 @@ class PetInfoService {
         "personality": ["• Friendly", "• Intelligent", "• Playful", "• Gentle"],
         "diet": ["• Protein-rich food", "• Wet & Dry Mixed Meals", "• Fresh Water", "• Portion Control"],
         "health":["• Risk of Heart Disease(HCM)", "• Hip dysplasia", "• Risk of Obesity if inactive", "• Regular grooming needed"],
-        "environment":["• Needs space to move", "• Indoor preffered", "• Good for families", "• Tolerates cold climates well"],
+        "environment":["• Needs space to move", "• Indoor preferred", "• Good for families", "• Tolerates cold climates well"],
       }, 
 
       4: {
@@ -50,7 +50,7 @@ class PetInfoService {
         "personality": ["• Talkative", "• Affectionate", "• Social", "• Intelligent"],
         "diet": ["• High-quality cat food", "• Protein Rich Meals", "• Fresh Water", "• Portion Control"],
         "health":["• Dental Issues", "• Respiratory problems", "• Sensitive to stress", "• Needs regular vet care"],
-        "environment":["• Indoor living preffered", "• Needs attention & interaction", "• Not good when left alone", "• Warm environment ideal"],
+        "environment":["• Indoor living preferred", "• Needs attention & interaction", "• Not good when left alone", "• Warm environment ideal"],
       },
 
       5: {
@@ -59,10 +59,10 @@ class PetInfoService {
         "traits": "Small • Friendly • Calm",
         "helpUrl": "https://www.rspca.org.uk/adviceandwelfare/pets/rabbits",
         "breedInfo": ["• Small", "• 7–10 years", "• Compact Body", "• Indoor Friendly"],
-        "careTips": ["• Hay-based diet", "• Clean enclosure", "• Daily excercise", "• Social interactions"],
+        "careTips": ["• Hay-based diet", "• Clean enclosure", "• Daily exercise", "• Social interactions"],
         "personality": ["• Calm", "• Friendly", "• Gentle", "• Social"],
         "diet": ["• Hay", "• Fresh Veggies", "• Pellets", "• Fresh Water"],
-        "health":["• Denatl problems", "• Ear infections", "• Digestive sensitivity", "• Needs regular Checkups"],
+        "health":["• Dental problems", "• Ear infections", "• Digestive sensitivity", "• Needs regular Checkups"],
         "environment":["• Indoor environment preffered", "• Needs safe enclosure", "• Quiet household", "• Space for hopping/exercise"],
       },
 
@@ -84,7 +84,7 @@ class PetInfoService {
         "image": "https://images.unsplash.com/photo-1548767797-d8c844163c4c?w=800&auto=format&fit=crop",
         "traits": "Small • Nocturnal • Independent",
         "helpUrl": "https://www.rspca.org.uk/adviceandwelfare/pets/rodents",
-        "breedInfo": ["• Small", "• 2–3 years", "• Solitary", "Nocturnal"],
+        "breedInfo": ["• Small", "• 2–3 years", "• Solitary", "• Nocturnal"],
         "careTips": ["• Exercise wheel", "• Clean cage", "• Fresh Bedding", "• Hideouts for rest"],
         "personality": ["• Solitary", "• Active at night", "• Curious", "• Territorial"],
         "diet": ["• Seeds", "• Fresh Vegetables", "• Protein rich snacks", "• Fresh Water"],
@@ -98,11 +98,11 @@ class PetInfoService {
         "traits": "Tiny • Fast • Energetic",
         "helpUrl": "https://www.rspca.org.uk/adviceandwelfare/pets/rodents",
         "breedInfo": ["• Very small", "• 3–3.5 years", "• Fast-moving", "• Desert species"],
-        "careTips": ["• Large enclosure", "• Minimal handling", "• Excercise wheel", "• Clean habitat"],
+        "careTips": ["• Large enclosure", "• Minimal handling", "• Exercise wheel", "• Clean habitat"],
         "personality": ["• Fast", "• Shy", "• Energetic", "• Curious"],
         "diet": ["• Seeds", "• Insects", "• Fresh Vegetables", "• Fresh Water"],
         "health":["• Fragile body", "• Stress-sensitive", "• Prone to dehydration", "• Needs a clean habitat"],
-        "environment":["• Large enclosure needed", "• Minimal handling", "• Quiet space", "• War, dry environment"],
+        "environment":["• Large enclosure needed", "• Minimal handling", "• Quiet space", "• Warm, dry environment"],
       },
 
       9: {
@@ -150,15 +150,16 @@ class PetInfoService {
         "traits": "Shy • Calm • Nocturnal",
         "helpUrl": "https://www.rspca.org.uk/adviceandwelfare/pets/reptiles",
         "breedInfo": ["• Medium snake", "• 20–30 years", "• Thick Body", "• Nocturnal"],
-        "careTips": ["• Warm enclosure", "• Humidity control", "• Hide Spots", "• Regualar cleaning"],
+        "careTips": ["• Warm enclosure", "• Humidity control", "• Hide Spots", "• Regular cleaning"],
         "personality": ["• Shy", "• Docile", "• Calm", "• Slow-moving"],
         "diet": ["• Rodents", "• Feeding schedule", "• Regulated Portions", "• Clean Water"],
-        "health":["• Respirarory infections", "• Shedding problems", "• Refusual eat", "• Needs humidty control"],
+        "health":["• Respiratory infections", "• Shedding problems", "• Refusal to eat", "• Needs humidity control"],
         "environment":["• Warm, humid enclosure", "• Hiding spots required", "• Low-stress environment", "• Stable temperature needed"],
       },
-    };
+  };
 
-    return petData[speciesId] ??
+  Map<String, dynamic> getPetInfo(int speciesId) {
+    return _petData[speciesId] ??
         {
           "name": "Unknown Pet",
           "image": "",

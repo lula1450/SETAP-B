@@ -1,3 +1,5 @@
+// This service provides fun facts about different pet breeds.
+
 import 'dart:math';
 
 class FunFactService {

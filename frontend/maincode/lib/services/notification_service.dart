@@ -1,3 +1,10 @@
+// This service manages all local notifications for the app, including scheduling, permissions, and cancellation. 
+//It uses flutter_local_notifications for cross-platform support and timezone package to handle timezones correctly. 
+
+//The service provides methods to schedule daily reminders, weekly reminders, one-time notifications, and repeating notifications at specific times.
+ 
+//It also includes utility methods to generate unique notification IDs based on pet IDs and appointment IDs.
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
@@ -48,7 +55,7 @@ class NotificationService {
     _initialized = true;
   }
 
-  Future<void> requestPermissions() async {
+  Future<void> requestPermissions() async { // Call this on app startup to ensure permissions are requested early
     if (kIsWeb) return;
     final android = _plugin.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();

@@ -1,3 +1,5 @@
+  // This service manages all authentication-related interactions with the backend, including login, sign-up, and account deletion.
+
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -12,7 +14,6 @@ class AuthService {
     return "http://10.0.2.2:8000";
   }
 
-  // --- LOGIN ---
   Future<bool> login(String email, String password) async {
     try {
       final url = Uri.parse("$baseUrl/auth/login");
@@ -39,7 +40,6 @@ class AuthService {
     }
   }
 
-  // --- SIGN UP ---
   Future<bool> signUp({
     required String firstName,
     required String lastName,
@@ -75,7 +75,6 @@ class AuthService {
     }
   }
 
-  // --- AUTH HEADERS ---
   static Future<Map<String, String>> authHeaders() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token') ?? '';
@@ -85,7 +84,6 @@ class AuthService {
     };
   }
 
-  // --- DELETE ACCOUNT ---
   // Returns the scheduled purge date string, or null on failure.
   Future<String?> deleteAccount(int ownerId) async {
     try {

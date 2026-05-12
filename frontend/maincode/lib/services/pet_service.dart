@@ -1,7 +1,8 @@
+// API service layer — wraps all backend calls for pets, health, appointments, feeding, vets, and reports.
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // For storing owner_id and auth token
 import 'package:maincode/services/auth_service.dart';
 
 class PetService {
@@ -12,7 +13,6 @@ class PetService {
     return "http://10.0.2.2:8000";
   }
 
-  // --- 1. GET OWNER PETS ---
   Future<List<dynamic>> getOwnerPets(int ownerId) async {
     final headers = await AuthService.authHeaders();
     final response = await http.get(
@@ -29,7 +29,6 @@ class PetService {
     }
   }
 
-  // --- 2. CREATE PET ---
   Future<int> createPet({
     required String petFirstName,
     required String petLastName,
@@ -69,7 +68,6 @@ class PetService {
     }
   }
 
-  // --- 3. CREATE APPOINTMENT ---
   Future<bool> createAppointment({
     required int petId,
     required String date,
@@ -97,7 +95,6 @@ class PetService {
     }
   }
 
-  // --- 4. FETCH ALL APPOINTMENTS FOR HOUSEHOLD ---
   Future<List<dynamic>> getAllAppointments(int ownerId) async {
     try {
       final headers = await AuthService.authHeaders();
@@ -112,7 +109,6 @@ class PetService {
     return [];
   }
 
-  // --- 5. DELETE OWNER ---
   Future<bool> deleteOwner(int ownerId) async {
     try {
       final headers = await AuthService.authHeaders();
@@ -178,7 +174,6 @@ class PetService {
     }
   }
 
-  // --- 6. GET REPORT HISTORY ---
   Future<List<dynamic>> getPetReportHistory(int petId) async {
     try {
       final headers = await AuthService.authHeaders();
@@ -212,12 +207,9 @@ class PetService {
     final headers = await AuthService.authHeaders();
     final url = Uri.parse('$baseUrl/schedule/appointments/$appointmentId');
 
-    debugPrint("DEBUG: Sending DELETE request to $url");
-
     final response = await http.delete(url, headers: headers);
 
     if (response.statusCode != 204) {
-      debugPrint("Backend responded with: ${response.statusCode}");
       throw Exception("Failed to delete appointment");
     }
   }
@@ -343,7 +335,6 @@ class PetService {
     return response.statusCode == 200;
   }
 
-  // --- GET VET CONTACTS ---
   Future<List<dynamic>> getOwnerVetContacts(int ownerId) async {
     final headers = await AuthService.authHeaders();
     final response = await http.get(
@@ -360,7 +351,6 @@ class PetService {
     }
   }
 
-  // --- CREATE VET CONTACT ---
   Future<bool> createVetContact({
     required int ownerId,
     int? petId,
@@ -385,7 +375,6 @@ class PetService {
       );
 
       if (response.statusCode == 201) {
-        debugPrint("Vet contact created successfully");
         return true;
       } else {
         debugPrint("Failed to create vet contact: ${response.body}");
@@ -397,7 +386,6 @@ class PetService {
     }
   }
 
-  // --- UPDATE VET CONTACT ---
   Future<bool> updateVetContact({
     required int vetId,
     required int ownerId,
@@ -422,7 +410,6 @@ class PetService {
       );
 
       if (response.statusCode == 200) {
-        debugPrint("Vet contact updated successfully");
         return true;
       } else {
         debugPrint("Failed to update vet contact: ${response.statusCode} - ${response.body}");
@@ -434,7 +421,6 @@ class PetService {
     }
   }
 
-  // --- GET AVAILABLE METRICS FOR PET ---
   Future<List<String>> getAvailableMetrics(int petId) async {
     try {
       final headers = await AuthService.authHeaders();
@@ -450,7 +436,6 @@ class PetService {
     return [];
   }
 
-  // --- DELETE VET CONTACT ---
   Future<bool> deleteVetContact(int vetId) async {
     try {
       final headers = await AuthService.authHeaders();
@@ -460,7 +445,6 @@ class PetService {
       );
 
       if (response.statusCode == 200) {
-        debugPrint("Vet contact deleted successfully");
         return true;
       } else {
         debugPrint("Failed to delete vet contact: ${response.body}");

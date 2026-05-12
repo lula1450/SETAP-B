@@ -1,3 +1,6 @@
+// This service handles all interactions with the backend related to health metrics. 
+// It provides methods to log new metrics, retrieve the latest metric values, and sync user-entered goals (targets) to the backend. 
+
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;

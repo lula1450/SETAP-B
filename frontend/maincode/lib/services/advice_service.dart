@@ -1,3 +1,5 @@
+// This service provides advice for pet owners based on their pet's breed and recent health metrics.
+
 import 'dart:math';
 
 class AdviceService {

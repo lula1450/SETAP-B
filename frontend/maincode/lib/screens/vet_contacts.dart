@@ -1,3 +1,5 @@
+// This page displays and manages the user's veterinary contacts.
+
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:maincode/widgets/app_drawer.dart';
@@ -75,7 +77,7 @@ class _VetContactsPageState extends State<VetContactsPage> {
     }
   }
 
-  Future<void> _persistContacts() async {
+  Future<void> _persistContacts() async { // Save the current list of vet contacts to shared preferences 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_storageKey, jsonEncode(_vetContacts));
   }
@@ -336,7 +338,7 @@ class _VetContactsPageState extends State<VetContactsPage> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) { 
     return Scaffold(
       endDrawer: const AppDrawer(),
       appBar: AppBar(
@@ -471,7 +473,7 @@ class _VetContactsPageState extends State<VetContactsPage> {
     );
   }
 
-  Widget _buildContactRow(IconData icon, String text) {
+  Widget _buildContactRow(IconData icon, String text) { // Helper to build a row for phone/email/address with an icon
     return Row(
       children: [
         Icon(icon, color: const Color(0xFF185FA5), size: 20),
