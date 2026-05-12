@@ -1,3 +1,4 @@
+// Generates and prints a formatted PDF health report for a pet metric.
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -65,6 +66,7 @@ class PdfHelper {
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
                   pw.Text("Clinical Insight:", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                  // Strip emoji characters — the pdf package renders them as blank boxes.
                   pw.Text((data['message'] ?? 'No anomalies detected in the current period.').replaceAll(RegExp(r'[\u{1F000}-\u{1FFFF}]|[\u{2600}-\u{27BF}]', unicode: true), '').trim()),
                   pw.SizedBox(height: 10),
                   pw.Row(

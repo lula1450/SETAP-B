@@ -1,3 +1,4 @@
+// Mobile implementation of file I/O operations (saving, reading, deleting, opening documents).
 import 'dart:io';
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';

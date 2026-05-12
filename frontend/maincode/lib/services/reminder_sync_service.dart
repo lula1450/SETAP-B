@@ -1,3 +1,4 @@
+// Fetches pending reminders from the backend and schedules local notifications for them.
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -54,7 +55,7 @@ class ReminderSyncService {
 
         await http.patch(
           Uri.parse('$_baseUrl/schedule/reminders/$reminderId/status'),
-          headers: await AuthService.authHeaders(),
+          headers: headers,
           body: jsonEncode({'status': 'sent'}),
         );
       }

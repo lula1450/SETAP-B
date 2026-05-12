@@ -1,3 +1,5 @@
+// Web stub for file I/O operations — dart:io is unavailable on web so all file operations are no-ops.
+// The _impl version is used on mobile instead (see file_io_helper.dart).
 Future<String> saveDocumentToStorage({
   required String sourcePath,
   required String petId,
