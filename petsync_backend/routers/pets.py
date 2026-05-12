@@ -3,53 +3,8 @@ from sqlalchemy.orm import Session
 from petsync_backend import models, schemas
 from petsync_backend.database import get_db
 from petsync_backend.utils.auth_utils import get_current_owner_id
-from datetime import datetime
-
-
 
 router = APIRouter()
-
-
-
-@router.put("/appointments/{appointment_id}")
-async def update_appointment(
-    appointment_id: int, 
-    data: dict, 
-    db: Session = Depends(get_db)
-):
-    appt = db.query(models.PetAppointment).filter(
-        models.PetAppointment.pet_appointment_id == appointment_id
-    ).first()
-
-    if not appt:
-        raise HTTPException(status_code=404, detail="Appointment not found")
-
-    # Handle the time conversion
-    time_str = data.get("pet_appointment_time")
-    if time_str:
-        try:
-            # Convert "18:30:00" string into a Python time object
-            appt.pet_appointment_time = datetime.strptime(time_str, "%H:%M:%S").time()
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid time format. Use HH:MM:SS")
-
-    # Update notes (this is a string, so no conversion needed)
-    appt.appointment_notes = data.get("appointment_notes", appt.appointment_notes)
-
-    db.commit()
-    return {"message": "Update successful"}
-
-@router.delete("/appointments/{appointment_id}")
-def delete_appointment(appointment_id: int, db: Session = Depends(get_db)):
-    appt = db.query(models.PetAppointment).filter(models.PetAppointment.pet_appointment_id == appointment_id).first()
-    
-    if not appt:
-        raise HTTPException(status_code=404, detail="Appointment not found")
-        
-    db.delete(appt)
-    db.commit()
-    return {"message": "Successfully deleted"}
-
 
 
 @router.post("/create", response_model=schemas.PetResponse)
@@ -81,7 +36,6 @@ def create_pet(pet: schemas.PetCreate, current_owner_id: int = Depends(get_curre
     )
 
 
-# Get a single pet with its species info
 @router.get("/{pet_id}", response_model=schemas.PetResponse)
 def get_pet(pet_id: int, current_owner_id: int = Depends(get_current_owner_id), db: Session = Depends(get_db)):
     pet = db.query(models.Pet).filter(models.Pet.pet_id == pet_id).first()
@@ -93,8 +47,6 @@ def get_pet(pet_id: int, current_owner_id: int = Depends(get_current_owner_id), 
     species = db.query(models.Species_config).filter(
         models.Species_config.species_id == pet.species_id
     ).first()
-    
-    # SAFETY CHECK: If species is None, don't crash, just say "Unknown"
     species_name = species.species_name if species else "Unknown"
 
     return schemas.PetResponse(
@@ -119,7 +71,7 @@ def list_all_pets(owner_id: int, current_owner_id: int = Depends(get_current_own
     if not pets:
         raise HTTPException(status_code=404, detail="No pets found for this owner")
 
-    # Pre-fetch species info to avoid repeated queries
+    # Pre-fetch all species in one query to avoid N+1 lookups per pet
     species_map = {
         s.species_id: s.species_name
         for s in db.query(models.Species_config).all()
@@ -138,7 +90,7 @@ def list_all_pets(owner_id: int, current_owner_id: int = Depends(get_current_own
         for pet in pets
     ]
 
-# Update pet profile
+
 @router.put("/{pet_id}", response_model=schemas.PetResponse)
 def update_pet(pet_id: int, pet_update: schemas.PetCreate, current_owner_id: int = Depends(get_current_owner_id), db: Session = Depends(get_db)):
     db_pet = db.query(models.Pet).filter(models.Pet.pet_id == pet_id).first()
@@ -154,7 +106,6 @@ def update_pet(pet_id: int, pet_update: schemas.PetCreate, current_owner_id: int
     db.refresh(db_pet)
     return db_pet
 
-# petsync_backend/routers/pets.py
 
 @router.delete("/{pet_id}")
 def delete_pet(pet_id: int, current_owner_id: int = Depends(get_current_owner_id), db: Session = Depends(get_db)):
@@ -163,15 +114,11 @@ def delete_pet(pet_id: int, current_owner_id: int = Depends(get_current_owner_id
         raise HTTPException(status_code=404, detail="Pet not found")
     if db_pet.owner_id != current_owner_id:
         raise HTTPException(status_code=403, detail="Forbidden")
-    
+
     db.delete(db_pet)
     db.commit()
     return {"message": f"Pet {pet_id} and all associated data deleted successfully"}
 
-# In your FastAPI backend (e.g., main.py or routers/pets.py)
-# petsync_backend/routers/pets.py (or main.py)
-
-# petsync_backend/routers/pets.py (or main.py)
 
 @router.put("/{pet_id}/image")
 async def update_pet_image(pet_id: int, image_url: str, current_owner_id: int = Depends(get_current_owner_id), db: Session = Depends(get_db)):
@@ -183,4 +130,3 @@ async def update_pet_image(pet_id: int, image_url: str, current_owner_id: int = 
     pet.pet_image_path = image_url
     db.commit()
     return {"message": "Image updated"}
-
