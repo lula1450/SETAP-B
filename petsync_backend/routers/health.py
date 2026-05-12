@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from datetime import datetime
+from datetime import datetime, timezone
 from petsync_backend.database import get_db
 from petsync_backend.models import HealthMetric, MetricDefinition, MetricName, MetricUnit, Pet, PetGoal
 from petsync_backend import schemas
@@ -20,10 +20,7 @@ router = APIRouter(
     tags=["Health"]
 )
 
-# --- 1. ANALYZE HELPER (Used by the Log route) ---
-
-async def analyze_health_metric(pet_id, metric_name, current_value, metric_def, db):
-    # Cache the unit immediately before any session issues
+def analyze_health_metric(pet_id, metric_name, current_value, metric_def, db):
     unit = metric_def.metric_unit
     
     if unit == MetricUnit.text:
@@ -33,7 +30,6 @@ async def analyze_health_metric(pet_id, metric_name, current_value, metric_def, 
             return "ALERT: Potential health issue detected based on notes."
         return "No concerning keywords detected."
 
-    # Look for the specific goal for THIS pet in the NEW table
     goal_record = db.query(PetGoal).filter(
         PetGoal.pet_id == pet_id,
         PetGoal.metric_def_id == metric_def.metric_def_id
@@ -51,7 +47,6 @@ async def analyze_health_metric(pet_id, metric_name, current_value, metric_def, 
         except ValueError:
             pass 
 
-    # Fetch previous for baseline (Fixed column name to metric_time)
     previous = db.query(HealthMetric).filter(
             HealthMetric.pet_id == pet_id,
             HealthMetric.metric_def_id == metric_def.metric_def_id
@@ -70,8 +65,6 @@ async def analyze_health_metric(pet_id, metric_name, current_value, metric_def, 
     
     return f"{analysis_prefix}Change: {round(current_value - previous_value, 2)} {unit.value}."
 
-# --- 3. ROUTES ---
-
 @router.get("/metrics/{pet_id}")
 def get_available_metrics(pet_id: int, current_owner_id: int = Depends(get_current_owner_id), db: Session = Depends(get_db)):
     pet = _require_pet_owner(pet_id, current_owner_id, db)
@@ -79,6 +72,7 @@ def get_available_metrics(pet_id: int, current_owner_id: int = Depends(get_curre
         MetricDefinition.species_id == pet.species_id
     ).all()
     return [{"name": d.metric_name.value, "unit": d.metric_unit.value} for d in definitions]
+
 
 @router.post("/log", response_model=schemas.HealthMetricLogResponse)
 async def log_health_metric(log: schemas.HealthMetricLogCreate, current_owner_id: int = Depends(get_current_owner_id), db: Session = Depends(get_db)):
@@ -107,7 +101,7 @@ async def log_health_metric(log: schemas.HealthMetricLogCreate, current_owner_id
         pet_id=log.pet_id,
         metric_def_id=metric_def.metric_def_id,
         metric_value=metric_val_to_save,
-        metric_time=datetime.utcnow(),
+        metric_time=datetime.now(timezone.utc),
         notes=notes_to_save
     )
     db.add(new_log)
@@ -119,7 +113,7 @@ async def log_health_metric(log: schemas.HealthMetricLogCreate, current_owner_id
         MetricDefinition.metric_def_id == metric_def.metric_def_id
     ).first()
 
-    analysis = await analyze_health_metric(
+    analysis = analyze_health_metric(
         log.pet_id, 
         log.metric_name, 
         metric_val_to_save, 
@@ -128,6 +122,7 @@ async def log_health_metric(log: schemas.HealthMetricLogCreate, current_owner_id
     )
     
     return {"status": "Logged", "analysis": analysis}
+
 
 @router.get("/latest")
 def get_latest_metric(pet_id: int, metric_name: str, current_owner_id: int = Depends(get_current_owner_id), db: Session = Depends(get_db)):
@@ -159,6 +154,7 @@ def get_latest_metric(pet_id: int, metric_name: str, current_owner_id: int = Dep
         "id": latest_log.health_metric_id if latest_log else None,
     }
 
+
 @router.post("/goal")
 def set_metric_goal(pet_id: int, metric_name: str, goal: str, current_owner_id: int = Depends(get_current_owner_id), db: Session = Depends(get_db)):
     pet = _require_pet_owner(pet_id, current_owner_id, db)
@@ -189,6 +185,7 @@ def set_metric_goal(pet_id: int, metric_name: str, goal: str, current_owner_id: 
     db.commit()
     return {"status": "success", "message": f"Goal updated for {metric_name}."}
 
+
 @router.delete("/all/{pet_id}/{metric_name}")
 def delete_all_entries(pet_id: int, metric_name: str, current_owner_id: int = Depends(get_current_owner_id), db: Session = Depends(get_db)):
     pet = _require_pet_owner(pet_id, current_owner_id, db)
@@ -204,6 +201,7 @@ def delete_all_entries(pet_id: int, metric_name: str, current_owner_id: int = De
     ).delete()
     db.commit()
     return {"status": "deleted"}
+
 
 @router.delete("/goal/{pet_id}/{metric_name}")
 def delete_metric_goal(pet_id: int, metric_name: str, current_owner_id: int = Depends(get_current_owner_id), db: Session = Depends(get_db)):
@@ -222,6 +220,7 @@ def delete_metric_goal(pet_id: int, metric_name: str, current_owner_id: int = De
         db.delete(goal)
         db.commit()
     return {"status": "deleted"}
+
 
 @router.put("/history/entry/{pet_id}/{metric_id}")
 def update_health_entry(pet_id: int, metric_id: int, update: schemas.HealthMetricUpdate, current_owner_id: int = Depends(get_current_owner_id), db: Session = Depends(get_db)):
@@ -253,9 +252,8 @@ def delete_health_entry(pet_id: int, metric_id: int, current_owner_id: int = Dep
     return {"status": "deleted"}
 
 @router.get("/history/{pet_id}")
-async def get_pet_history(pet_id: int, current_owner_id: int = Depends(get_current_owner_id), db: Session = Depends(get_db)):
+def get_pet_history(pet_id: int, current_owner_id: int = Depends(get_current_owner_id), db: Session = Depends(get_db)):
     _require_pet_owner(pet_id, current_owner_id, db)
-    # Join HealthMetric with MetricDefinition to get the name and unit
     history = db.query(
         HealthMetric.health_metric_id,
         HealthMetric.metric_value,
@@ -267,7 +265,6 @@ async def get_pet_history(pet_id: int, current_owner_id: int = Depends(get_curre
      .order_by(HealthMetric.metric_time.desc()) \
      .all()
 
-    # Format it for the Flutter list
     return [
         {
             "id": h.health_metric_id,

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import bcrypt
 from petsync_backend import models, schemas, database
 from petsync_backend.utils.auth_utils import get_current_owner_id
@@ -59,6 +59,7 @@ def create_owner(owner: schemas.OwnerCreate, db: Session = Depends(database.get_
     db.refresh(new_owner)
     return new_owner
 
+
 @router.get("/{owner_id}", response_model=schemas.OwnerResponse)
 def get_owner(owner_id: int, current_owner_id: int = Depends(get_current_owner_id), db: Session = Depends(database.get_db)):
     owner = db.query(models.Owner).filter(models.Owner.owner_id == owner_id).first()
@@ -85,7 +86,7 @@ def delete_owner(owner_id: int, current_owner_id: int = Depends(get_current_owne
             "scheduled_purge_at": purge_at.isoformat(),
         }
 
-    owner.deletion_requested_at = datetime.utcnow()
+    owner.deletion_requested_at = datetime.now(timezone.utc)
     db.commit()
     purge_at = owner.deletion_requested_at + timedelta(days=DELETION_GRACE_DAYS)
     return {
@@ -111,7 +112,7 @@ def cancel_deletion(owner_id: int, current_owner_id: int = Depends(get_current_o
 
 
 @router.put("/{owner_id}", response_model=schemas.OwnerResponse)
-async def update_owner(owner_id: int, owner_data: schemas.OwnerUpdate, current_owner_id: int = Depends(get_current_owner_id), db: Session = Depends(database.get_db)):
+def update_owner(owner_id: int, owner_data: schemas.OwnerUpdate, current_owner_id: int = Depends(get_current_owner_id), db: Session = Depends(database.get_db)):
     db_owner = db.query(models.Owner).filter(models.Owner.owner_id == owner_id).first()
     if not db_owner:
         raise HTTPException(status_code=404, detail="Owner not found")
