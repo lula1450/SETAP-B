@@ -946,10 +946,12 @@ class _MetricsPageState extends State<MetricsPage> with RouteAware {
 
   Future<void> _doClearCurrentValue(String title) async {
     final String entryId = _latestValues[title]?['id'] ?? '';
+    debugPrint('_doClearCurrentValue: latestValues[$title]=${_latestValues[title]}');
     final bool isCustom = _customMetricNames.contains(title);
     final String key = title.toLowerCase().replaceAll(' ', '_');
 
     bool success = false;
+    String failReason = '';
     if (isCustom) {
       final prefs = await SharedPreferences.getInstance();
       final histKey = 'custom_history_${widget.petId}_$key';
@@ -970,14 +972,29 @@ class _MetricsPageState extends State<MetricsPage> with RouteAware {
       success = true;
     } else if (entryId.isNotEmpty) {
       success = await _healthService.deleteEntry(widget.petId, int.parse(entryId));
+      if (!success) failReason = 'delete failed (id=$entryId)';
+    } else {
+      failReason = 'no entry id';
     }
+    debugPrint('_doClearCurrentValue: title=$title entryId=$entryId success=$success reason=$failReason');
 
     if (mounted) {
-      _refreshAllMetrics();
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(success ? 'Current value cleared.' : 'Could not clear value.'),
-        backgroundColor: success ? Colors.green.shade700 : Colors.red.shade400,
-      ));
+      if (success) {
+        setState(() {
+          _latestValues[title] = {
+            ...?_latestValues[title],
+            'value': '---',
+            'id': '',
+          };
+        });
+      }
+      await _refreshAllMetrics();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(success ? 'Current value cleared.' : 'Could not clear value.'),
+          backgroundColor: success ? Colors.green.shade700 : Colors.red.shade400,
+        ));
+      }
     }
   }
 
@@ -1007,11 +1024,21 @@ class _MetricsPageState extends State<MetricsPage> with RouteAware {
     }
 
     if (mounted) {
-      _refreshAllMetrics();
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(success ? 'Target cleared.' : 'Could not clear target.'),
-        backgroundColor: success ? Colors.green.shade700 : Colors.red.shade400,
-      ));
+      if (success) {
+        setState(() {
+          _latestValues[title] = {
+            ...?_latestValues[title],
+            'target': '',
+          };
+        });
+      }
+      await _refreshAllMetrics();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(success ? 'Target cleared.' : 'Could not clear target.'),
+          backgroundColor: success ? Colors.green.shade700 : Colors.red.shade400,
+        ));
+      }
     }
   }
 
