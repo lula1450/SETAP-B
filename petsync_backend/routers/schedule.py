@@ -57,8 +57,6 @@ def _require_owner_for_reminder(reminder_id: int, current_owner_id: int, db: Ses
     return reminder
 
 
-# --- CREATE ---
-
 @router.post("/appointments", status_code=status.HTTP_201_CREATED)
 def create_pet_appointment(
     appointment: schemas.AppointmentCreate,
@@ -71,6 +69,8 @@ def create_pet_appointment(
     except KeyError:
         freq = models.AppointmentReminderFrequency.once
 
+    # Build a list of date offsets so recurring appointments can be bulk-created
+    # in one request (4 weeks for weekly, 12 months for monthly, 1 for once/none).
     if freq == models.AppointmentReminderFrequency.weekly:
         deltas = [timedelta(weeks=i) for i in range(4)]
     elif freq == models.AppointmentReminderFrequency.monthly:
@@ -106,6 +106,7 @@ def create_pet_appointment(
             first_appointment = new_appointment
         all_appointments.append(new_appointment)
 
+    # Link recurring appointments together so they can be deleted as a series.
     series_id = first_appointment.pet_appointment_id if len(all_appointments) > 1 else None
     for appt in all_appointments:
         appt.series_id = series_id
@@ -143,8 +144,6 @@ def create_feeding_schedule(
     db.commit()
     return new_schedule
 
-
-# --- READ ---
 
 @router.get("/appointments/owner/{owner_id}")
 def get_all_owner_appointments(
@@ -185,7 +184,6 @@ def get_pending_reminders(
         raise HTTPException(status_code=403, detail="Forbidden")
     results = []
 
-    # Appointment reminders
     appt_rows = (
         db.query(models.Reminder, models.Pet)
         .join(models.PetAppointment,
@@ -208,7 +206,6 @@ def get_pending_reminders(
             appointment_id=reminder.pet_appointment_id,
         ))
 
-    # Feeding reminders
     feeding_rows = (
         db.query(models.Reminder, models.FeedingSchedule, models.Pet)
         .join(models.FeedingSchedule,
@@ -220,6 +217,8 @@ def get_pending_reminders(
     )
     for reminder, schedule, pet in feeding_rows:
         pet_name = pet.pet_first_name
+        # SQLite can return feeding_time as either a datetime or a time object
+        # depending on how the value was stored, so we handle both.
         ft = schedule.feeding_time
         hour = ft.hour if isinstance(ft, datetime) else getattr(ft, 'hour', reminder.reminder_datetime.hour)
         minute = ft.minute if isinstance(ft, datetime) else getattr(ft, 'minute', reminder.reminder_datetime.minute)
@@ -238,8 +237,6 @@ def get_pending_reminders(
 
     return results
 
-
-# --- UPDATE ---
 
 @router.put("/appointments/{appointment_id}")
 def update_pet_appointment(
@@ -282,8 +279,6 @@ def update_reminder_status(
     db.commit()
     return {"reminder_id": reminder_id, "status": update.status}
 
-
-# --- DELETE ---
 
 @router.delete("/appointments/series/{series_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_appointment_series(

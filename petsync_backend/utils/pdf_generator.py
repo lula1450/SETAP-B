@@ -1,6 +1,6 @@
-from reportlab.lib.pagesizes import letter
-from reportlab.pdfgen import canvas
-from io import BytesIO
+from reportlab.lib.pagesizes import letter # For standard letter size
+from reportlab.pdfgen import canvas # For PDF generation
+from io import BytesIO # For in-memory file handling
 
 def generate_health_pdf(pet_name, metric_name, analysis_data):
     buffer = BytesIO()
