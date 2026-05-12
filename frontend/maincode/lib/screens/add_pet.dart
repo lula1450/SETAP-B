@@ -1,3 +1,6 @@
+// This page allows users to register a new pet by entering its name(s) and selecting a species/breed.
+// On successful registration, it navigates to the dashboard with the newly created pet selected.
+
 import 'package:flutter/material.dart';
 import 'package:maincode/services/pet_service.dart';
 import 'package:maincode/screens/dashboard.dart'; // Ensure this path matches your project structure
@@ -33,6 +36,8 @@ class _AddPetPageState extends State<AddPetPage> {
     {'id': 12, 'name': 'Snake - Ball Python'},
   ];
 
+  /// Validates pet name, creates pet via PetService, and navigates to dashboard with the new pet selected
+  /// Clears the navigation stack to prevent back navigation to registration flow
   void _handleSave() async {
     // 1. Validation: Don't allow empty names
     if (_firstNameController.text.trim().isEmpty) {
@@ -44,7 +49,7 @@ class _AddPetPageState extends State<AddPetPage> {
 
     setState(() => _isLoading = true);
 
-    // 2. Call the service to save to FastAPI
+    // 2. Call the service to save to FastAPI backend
     final newPetId = await _petService.createPet(
       petFirstName: _firstNameController.text.trim(),
       petLastName: _lastNameController.text.trim(),
@@ -56,6 +61,7 @@ class _AddPetPageState extends State<AddPetPage> {
 
       if (newPetId != -1) {
         // 3. SUCCESS: Clear the navigation stack and go to Dashboard, selecting the new pet
+        // pushAndRemoveUntil ensures user can't navigate back to add pet flow
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (context) => DashboardPage(initialPetId: newPetId)),

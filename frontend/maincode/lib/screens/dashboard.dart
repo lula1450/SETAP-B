@@ -1,3 +1,7 @@
+// This page is the main hub displaying a selected pet's information, calendar of vet appointments,
+// daily health advice, and fun facts. Manages multi-pet navigation, appointment booking/editing,
+// onboarding hints for first-time users, and integration with notifications service.
+
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:maincode/screens/petinfo.dart';
@@ -95,6 +99,7 @@ class _DashboardPageState extends State<DashboardPage> with RouteAware {
     if (_pets.isNotEmpty) {
       final currentPet = _pets[_selectedPetIndex];
       setState(() {
+        // Get species-specific fun fact from FunFactService
         _dailyFact = _funFactService.getDailyFact(currentPet['species_id']);
       });
     }
@@ -106,21 +111,27 @@ class _DashboardPageState extends State<DashboardPage> with RouteAware {
       final petId = currentPet['pet_id'] as int;
       final breedId = currentPet['species_id'] as int;
       final prefs = await SharedPreferences.getInstance();
+      // Check if a metric was recently logged (format: "metric_name|value|target")
       final lastLogged = prefs.getString('last_logged_metric_$petId');
       String advice;
       if (lastLogged != null) {
+        // Parse last logged metric and provide contextual advice based on that metric
         final parts = lastLogged.split('|');
         final metricName = parts[0];
         final value = parts.length > 1 ? parts[1] : '';
         final target = parts.length > 2 ? parts[2] : '';
         advice = _adviceService.getAdviceForLastMetric(breedId, metricName, value, target);
       } else {
+        // No recent metric, show general breed-specific daily advice
         advice = _adviceService.getDailyAdvice(breedId);
       }
       if (mounted) setState(() => _dailyAdvice = advice);
     }
   }
 
+  /// Sequentially shows onboarding hints for dashboard features in order:
+  /// photo → metrics → appointment → advice → report → recently logged → health records → feeding → vet → settings → change pet
+  /// Each hint dismissal enables the next one and tracks state in SharedPreferences
   Future<void> _checkMetricsHint() async {
     final prefs = await SharedPreferences.getInstance();
     final show = prefs.getBool('show_metrics_hint') ?? false;
@@ -135,6 +146,7 @@ class _DashboardPageState extends State<DashboardPage> with RouteAware {
     _metricsHintEntry = null;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('show_metrics_hint');
+    // Enable next hint in sequence
     await prefs.setBool('show_appointment_hint', true);
     if (mounted) {
       setState(() => _showMetricsHint = false);
@@ -258,6 +270,8 @@ class _DashboardPageState extends State<DashboardPage> with RouteAware {
 
   // ── Shared hint helpers ───────────────────────────────────────────────────
 
+  /// Builds reusable hint overlay with bubble, arrow, and dismiss button
+  /// Positions bubble relative to a LayerLink target with customizable offset and arrow alignment
   OverlayEntry _buildHintOverlay({
     required LayerLink link,
     required String title,
@@ -327,9 +341,11 @@ class _DashboardPageState extends State<DashboardPage> with RouteAware {
     );
   }
 
+  /// Wraps widget in CompositedTransformTarget and adds yellow highlight glow if hint is active
   Widget _hintTarget({required Widget child, required LayerLink link, required bool active, double radius = 15}) {
     final core = CompositedTransformTarget(link: link, child: child);
     if (!active) return core;
+    // Highlight the target widget with yellow glow to draw user attention
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(radius),
@@ -990,7 +1006,7 @@ class _DashboardPageState extends State<DashboardPage> with RouteAware {
     final seriesId = appt['series_id'] as int?;
     final isRecurring = seriesId != null;
 
-    // 'result' is null (cancel), 'this', or 'series'
+    // Show dialog asking whether to delete single appointment or entire recurring series
     final String? result = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
@@ -1021,6 +1037,7 @@ class _DashboardPageState extends State<DashboardPage> with RouteAware {
     if (result == null) return;
 
     try {
+      // Delete from backend (either single appointment or entire series)
       if (result == 'series') {
         await _petService.deleteAppointmentSeries(seriesId!);
       } else {
@@ -1049,17 +1066,16 @@ class _DashboardPageState extends State<DashboardPage> with RouteAware {
       text: appt['appointment_notes'],
     );
 
-    // Parse existing date
+    // Parse existing appointment date and time
     DateTime appointmentDate = DateTime.parse(appt['pet_appointment_date']);
 
-    // Parse existing time (assuming format "HH:mm:ss")
     final parts = appt['pet_appointment_time'].split(':');
     TimeOfDay initialTime = TimeOfDay(
       hour: int.parse(parts[0]),
       minute: int.parse(parts[1]),
     );
 
-    // Pick new date
+    // Step 1: Pick new date
     final DateTime? pickedDate = await showDatePicker(
       context: context,
       initialDate: appointmentDate,
@@ -1070,7 +1086,7 @@ class _DashboardPageState extends State<DashboardPage> with RouteAware {
     if (pickedDate == null) return; // User cancelled date picker
     if (!mounted) return;
 
-    // Pick new time
+    // Step 2: Pick new time
     final TimeOfDay? pickedTime = await showTimePicker(
       context: context,
       initialTime: initialTime,
@@ -1091,6 +1107,7 @@ class _DashboardPageState extends State<DashboardPage> with RouteAware {
         pickedTime.minute,
       );
 
+      // Prevent scheduling appointments in the past
       if (selectedDateTime.isBefore(DateTime.now())) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Cannot update an appointment to a past date/time.")),
@@ -1098,6 +1115,7 @@ class _DashboardPageState extends State<DashboardPage> with RouteAware {
         return;
       }
 
+      // Step 3: Show notes editor dialog
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
@@ -1119,6 +1137,7 @@ class _DashboardPageState extends State<DashboardPage> with RouteAware {
                 backgroundColor: const Color(0xFF8BAEAE),
               ),
               onPressed: () async {
+                // Format date and time for backend
                 String dateStr = "${pickedDate.year}-${pickedDate.month.toString().padLeft(2, '0')}-${pickedDate.day.toString().padLeft(2, '0')}";
                 String timeStr = "${pickedTime.hour.toString().padLeft(2, '0')}:${pickedTime.minute.toString().padLeft(2, '0')}:00";
 
@@ -1152,6 +1171,8 @@ class _DashboardPageState extends State<DashboardPage> with RouteAware {
     }
   }
 
+  /// Opens dialog to set appointment reminder with customizable lead days (0/1/2/7 days before)
+  /// and notification time. Schedules both reminder and actual appointment notifications.
   Future<void> _setAppointmentReminder(dynamic appt) async {
     final messenger = ScaffoldMessenger.of(context);
     TimeOfDay initial = const TimeOfDay(hour: 9, minute: 0);
@@ -1160,7 +1181,8 @@ class _DashboardPageState extends State<DashboardPage> with RouteAware {
       initial = TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
     }
 
-    int initialLeadDays = 1; // default: 1 day before
+    // Default lead days: 1 day before (except "Once" recurring type = 0)
+    int initialLeadDays = 1;
     if (appt['lead_days'] != null) {
       initialLeadDays = appt['lead_days'] as int;
     } else if (appt['repeat_type'] == 'Once') {
@@ -1185,7 +1207,7 @@ class _DashboardPageState extends State<DashboardPage> with RouteAware {
         appt['lead_days'] = result['lead_days'];
       });
 
-      // Save reminder to SharedPreferences for sync with notifications page
+      // Save reminder settings to SharedPreferences for persistence and sync with notifications page
       final prefs = await SharedPreferences.getInstance();
       final appointmentId = appt['pet_appointment_id'];
       await prefs.setString(
@@ -1202,7 +1224,7 @@ class _DashboardPageState extends State<DashboardPage> with RouteAware {
       // Schedule notifications for both reminder and actual appointment time
       final notifService = NotificationService();
       
-      // Schedule reminder notification
+      // Schedule reminder notification (fires at lead_days before appointment)
       final reminderParts = (result['time'] as String).split(':');
       final reminderDateParts = (result['date'] as String).split('-');
       final reminderDateTime = DateTime(
@@ -1219,7 +1241,7 @@ class _DashboardPageState extends State<DashboardPage> with RouteAware {
         dateTime: reminderDateTime,
       );
 
-      // Schedule actual appointment notification
+      // Schedule actual appointment notification (fires at appointment time)
       final apptTimeParts = (appt['pet_appointment_time'] as String).split(':');
       final apptDateParts = (appt['pet_appointment_date'] as String).split('-');
       final apptDateTime = DateTime(
@@ -1282,6 +1304,8 @@ class _DashboardPageState extends State<DashboardPage> with RouteAware {
     }
   }
 
+  /// Renames a pet and syncs the new name to SharedPreferences so it's immediately
+  /// reflected across all screens (metrics, reports, etc.) that read from prefs.
   void _renamePetDialog(Map<String, dynamic> pet) async {
     _dismissAllOverlays();
     final firstNameController = TextEditingController(text: pet['pet_first_name'] ?? '');
@@ -1439,6 +1463,8 @@ class _DashboardPageState extends State<DashboardPage> with RouteAware {
 
   // --- LOGIC FUNCTIONS ---
 
+  /// Fetches all pets for the current owner from backend and manages pet selection.
+  /// If no pets exist, automatically navigates to AddPetPage. Triggers initial data loads and hint checks.
   Future<void> _fetchPets() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -1447,6 +1473,7 @@ class _DashboardPageState extends State<DashboardPage> with RouteAware {
 
       if (mounted) {
         if (data.isEmpty) {
+          // No pets yet, guide user to add their first pet
           final navigator = Navigator.of(context);
           Future.delayed(Duration.zero, () {
             navigator.push(
@@ -1459,6 +1486,7 @@ class _DashboardPageState extends State<DashboardPage> with RouteAware {
             _isLoading = false;
 
             if (_pets.isNotEmpty) {
+              // Set selected pet: prefer initialPetId if provided, else default to first
               if (widget.initialPetId != null) {
                 final idx = _pets.indexWhere((p) => p['pet_id'] == widget.initialPetId);
                 if (idx != -1) _selectedPetIndex = idx;
@@ -1469,6 +1497,7 @@ class _DashboardPageState extends State<DashboardPage> with RouteAware {
           });
           _fetchAppointments();
           _fetchVetContacts();
+          // Check all onboarding hints in sequence
           _checkPhotoHint();
           _checkMetricsHint();
           _checkAppointmentHint();
@@ -1506,10 +1535,13 @@ class _DashboardPageState extends State<DashboardPage> with RouteAware {
     }
   }
 
+  /// Fetches all appointments for owner's pets from backend and loads reminder settings from SharedPreferences.
+  /// Reconstructs reminder state by merging backend data with locally saved reminder configs.
   Future<void> _fetchAppointments() async {
     final prefs = await SharedPreferences.getInstance();
     final int ownerId = prefs.getInt('owner_id') ?? 0;
     final appts = await _petService.getAllAppointments(ownerId);
+    // Merge reminder settings from SharedPreferences with backend appointment data
     for (var a in appts) {
       final saved = prefs.getString('reminder_${a['pet_appointment_id']}');
       if (saved != null) {

@@ -1,3 +1,7 @@
+// This page displays and manages pet health metrics with support for logging current values,
+// setting targets, and creating custom metrics. Handles unit conversions (ml/L, mins/hrs, kg/g)
+// and alerts users when values deviate significantly from targets.
+
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -64,6 +68,7 @@ class _MetricsPageState extends State<MetricsPage> with RouteAware {
     _loadMetricsThenRefresh();
   }
 
+  /// Syncs the pet name from SharedPreferences in case it was updated on another screen
   Future<void> _syncPetName() async {
     final prefs = await SharedPreferences.getInstance();
     final updatedName = prefs.getString('pet_name_${widget.petId}');
@@ -94,6 +99,8 @@ class _MetricsPageState extends State<MetricsPage> with RouteAware {
     _refreshAllMetrics();
   }
 
+  /// Loads metrics from backend and custom metrics from SharedPreferences, filtering hidden ones
+  /// and refreshes all metric values. Merges backend metrics with user-created custom metrics.
   Future<void> _loadMetricsThenRefresh() async {
     final fetched = await _healthService.getAvailableMetrics(widget.petId);
     final prefs = await SharedPreferences.getInstance();
@@ -121,11 +128,15 @@ class _MetricsPageState extends State<MetricsPage> with RouteAware {
     }
   }
 
+  /// Removes a metric from the tracking list. For custom metrics, deletes from SharedPreferences
+  /// and clears all associated data (current value, target, history). For backend metrics,
+  /// adds to hidden list to filter them from display without deleting backend data.
   Future<void> _removeMetric(String name) async {
     final prefs = await SharedPreferences.getInstance();
     final custom = prefs.getStringList('custom_metrics_${widget.petId}') ?? [];
 
     if (custom.contains(name)) {
+      // Remove custom metric and all its stored data
       custom.remove(name);
       await prefs.setStringList('custom_metrics_${widget.petId}', custom);
       final updatedUnits = Map<String, String>.from(_customUnits)..remove(name);
@@ -149,6 +160,7 @@ class _MetricsPageState extends State<MetricsPage> with RouteAware {
         _customMetricNames.remove(name);
       });
     } else {
+      // For backend metrics, just add to hidden list
       final hidden = prefs.getStringList('hidden_metrics_${widget.petId}') ?? [];
       if (!hidden.contains(name)) {
         hidden.add(name);
@@ -165,6 +177,8 @@ class _MetricsPageState extends State<MetricsPage> with RouteAware {
     _saveFavorites();
   }
 
+  /// Displays dialog to add a new custom metric with name and unit selection
+  /// Validates against duplicates and stores in SharedPreferences
   Future<void> _addCustomMetric() async {
     final nameController = TextEditingController();
     const unitOptions = ["kg", "ml", "mins", "hrs", "%", "/5", "count", "none"];
@@ -305,14 +319,19 @@ class _MetricsPageState extends State<MetricsPage> with RouteAware {
     return backendName.split('_').map((w) => w[0].toUpperCase() + w.substring(1)).join(' ');
   }
 
-  // --- NEW: UNIT MAPPING LOGIC ---
+  /// Returns the unit string for display based on metric type and user's selected display preference
+  /// Handles unit conversions (ml/L, mins/hrs, kg/g) and static unit metrics (/5 scales, x/day counts)
   String _getUnitForMetric(String metricName) {
     final name = metricName.toLowerCase().trim();
     switch (name) {
+      // Weight has toggleable units: kg or g
       case "weight":           return _displayUnits[metricName] == 'g' ? 'g' : 'kg';
+      // Water intake has toggleable units: ml/day or L/day
       case "water intake":     return _displayUnits[metricName] == 'L' ? 'L/day' : 'ml/day';
+      // Time-based metrics: mins/day or hrs/day
       case "basking time":
       case "wheel activity":   return _displayUnits[metricName] == 'hrs' ? 'hrs/day' : 'mins/day';
+      // Fixed unit metrics for specific species
       case "humidity level":   return "%";
       case "litter box usage": return "x/day";
       case "vomit events":     return "x/day";
@@ -327,8 +346,10 @@ class _MetricsPageState extends State<MetricsPage> with RouteAware {
       case "shedding quality": return "/5";
       case "chewing behaviour": return "/5";
       default: {
+        // Custom metrics use their user-defined units
         final customUnit = _customUnits[metricName];
         if (customUnit == null || customUnit == 'none') return '';
+        // For custom mins metrics, allow hrs toggle like backend metrics
         if (customUnit == 'mins') return _displayUnits[metricName] == 'hrs' ? 'hrs/day' : 'mins';
         return customUnit;
       }
@@ -368,12 +389,15 @@ class _MetricsPageState extends State<MetricsPage> with RouteAware {
     return _getUnitForMetric(title);
   }
 
+  /// Checks if logged value deviates significantly (>15%) from target and shows warning dialog
+  /// Helpful for alerting users to potential health issues that need veterinary attention
   void _checkAndWarnDeviation(BuildContext ctx, String title, String enteredValue, String targetValue) async {
     final current = double.tryParse(enteredValue);
     final target = double.tryParse(targetValue);
     if (current == null || target == null || target == 0) return;
 
     final deviation = (current - target).abs() / target;
+    // Only warn if deviation exceeds 15% threshold but is not unreasonably large (>500%)
     if (deviation <= 0.15 || deviation > 5.0) return;
 
     final targetUnit = _targetDisplayUnit(title);
@@ -402,11 +426,14 @@ class _MetricsPageState extends State<MetricsPage> with RouteAware {
     );
   }
 
+  /// Refreshes all metric values by fetching latest data from backend (for backend metrics)
+  /// or SharedPreferences (for custom metrics), including current values, targets, and timestamps
   Future<void> _refreshAllMetrics() async {
     setState(() => _latestValues = {});
     final prefs = await SharedPreferences.getInstance();
     for (var metric in _metrics) {
       if (_customMetricNames.contains(metric)) {
+        // Fetch custom metric from SharedPreferences
         final key = metric.toLowerCase().replaceAll(" ", "_");
         final value = prefs.getString('custom_current_${widget.petId}_$key') ?? '---';
         final target = prefs.getString('custom_target_${widget.petId}_$key') ?? '';
@@ -418,6 +445,7 @@ class _MetricsPageState extends State<MetricsPage> with RouteAware {
         } catch (_) {}
         if (mounted) setState(() => _latestValues[metric] = {'value': value, 'target': target, 'time': time});
       } else {
+        // Fetch backend metric from health service
         final backendName = metric.toLowerCase().replaceAll(" ", "_");
         final data = await _healthService.getLatestMetricData(widget.petId, backendName);
         if (mounted) setState(() => _latestValues[metric] = data);
@@ -970,8 +998,11 @@ class _MetricsPageState extends State<MetricsPage> with RouteAware {
     }
   }
 
+  /// Converts raw metric values to display format based on unit type
+  /// Handles conversions: ml↔L (÷1000), mins↔hrs (÷60), kg↔g (×1000)
   String _toDisplayValue(String rawValue, String unit) {
     if (rawValue.isEmpty || rawValue == '---' || rawValue == '...') return rawValue;
+    // Convert ml to L for display
     if (unit == 'L/day' || unit == 'L') {
       final v = double.tryParse(rawValue);
       if (v != null) {
@@ -981,6 +1012,7 @@ class _MetricsPageState extends State<MetricsPage> with RouteAware {
             : litres.toStringAsFixed(litres < 0.1 ? 3 : 2);
       }
     }
+    // Convert mins to hrs for display
     if (unit == 'hrs/day') {
       final v = double.tryParse(rawValue);
       if (v != null) {
@@ -990,6 +1022,7 @@ class _MetricsPageState extends State<MetricsPage> with RouteAware {
             : hours.toStringAsFixed(hours < 0.1 ? 3 : 2);
       }
     }
+    // Convert kg to g for display
     if (unit == 'g') {
       final v = double.tryParse(rawValue);
       if (v != null) {
@@ -1000,12 +1033,16 @@ class _MetricsPageState extends State<MetricsPage> with RouteAware {
     return rawValue;
   }
 
+  /// Determines status color based on deviation from target (green = within 15%, red = exceeds 15%)
+  /// Returns transparent if no target set to avoid color rendering for comparison
   Color _getStatusColor(String current, String target) {
     if (current == "---" || target.isEmpty) return Colors.transparent;
     try {
+      // Extract numeric values, ignoring unit suffixes
       double c = double.parse(current.replaceAll(RegExp(r'[^0-9\.]'), ''));
       double t = double.parse(target.replaceAll(RegExp(r'[^0-9\.]'), ''));
       if (t == 0) return Colors.transparent;
+      // Calculate percentage deviation: |current - target| / target
       double diff = (c - t).abs() / t;
 
       if (diff > 0.15) return Colors.red;

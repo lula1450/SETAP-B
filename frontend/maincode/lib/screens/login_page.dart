@@ -1,3 +1,6 @@
+// This page handles user authentication and login. On successful login, it syncs reminders,
+// clears all onboarding hints, and navigates to the dashboard.
+
 import 'package:flutter/material.dart';
 import 'package:maincode/screens/register.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -19,6 +22,8 @@ class _LoginPageState extends State<LoginPage> {
   bool _isLoading = false;
   bool _obscurePassword = true;
 
+  /// Validates email and password, authenticates with backend, syncs reminders,
+  /// clears all onboarding hints from SharedPreferences, and navigates to dashboard on success
   void _handleLogin() async {
     if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -39,10 +44,12 @@ class _LoginPageState extends State<LoginPage> {
       if (success) {
         final navigator = Navigator.of(context);
         final prefs = await SharedPreferences.getInstance();
+        // Sync reminders to this device using owner_id stored in SharedPreferences
         final ownerId = prefs.getInt('owner_id');
         if (ownerId != null) {
           ReminderSyncService().syncReminders(ownerId);
         }
+        // Clear all onboarding hint flags so users see hints on first feature use
         await prefs.remove('show_photo_hint');
         await prefs.remove('show_metrics_hint');
         await prefs.remove('show_appointment_hint');
