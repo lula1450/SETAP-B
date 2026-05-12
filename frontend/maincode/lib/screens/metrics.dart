@@ -675,12 +675,12 @@ class _MetricsPageState extends State<MetricsPage> with RouteAware {
                 ? const Padding(padding: EdgeInsets.all(8.0), child: CircularProgressIndicator())
                 : ElevatedButton(
                     onPressed: () async {
-                      if (valueController.text.isEmpty && goalController.text.isEmpty) return;
+                      if (valueController.text.isEmpty && goalController.text.isEmpty && !isScale) return;
                       setDialogState(() => isLogging = true);
                       String backendName = title.toLowerCase().replaceAll(" ", "_");
 
-                      String resolvedValue = valueController.text;
-                      String resolvedGoal = goalController.text;
+                      String resolvedValue = (isScale && showValue) ? sliderVal.round().toString() : valueController.text;
+                      String resolvedGoal = (isScale && showTarget) ? goalSliderVal.round().toString() : goalController.text;
                       if (isWaterIntake && unitToggle == 'L') {
                         final v = double.tryParse(valueController.text);
                         if (v != null) resolvedValue = (v * 1000).toStringAsFixed(0);
@@ -732,6 +732,14 @@ class _MetricsPageState extends State<MetricsPage> with RouteAware {
                               metricName: backendName,
                               value: resolvedValue,
                             );
+                            if (mounted) {
+                              setState(() {
+                                _latestValues[title] = {
+                                  ...?_latestValues[title],
+                                  'value': resolvedValue,
+                                };
+                              });
+                            }
                           }
                           if (resolvedGoal.isNotEmpty) {
                             await _healthService.syncGoalToBackend(
@@ -739,6 +747,14 @@ class _MetricsPageState extends State<MetricsPage> with RouteAware {
                               backendName,
                               resolvedGoal,
                             );
+                            if (mounted) {
+                              setState(() {
+                                _latestValues[title] = {
+                                  ...?_latestValues[title],
+                                  'target': resolvedGoal,
+                                };
+                              });
+                            }
                           }
                         }
                         if (!mounted) return;
@@ -761,7 +777,8 @@ class _MetricsPageState extends State<MetricsPage> with RouteAware {
                           }
                         }
                         if (!mounted) return;
-                        _refreshAllMetrics();
+                        await _refreshAllMetrics();
+                        if (!mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(content: Text("Updated $title successfully!"), backgroundColor: Colors.green.shade700),
                         );
@@ -774,7 +791,7 @@ class _MetricsPageState extends State<MetricsPage> with RouteAware {
                         final valueForDeviation = resolvedValue.isNotEmpty
                             ? resolvedValue
                             : existingValue;
-                        if (valueForDeviation.isNotEmpty && valueForDeviation != '---' && effectiveTarget.isNotEmpty && mounted) {
+                        if (valueForDeviation.isNotEmpty && valueForDeviation != '---' && effectiveTarget.isNotEmpty && !_noTargetMetrics.contains(title) && mounted) {
                           _checkAndWarnDeviation(context, title, valueForDeviation, effectiveTarget);
                         }
                       } catch (e) {
