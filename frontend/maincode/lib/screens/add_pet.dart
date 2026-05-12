@@ -46,9 +46,9 @@ class _AddPetPageState extends State<AddPetPage> {
 
     // 2. Call the service to save to FastAPI
     final newPetId = await _petService.createPet(
-      pet_first_name: _firstNameController.text.trim(),
-      pet_last_name: _lastNameController.text.trim(),
-      species_id: _selectedSpeciesId,
+      petFirstName: _firstNameController.text.trim(),
+      petLastName: _lastNameController.text.trim(),
+      speciesId: _selectedSpeciesId,
     );
 
     if (mounted) {

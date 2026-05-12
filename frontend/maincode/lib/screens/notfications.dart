@@ -853,6 +853,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                                   icon: const Icon(Icons.close, size: 18),
                                   onPressed: () async {
                                     final prefs = await SharedPreferences.getInstance();
+                                    if (!mounted) return;
                                     showDialog(
                                       context: context,
                                       builder: (ctx) => AlertDialog(
@@ -865,10 +866,11 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                                           ),
                                           FilledButton(
                                             onPressed: () async {
+                                              final navigator = Navigator.of(ctx);
                                               final hidden = prefs.getStringList('hidden_metrics_${pet['pet_id']}') ?? [];
                                               hidden.add(m['name'] as String);
                                               await prefs.setStringList('hidden_metrics_${pet['pet_id']}', hidden);
-                                              
+
                                               // Cancel notification if it's enabled
                                               if (metricEnabled) {
                                                 final metricName = m['name'] as String;
@@ -876,11 +878,11 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                                                 final notifId = NotificationService.metricsId(petId) + metricName.hashCode;
                                                 _notif.cancel(notifId);
                                               }
-                                              
+
                                               setState(() {
                                                 metrics.removeWhere((metric) => metric['name'] == m['name']);
                                               });
-                                              Navigator.pop(ctx);
+                                              navigator.pop();
                                             },
                                             child: const Text('Hide'),
                                           ),
@@ -939,21 +941,24 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                                           context: context,
                                           builder: (ctx) => AlertDialog(
                                             title: const Text('Repeat Frequency'),
-                                            content: Column(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: options.map((opt) => RadioListTile(
-                                                title: Text(opt.label),
-                                                value: opt.value,
-                                                groupValue: m['repeatHours'] as int,
-                                                onChanged: (v) {
-                                                  setState(() => m['repeatHours'] = v!);
-                                                  _saveSettings();
-                                                  if (_metrics && petEnabled) {
-                                                    _scheduleMetricsPet(pet);
-                                                  }
-                                                  Navigator.pop(ctx);
-                                                },
-                                              )).toList(),
+                                            content: RadioGroup<int>(
+                                              groupValue: m['repeatHours'] as int,
+                                              onChanged: (v) {
+                                                if (v == null) return;
+                                                setState(() => m['repeatHours'] = v);
+                                                _saveSettings();
+                                                if (_metrics && petEnabled) {
+                                                  _scheduleMetricsPet(pet);
+                                                }
+                                                Navigator.pop(ctx);
+                                              },
+                                              child: Column(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: options.map((opt) => RadioListTile<int>(
+                                                  title: Text(opt.label),
+                                                  value: opt.value,
+                                                )).toList(),
+                                              ),
                                             ),
                                           ),
                                         );

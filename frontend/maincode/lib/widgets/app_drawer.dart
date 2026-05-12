@@ -47,9 +47,9 @@ class AppDrawer extends StatelessWidget {
                     '${parsed.year}';
               }
 
-              if (navigator.context.mounted) {
+              if (context.mounted) {
                 showDialog(
-                  context: navigator.context,
+                  context: context,
                   barrierDismissible: false,
                   builder: (ctx2) => AlertDialog(
                     title: const Text("Deletion Scheduled"),

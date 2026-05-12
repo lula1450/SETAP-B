@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart';
 import 'package:maincode/services/pet_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:maincode/widgets/app_drawer.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:printing/printing.dart';
@@ -36,7 +35,7 @@ const _kPetColors = [
 class _ReportHistoryPageState extends State<ReportHistoryPage> {
   final PetService _service = PetService();
   List<dynamic> _pets = [];
-  Map<int, List<dynamic>> _reportsByPet = {};
+  final Map<int, List<dynamic>> _reportsByPet = {};
   int? _selectedPetId;
   bool _isLoading = true;
   String _filterFrequency = "all"; // all, weekly, monthly, custom

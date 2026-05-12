@@ -31,9 +31,9 @@ class PetService {
 
   // --- 2. CREATE PET ---
   Future<int> createPet({
-    required String pet_first_name,
-    required String pet_last_name,
-    required int species_id,
+    required String petFirstName,
+    required String petLastName,
+    required int speciesId,
   }) async {
     final prefs = await SharedPreferences.getInstance();
     final int? ownerId = prefs.getInt('owner_id');
@@ -49,9 +49,9 @@ class PetService {
         Uri.parse("$baseUrl/pets/create"),
         headers: headers,
         body: jsonEncode({
-          "pet_first_name": pet_first_name,
-          "pet_last_name": pet_last_name,
-          "species_id": species_id,
+          "pet_first_name": petFirstName,
+          "pet_last_name": petLastName,
+          "species_id": speciesId,
           "owner_id": ownerId,
           "pet_address1": "Local",
           "pet_postcode": "00000",
