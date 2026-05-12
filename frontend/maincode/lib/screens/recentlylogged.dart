@@ -1,3 +1,7 @@
+// This page displays recently logged health data for a specific pet.
+// It combines backend data and custom metrics from SharedPreferences, supports
+// searching, editing, and deleting entries with platform-specific handling.
+
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -32,6 +36,7 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
   String _searchQuery = '';
   late String _currentPetName; // Track the current pet name
 
+  // Getter for filtered logs based on search query
   List<Map<String, dynamic>> get _filteredLogs {
     if (_searchQuery.isEmpty) return _loadedLogs;
     final q = _searchQuery.toLowerCase();
@@ -41,6 +46,7 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
           ? (log['display'] as String? ?? (log['metric'] as String).replaceAll('_', ' '))
           : (log['metric'] as String).replaceAll('_', ' ');
       final time = log['time']?.toString() ?? '';
+      // Match search query against metric name or timestamp
       return displayName.toLowerCase().contains(q) || time.toLowerCase().contains(q);
     }).toList();
   }
@@ -71,6 +77,7 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
     }
   }
 
+  /// Syncs the pet name from SharedPreferences to reflect any changes made on other screens
   Future<void> _syncPetName() async {
     final prefs = await SharedPreferences.getInstance();
     final updatedName = prefs.getString('pet_name_${widget.petId}');
@@ -94,6 +101,8 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
     });
   }
 
+  /// Loads all health history from backend and custom metrics from SharedPreferences
+  /// Combines both sources, filters hidden metrics, and sorts by most recent first
   Future<List<Map<String, dynamic>>> _loadAllHistory() async {
     final prefs = await SharedPreferences.getInstance();
     final List<Map<String, dynamic>> all = [];
@@ -131,11 +140,13 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
       } catch (_) {}
     }
 
+    // Sort by most recent first
     all.sort((a, b) => _parseTime(b['time']?.toString() ?? '').compareTo(
                         _parseTime(a['time']?.toString() ?? '')));
     return all;
   }
 
+  /// Parses custom time format: "DD Mon, HH:MM" (e.g., "15 Jan, 14:30")
   DateTime _parseTime(String t) {
     const months = {
       'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4, 'May': 5, 'Jun': 6,
@@ -154,6 +165,7 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
     }
   }
 
+  /// Deletes a log entry with routing logic for custom vs backend logs
   Future<void> _deleteLog(Map<String, dynamic> log, int index) async {
     setState(() => _loadedLogs.removeAt(index));
 
@@ -162,8 +174,10 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
     if (isCustom) {
       success = await _deleteCustomLog(log);
     } else if (log['id'] != null) {
+      // Log has backend ID, use API
       success = await _service.deleteHealthLog(widget.petId, log['id'] as int);
     } else {
+      // Fallback: log stored locally without ID
       success = await _deleteLocalStandardLog(log);
     }
 
@@ -198,6 +212,8 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
     }
   }
 
+  /// Deletes a custom metric log entry from SharedPreferences
+  /// Also updates the custom_current value if entries remain
   Future<bool> _deleteCustomLog(Map<String, dynamic> log) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -210,6 +226,7 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
       );
 
       final initialLength = entries.length;
+      // Remove entry matching time, value, and metric
       entries.removeWhere((e) =>
           e['time'] == log['time'] &&
           e['value'].toString() == log['value'].toString() &&
@@ -218,6 +235,7 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
       if (entries.length < initialLength) {
         await prefs.setString(histKey, jsonEncode(entries));
 
+        // Update or clear the current value
         if (entries.isEmpty) {
           await prefs.remove('custom_current_${widget.petId}_$metric');
         } else {
@@ -379,6 +397,7 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
     );
   }
 
+  /// Edits a custom metric log entry in SharedPreferences and updates current value
   Future<bool> _editCustomLog(Map<String, dynamic> log, dynamic newValue) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -392,6 +411,7 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
       final targetTime = log['time']?.toString() ?? '';
       final targetValue = log['value']?.toString() ?? '';
 
+      // Find the entry by time and original value
       int foundIndex = -1;
       for (int i = 0; i < entries.length; i++) {
         if (entries[i]['time']?.toString() == targetTime &&
@@ -403,6 +423,7 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
 
       if (foundIndex == -1) return false;
 
+      // Update the entry with new value
       entries[foundIndex] = {
         ...entries[foundIndex],
         'value': newValue.toString(),
@@ -410,7 +431,7 @@ class _RecentlyLoggedDataPageState extends State<RecentlyLoggedDataPage> {
 
       await prefs.setString(histKey, jsonEncode(entries));
 
-      // Update custom_current if the edited entry is the most recent
+      // Update custom_current to reflect the most recent value
       final sorted = List<Map<String, dynamic>>.from(entries)
         ..sort((a, b) => (b['time'] ?? '').toString().compareTo((a['time'] ?? '').toString()));
       if (sorted.isNotEmpty) {

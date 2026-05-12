@@ -30,6 +30,7 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 
   void _handleRegister() async {
+    // Validate required fields
     if (_firstNameController.text.isEmpty ||
         _emailController.text.isEmpty ||
         _passwordController.text.isEmpty) {
@@ -41,6 +42,7 @@ class _RegisterPageState extends State<RegisterPage> {
 
     setState(() => _isLoading = true);
 
+    // Attempt registration with trimmed input
     final success = await _authService.signUp(
       firstName: _firstNameController.text.trim(),
       lastName: _lastNameController.text.trim(),
@@ -52,6 +54,7 @@ class _RegisterPageState extends State<RegisterPage> {
       setState(() => _isLoading = false);
 
       if (success) {
+        // Set photo hint flag and navigate to pet setup
         final prefs = await SharedPreferences.getInstance();
         await prefs.setBool('show_photo_hint', true);
         if (!mounted) return;

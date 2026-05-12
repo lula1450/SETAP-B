@@ -1,3 +1,7 @@
+// This page displays comprehensive pet information and care guidelines.
+// It fetches species data from PetInfoService and presents it with expandable
+// information cards covering breed info, care tips, diet, health issues, etc.
+
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/pet_info_service.dart';
@@ -10,8 +14,10 @@ class PetInfoPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Fetch pet information from service based on species ID
     final petInfo = PetInfoService().getPetInfo(speciesId);
 
+    // Map section titles to their respective icons for consistent UI
     final Map<String, IconData> cardIcons = {
       "Breed Info": Icons.pets,
       "Care Tips": Icons.health_and_safety,
@@ -103,6 +109,7 @@ class PetInfoPage extends StatelessWidget {
               const SizedBox(height: 16),
               GestureDetector(
                 onTap: () async {
+                  // Launch external help guide URL in browser
                   final Uri url = Uri.parse(petInfo["helpUrl"]);
                   await launchUrl(url, mode: LaunchMode.externalApplication);
                 },
@@ -135,6 +142,8 @@ class PetInfoPage extends StatelessWidget {
     );
   }
 
+  /// Builds an expandable info button that shows details in a dialog when tapped
+  /// Displays items from petInfo as a bulleted list with section-specific icon
   Widget _buildInfoButton(String title, List items, Map<String, IconData> icons, BuildContext context) {
     return FilledButton.icon(
       onPressed: () {
@@ -152,6 +161,7 @@ class PetInfoPage extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
+                // Convert each item into a bulleted list entry
                 children: items.map<Widget>((item) => Padding(
                   padding: const EdgeInsets.symmetric(vertical: 6),
                   child: Text(

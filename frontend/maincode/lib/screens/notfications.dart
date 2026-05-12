@@ -1,3 +1,7 @@
+// This page manages all notification settings for the user's pets.
+// It handles appointment reminders, feeding schedules, metric logging reminders,
+// and daily pet care advice. Integrates with local scheduling and SharedPreferences persistence.
+
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -56,8 +60,10 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
   }
 
   Future<void> _initAll() async {
+    // Load all notification preferences, appointments, and pets in parallel
     await _loadSettings();
     await Future.wait([_loadAppointments(), _loadPets()]);
+    // Apply all loaded settings to schedule notifications
     _rescheduleAll();
   }
 
@@ -74,6 +80,8 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
     });
   }
 
+  /// Loads all pets and their notification settings from backend and SharedPreferences
+  /// Merges backend feeding schedules with local edits, loads metrics and advice preferences
   Future<void> _loadPets() async {
     final prefs = await SharedPreferences.getInstance();
     final ownerId = prefs.getInt('owner_id') ?? 0;
@@ -81,6 +89,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
 
     final deletedFeedingIds = prefs.getStringList('deleted_feeding_ids') ?? [];
 
+    // Parse local feeding schedule edits from SharedPreferences
     final Map<int, Map<String, Map<String, dynamic>>> localEvents = {};
     final localJson = prefs.getString('offline_feeding_schedule');
     if (localJson != null) {
@@ -111,7 +120,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
   final int id = pet['pet_id'] as int;
   List<Map<String, dynamic>> timeSlots = [];
 
-  // Step 1: load backend schedules as base
+  // Step 1: Load backend schedules as base
   final Map<String, Map<String, dynamic>> merged = {};
   try {
     final schedules = await _petService.getFeedingSchedules(id);
@@ -148,7 +157,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
     debugPrint('Feeding fetch failed: $e');
   }
 
-  // Step 2: overlay local edits — local time wins for same baseId, new local-only entries added
+  // Step 2: Overlay local edits — local time wins for same baseId
   if (localEvents.containsKey(id)) {
     for (var entry in localEvents[id]!.entries) {
       merged[entry.key] = {
@@ -182,6 +191,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
       pet['times'] = timeSlots;
       pet['reminder_enabled'] = prefs.getBool('feeding_notif_$id') ?? _feeding;
 
+      // Load available metrics, filtering hidden ones
       final hidden = prefs.getStringList('hidden_metrics_$id') ?? [];
       final custom = prefs.getStringList('custom_metrics_$id') ?? [];
       List<String> allMetrics = [];
@@ -193,6 +203,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
       }
       allMetrics.removeWhere((m) => hidden.contains(m));
 
+      // Build metric notification settings for each available metric
       pet['metrics'] = allMetrics.map((name) {
         final key = 'metrics_notif_${id}_${name.toLowerCase().replaceAll(' ', '_')}';
         final metricKey = 'metric_${id}_${name.toLowerCase().replaceAll(' ', '_')}';
@@ -270,6 +281,8 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
     _notif.cancel(NotificationService.feedingId(pet['pet_id'] as int, slot['time'] as String));
   }
 
+  /// Changes feeding time and updates both notification schedule and SharedPreferences
+  /// Handles removal of old time slot and creation of new entries with correct weekday mapping
   Future<void> _changeFeedingTime(dynamic pet, dynamic slot, TimeOfDay newTime) async {
   final prefs = await SharedPreferences.getInstance();
   final int petId = pet['pet_id'] as int;
@@ -298,7 +311,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
     return itemBaseId == baseId;
   });
 
-  // 4. Add the NEW entries
+  // 4. Add the NEW entries with updated time
   if (repeatDaily) {
     for (int d = 0; d < 7; d++) {
       entries.add({
@@ -345,6 +358,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
     slot['key'] = newKey;
   });
 
+  // Reschedule notification with new time if enabled
   if (_feeding &&
       (pet['reminder_enabled'] as bool? ?? true) &&
       (slot['enabled'] as bool? ?? true)) {
@@ -352,6 +366,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
   }
 }
 
+  /// Schedules metric logging reminders for a pet with support for daily or repeating intervals
   void _scheduleMetricsPet(dynamic pet) {
     final metrics = (pet['metrics'] as List? ?? []);
     
@@ -435,6 +450,8 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
     _notif.cancel(NotificationService.appointmentNotifId(appt['pet_appointment_id'] as int));
   }
 
+  /// Reschedules all notifications based on current state (appointments, feeding, metrics, advice)
+  /// Handles enabling/disabling for each pet and notification type
   void _rescheduleAll() {
     for (var pet in _petsList) {
       final petFeedingOn = _feeding && (pet['reminder_enabled'] as bool? ?? true);
@@ -446,6 +463,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
         }
       }
 
+      // Handle metrics notifications
       if (_metrics && (pet['metrics_enabled'] as bool? ?? true)) {
         _scheduleMetricsPet(pet);
       } else {
@@ -459,6 +477,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
         }
       }
 
+      // Handle advice notifications
       if (_advice && (pet['advice_enabled'] as bool? ?? true)) {
         _scheduleAdvicePet(pet);
       } else {
@@ -466,6 +485,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
       }
     }
 
+    // Handle appointment notifications
     for (var appt in _appointmentsList) {
       if (_appointments && (appt['reminder_enabled'] as bool? ?? false)) {
         _scheduleAppointment(appt);
@@ -1131,6 +1151,8 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
     setState(() => _appointmentsList = upcoming);
   }
 
+  /// Opens the reminder setup flow for an appointment
+  /// Calculates reminder date based on lead days and saves configuration
   Future<void> _openReminderFlow(dynamic appt) async {
     TimeOfDay initial = const TimeOfDay(hour: 9, minute: 0);
     if (appt['reminder_time'] != null) {
@@ -1225,6 +1247,7 @@ class _ReminderDialogState extends State<_ReminderDialog> {
   }
 
   String _reminderDateStr() {
+    // Calculate reminder date by subtracting lead days from appointment date
     final parts = widget.appointmentDate.split('-');
     final apptDate = DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
     final reminderDate = apptDate.subtract(Duration(days: _leadDays));
