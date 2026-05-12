@@ -353,7 +353,7 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                value: selectedCategory,
+                initialValue: selectedCategory,
                 decoration: _inputDecoration('Category', Icons.folder_outlined),
                 items: categories
                     .map((c) => DropdownMenuItem(value: c, child: Text(c)))
@@ -560,7 +560,7 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                value: selectedStatus,
+                initialValue: selectedStatus,
                 decoration: _inputDecoration('Status', Icons.circle_outlined),
                 items: statusOptions
                     .map((s) => DropdownMenuItem(value: s, child: Text(s)))
@@ -653,7 +653,7 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                value: selectedSeverity,
+                initialValue: selectedSeverity,
                 decoration: _inputDecoration('Severity', Icons.circle_outlined),
                 items: severityOptions
                     .map((s) => DropdownMenuItem(value: s, child: Text(s)))
@@ -743,7 +743,7 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                value: selectedStatus,
+                initialValue: selectedStatus,
                 decoration: _inputDecoration('Status', Icons.circle_outlined),
                 items: statusOptions
                     .map((s) => DropdownMenuItem(value: s, child: Text(s)))
