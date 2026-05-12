@@ -1,13 +1,15 @@
 from sqlalchemy import Column, Integer, String, Date, Time, ForeignKey, DateTime, Enum, Text, Numeric, Boolean
-from sqlalchemy.orm import declarative_base
+from sqlalchemy.orm import declarative_base # tells SQLAlchemy that this is the base class for our models
 from datetime import datetime
 import enum
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship # for defining relationships between tables
+
+# this file defines the database tables for the app using
+# SqlAlchemy's (python Object relational mapper)
 
 # Base class for all models
 Base = declarative_base()
 
-# --- 1. OWNER TABLE ---
 class Owner(Base):
     __tablename__ = "owner"
 
@@ -21,7 +23,6 @@ class Owner(Base):
     # Relationship to pets
     pets = relationship("Pet", backref="owner", cascade="all, delete")
 
-# --- 2. SPECIES CONFIG TABLE ---
 class SpeciesType(enum.Enum):
     dog = "dog"
     cat = "cat"
@@ -38,7 +39,6 @@ class Species_config(Base):
     breed_name = Column(String(20), nullable=False)
     notes = Column(Text, nullable=False)
 
-# --- 3. PET TABLE ---
 class Pet(Base):
     __tablename__ = "pet"
 
@@ -50,14 +50,13 @@ class Pet(Base):
     pet_last_name = Column(String(50))
     pet_image_path = Column(String, nullable=True)
 
-# --- 4. METADATA ---
 class PetMetaData(Base):
     __tablename__ = "pet_metadata"
     meta_data_id = Column(Integer, primary_key=True)
     pet_id = Column(Integer, ForeignKey("pet.pet_id"), nullable=False, index=True)
     notes = Column(Text, nullable=False)
 
-# --- 5. METRIC DEFINITIONS & HEALTH ---
+# METRIC DEFINITIONS & HEALTH 
 class MetricName(enum.Enum):
     weight = "weight"
     stool_quality = "stool_quality"
@@ -107,7 +106,6 @@ class HealthMetric(Base):
     metric_time = Column(DateTime, nullable=False, index=True)
     notes = Column(Text, nullable=True)
 
-# --- 6. SCHEDULING & APPOINTMENTS ---
 class AppointmentStatus(enum.Enum):
     Scheduled = "Scheduled"
     Completed = "Completed"
@@ -144,7 +142,6 @@ class FeedingSchedule(Base):
     portion_size = Column(Integer, nullable=False)
     food_name = Column(String(100), nullable=False)
 
-# --- 7. REMINDERS & GOALS ---
 class ReminderStatus(enum.Enum):
     pending = "Pending"
     sent = "Sent"
@@ -174,7 +171,6 @@ class PetGoal(Base):
     pet = relationship("Pet", backref="goals")
     metric_definition = relationship("MetricDefinition")
 
-# --- 8. AUTOMATED REPORTS ---
 class ReportFrequency(enum.Enum):
     weekly = "weekly"
     monthly = "monthly"
