@@ -1068,6 +1068,7 @@ class _DashboardPageState extends State<DashboardPage> with RouteAware {
     );
 
     if (pickedDate == null) return; // User cancelled date picker
+    if (!mounted) return;
 
     // Pick new time
     final TimeOfDay? pickedTime = await showTimePicker(
@@ -1121,6 +1122,8 @@ class _DashboardPageState extends State<DashboardPage> with RouteAware {
                 String dateStr = "${pickedDate.year}-${pickedDate.month.toString().padLeft(2, '0')}-${pickedDate.day.toString().padLeft(2, '0')}";
                 String timeStr = "${pickedTime.hour.toString().padLeft(2, '0')}:${pickedTime.minute.toString().padLeft(2, '0')}:00";
 
+                final navigator = Navigator.of(context);
+                final messenger = ScaffoldMessenger.of(context);
                 try {
                   await _petService.updateAppointment(
                     appointmentId: appt['pet_appointment_id'],
@@ -1129,13 +1132,11 @@ class _DashboardPageState extends State<DashboardPage> with RouteAware {
                     notes: notesController.text,
                   );
 
-                  if (mounted) {
-                    Navigator.pop(context);
-                    _fetchAppointments();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("Appointment updated!")),
-                    );
-                  }
+                  navigator.pop();
+                  _fetchAppointments();
+                  messenger.showSnackBar(
+                    const SnackBar(content: Text("Appointment updated!")),
+                  );
                 } catch (e) {
                   debugPrint("Update Error: $e");
                 }
@@ -1152,6 +1153,7 @@ class _DashboardPageState extends State<DashboardPage> with RouteAware {
   }
 
   Future<void> _setAppointmentReminder(dynamic appt) async {
+    final messenger = ScaffoldMessenger.of(context);
     TimeOfDay initial = const TimeOfDay(hour: 9, minute: 0);
     if (appt['reminder_time'] != null) {
       final parts = (appt['reminder_time'] as String).split(':');
@@ -1234,7 +1236,7 @@ class _DashboardPageState extends State<DashboardPage> with RouteAware {
         dateTime: apptDateTime,
       );
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         const SnackBar(content: Text("Reminder updated!")),
       );
     }
@@ -1445,9 +1447,9 @@ class _DashboardPageState extends State<DashboardPage> with RouteAware {
 
       if (mounted) {
         if (data.isEmpty) {
+          final navigator = Navigator.of(context);
           Future.delayed(Duration.zero, () {
-            Navigator.push(
-              context,
+            navigator.push(
               MaterialPageRoute(builder: (context) => const AddPetPage()),
             ).then((_) => _fetchPets());
           });
@@ -1488,22 +1490,18 @@ class _DashboardPageState extends State<DashboardPage> with RouteAware {
   }
 
   Future<void> _pickPetImage(int petId) async {
+    final messenger = ScaffoldMessenger.of(context);
     final ImagePicker picker = ImagePicker();
     final XFile? image = await picker.pickImage(source: ImageSource.gallery);
 
     if (image != null) {
-      // 1. For now, let's keep using your service to save the path string
-      // But we will also update the local state immediately so it shows up!
       bool success = await _petService.updatePetImage(petId, image.path);
 
       if (success) {
         setState(() {
-          // We manually update the local list so the UI reacts instantly
           _pets[_selectedPetIndex]['pet_image_path'] = image.path;
         });
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text("Image updated!")));
+        messenger.showSnackBar(const SnackBar(content: Text("Image updated!")));
       }
     }
   }
@@ -1731,6 +1729,7 @@ class _DashboardPageState extends State<DashboardPage> with RouteAware {
                     return;
                   }
 
+                  final navigator = Navigator.of(context);
                   final vetName = vetController.text.trim();
                   final note = notesController.text.trim();
                   final String formattedNotes;
@@ -1753,7 +1752,7 @@ class _DashboardPageState extends State<DashboardPage> with RouteAware {
                     reminderFrequency: selectedFrequency,
                   );
 
-                  Navigator.pop(context);
+                  navigator.pop();
                   _fetchAppointments();
                 },
                 child: const Text("Confirm", style: TextStyle(color: Colors.white)),
@@ -1976,7 +1975,7 @@ class _DashboardPageState extends State<DashboardPage> with RouteAware {
                   ),
                 ),
               );
-            }).toList(),
+            }),
           const Divider(),
         ],
       ),
