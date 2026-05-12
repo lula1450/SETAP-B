@@ -14,3 +14,8 @@ petsync_backend/venv/
 petsync.db
 petsync.db-shm
 petsync.db-wal
+test_temp.db
+
+# Coverage
+.coverage
+htmlcov/
