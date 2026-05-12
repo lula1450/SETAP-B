@@ -1,3 +1,6 @@
+// displays report history for selected pet
+// Allows filtering by date range and report type
+
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:maincode/services/pet_service.dart';
@@ -79,6 +82,7 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
     setState(() => _isLoading = false);
   }
 
+  /// Loads custom reports from SharedPreferences for a specific pet
   Future<void> _loadCustomReports(int petId) async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString('custom_reports_$petId') ?? '[]';
@@ -92,6 +96,8 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
     }
   }
 
+  /// Handles custom report upload with platform-specific storage logic
+  /// On web: stores file bytes as base64; on native: copies file to app documents
   Future<void> _uploadCustomReport() async {
     if (_selectedPetId == null) return;
 
@@ -172,6 +178,8 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
         'custom_reports_${_selectedPetId!}', jsonEncode(_customReports));
   }
 
+  /// Opens a custom report with platform-specific handling
+  /// Web: shows preview using base64-encoded bytes; Native: reads from file system
   Future<void> _openCustomReport(Map<String, dynamic> report) async {
     if (kIsWeb) {
       // On web, show a preview dialog with bytes
@@ -210,6 +218,7 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
     }
   }
 
+  /// Shows web preview for uploaded reports, handling both PDF and image formats
   void _showWebPreview(Map<String, dynamic> report) {
     final fileName = report['name'] as String? ?? 'File';
     final bytes = report['bytes'] as String?;
@@ -369,6 +378,7 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
     }
   }
 
+  /// Filters reports based on selected frequency (all, weekly, monthly)
   List<dynamic> _getFilteredReports() {
     if (_selectedPetId == null) return [];
     final reports = _reportsByPet[_selectedPetId] ?? [];
@@ -376,6 +386,7 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
     if (_filterFrequency == "all") {
       return reports;
     } else {
+      // Filter by report frequency
       return reports
           .where((report) => report['report_frequency'] == _filterFrequency)
           .toList();
@@ -409,6 +420,7 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
     return months[month - 1];
   }
 
+  /// Parses JSON summary string and extracts risk flags and metrics data
   Map<String, dynamic> _parseSummary(String summaryJson) {
     try {
       return json.decode(summaryJson);
@@ -418,6 +430,7 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
     }
   }
 
+  /// Builds a report card displaying metrics summary, risk flags, and report details
   Widget _buildReportCard(dynamic report) {
     final summary = _parseSummary(report['report_summary']);
     final riskFlags = summary['risk_flags'] ?? [];
@@ -1108,6 +1121,7 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
     );
   }
 
+  /// Handles renaming custom reports while preserving file extension
   Future<void> _renameCustomReport(int index, String newName) async {
     if (_selectedPetId == null) return;
 

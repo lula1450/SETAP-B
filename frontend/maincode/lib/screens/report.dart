@@ -1,6 +1,11 @@
+// This page shows the analysis for a specific metric of a pet, with a graph and risk assessment.
+// It also allows exporting a PDF report with the chart and analysis summary.
+
+// it takes petId and metric as parameters, fetches the analysis from the backend, and displays it.
+
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:fl_chart/fl_chart.dart'; // Make sure to run 'flutter pub add fl_chart'
+import 'package:fl_chart/fl_chart.dart'; 
 import 'package:maincode/services/pet_service.dart';
 import 'package:maincode/utils/pdf_helper.dart';
 import 'package:maincode/utils/url_helper.dart';
@@ -25,15 +30,16 @@ class ReportsPage extends StatefulWidget {
 }
 
 class _ReportsPageState extends State<ReportsPage> with RouteAware {
+  // Service for API calls
   final PetService _service = PetService();
-  Map<String, dynamic> _analysisData = {};
+  Map<String, dynamic> _analysisData = {}; // Holds the analysis data fetched from the backend
   bool _isLoading = true;
-  String _selectedMetric = "weight";
-  List<String> _availableMetrics = [];
+  String _selectedMetric = "weight"; //default
+  List<String> _availableMetrics = []; // each pet differs in available metrics
   final Set<String> _customMetrics = {};
-  final GlobalKey _chartKey = GlobalKey();
+  final GlobalKey _chartKey = GlobalKey(); // Key for capturing the chart widget as an image for PDF export
   DateTimeRange? _selectedDateRange;
-  late String _currentPetName; // Track the current pet name
+  late String _currentPetName; // To track pet name changes for real-time sync after edits
 
   @override
   void initState() {
@@ -45,7 +51,9 @@ class _ReportsPageState extends State<ReportsPage> with RouteAware {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    // Subscribe to route observer to detect when this page is popped/returned to
     routeObserver.subscribe(this, ModalRoute.of(context)!);
+    // Sync pet name after frame is built
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _syncPetName();
     });
@@ -53,12 +61,14 @@ class _ReportsPageState extends State<ReportsPage> with RouteAware {
 
   @override
   void dispose() {
+    // Clean up route observer subscription to prevent memory leaks
     routeObserver.unsubscribe(this);
     super.dispose();
   }
 
   @override
   void didPopNext() {
+    // Reload data when returning to this page from another screen
     _initializePage();
   }
 
@@ -71,6 +81,7 @@ class _ReportsPageState extends State<ReportsPage> with RouteAware {
     }
   }
 
+  /// Syncs the pet name from SharedPreferences to reflect any changes made on other screens
   Future<void> _syncPetName() async {
     final prefs = await SharedPreferences.getInstance();
     final updatedName = prefs.getString('pet_name_${widget.petId}');
@@ -81,7 +92,7 @@ class _ReportsPageState extends State<ReportsPage> with RouteAware {
     }
   }
 
-  // Initialize page: fetch which metrics have logged data, pick a sensible default, then load data
+  /// Initialize page: fetch which metrics have logged data, pick a sensible default, then load data
   Future<void> _initializePage() async {
     setState(() => _isLoading = true);
     if (_selectedDateRange == null) {
@@ -98,6 +109,7 @@ class _ReportsPageState extends State<ReportsPage> with RouteAware {
       final hidden = prefs.getStringList('hidden_metrics_${widget.petId}') ?? [];
       final hiddenKeys = hidden.map((h) => h.toLowerCase().replaceAll(' ', '_')).toSet();
 
+      // Fetch custom metrics from SharedPreferences and filter those with actual data
       final customNames = prefs.getStringList('custom_metrics_${widget.petId}') ?? [];
       final customKeys = <String>[];
       _customMetrics.clear();
@@ -113,7 +125,9 @@ class _ReportsPageState extends State<ReportsPage> with RouteAware {
 
       if (!mounted) return;
       setState(() {
+        // Combine custom metrics with backend metrics, excluding hidden ones
         _availableMetrics = [...customKeys, ...metrics.where((m) => !hiddenKeys.contains(m))];
+        // If current metric is no longer available, select the first available metric
         if (!_availableMetrics.contains(_selectedMetric) && _availableMetrics.isNotEmpty) {
           _selectedMetric = _availableMetrics.first;
         }
@@ -124,6 +138,7 @@ class _ReportsPageState extends State<ReportsPage> with RouteAware {
     await _loadData();
   }
 
+  /// Parses custom time format: "DD Mon, HH:MM" (e.g., "15 Jan, 14:30")
   DateTime _parseCustomTime(String t) {
     const months = {
       'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4, 'May': 5, 'Jun': 6,
@@ -142,6 +157,7 @@ class _ReportsPageState extends State<ReportsPage> with RouteAware {
     }
   }
 
+  /// Loads custom metric data from SharedPreferences, filters by date range, and calculates risk
   Future<Map<String, dynamic>> _loadCustomMetricData(String metricKey) async {
     final prefs = await SharedPreferences.getInstance();
     final histRaw = prefs.getString('custom_history_${widget.petId}_$metricKey') ?? '[]';
@@ -149,9 +165,11 @@ class _ReportsPageState extends State<ReportsPage> with RouteAware {
         .map((e) => Map<String, dynamic>.from(e as Map))
         .toList();
 
+    // Sort entries by time
     entries.sort((a, b) => _parseCustomTime(a['time']?.toString() ?? '')
         .compareTo(_parseCustomTime(b['time']?.toString() ?? '')));
 
+    // Filter by selected date range
     if (_selectedDateRange != null) {
       final rangeEnd = _selectedDateRange!.end.add(const Duration(days: 1));
       entries = entries.where((e) {
@@ -160,6 +178,7 @@ class _ReportsPageState extends State<ReportsPage> with RouteAware {
       }).toList();
     }
 
+    // Extract only numeric entries
     final numericEntries = entries
         .where((e) => double.tryParse(e['value'].toString()) != null)
         .toList();
@@ -168,11 +187,14 @@ class _ReportsPageState extends State<ReportsPage> with RouteAware {
       return {"message": "No numeric data to display", "points": [], "is_risk": false};
     }
 
+    // Calculate baseline (average) and current value
     final values = numericEntries.map((e) => double.parse(e['value'].toString())).toList();
     final current = values.last;
     final baseline = values.reduce((a, b) => a + b) / values.length;
+    // Flag as risk if current deviates by 15% or more from baseline
     final isRisk = baseline != 0 && (current - baseline).abs() / baseline >= 0.15;
 
+    // Convert entries to chart points
     final points = List.generate(numericEntries.length, (i) => {
       "x": i,
       "y": values[i],
@@ -314,15 +336,19 @@ class _ReportsPageState extends State<ReportsPage> with RouteAware {
     final weekStart = DateTime(monday.year, monday.month, monday.day);
     final monthStart = DateTime(now.year, now.month, 1);
     final last7 = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 7));
+    
+    // Match against predefined date ranges to return friendly labels
     if (start.year == last7.year && start.month == last7.month && start.day == last7.day) return 'Last 7 Days';
     if (start == weekStart) return 'This Week';
     if (start == monthStart) return 'This Month';
+    // Return custom range format
     return "${start.day}/${start.month} - ${_selectedDateRange!.end.day}/${_selectedDateRange!.end.month}";
   }
 
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     final Map<String, dynamic> data;
+    // Load data from custom metrics or backend depending on metric type
     if (_customMetrics.contains(_selectedMetric)) {
       data = await _loadCustomMetricData(_selectedMetric);
     } else {
@@ -598,6 +624,7 @@ class _ReportsPageState extends State<ReportsPage> with RouteAware {
                 getTitlesWidget: (value, meta) {
                   final points = _analysisData['points'] as List<dynamic>? ?? [];
                   final int idx = value.toInt();
+                  // Calculate interval to evenly space date labels across the chart
                   final int interval = (points.length / 6).ceil().clamp(1, 999);
                   if (points.isNotEmpty && idx % interval == 0 && idx < points.length) {
                     final dateStr = points[idx]['date']?.toString() ?? '';
