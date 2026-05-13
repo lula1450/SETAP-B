@@ -1287,19 +1287,18 @@ class _DashboardPageState extends State<DashboardPage> with RouteAware {
     );
 
     if (confirm == true) {
-      try {
-        // You'll need to add this method to your PetService
-        await _petService.deletePet(petId);
-
-        if (mounted) {
-          Navigator.pop(context); // Close the bottom sheet picker
-          _fetchPets(); // Refresh the pet list
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text("$petName removed successfully")),
-          );
-        }
-      } catch (e) {
-        debugPrint("Pet Delete Error: $e");
+      final success = await _petService.deletePet(petId);
+      if (!mounted) return;
+      if (success) {
+        Navigator.pop(context);
+        _fetchPets();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("$petName removed successfully")),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Failed to remove pet. Please try again.")),
+        );
       }
     }
   }
@@ -1368,6 +1367,8 @@ class _DashboardPageState extends State<DashboardPage> with RouteAware {
             _isLoading = false;
 
             if (_pets.isNotEmpty) {
+              // Clamp index in case a pet was deleted and the index is now out of range
+              _selectedPetIndex = _selectedPetIndex.clamp(0, _pets.length - 1);
               // Set selected pet: prefer initialPetId if provided, else default to first
               if (widget.initialPetId != null) {
                 final idx = _pets.indexWhere((p) => p['pet_id'] == widget.initialPetId);

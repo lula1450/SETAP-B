@@ -115,6 +115,27 @@ def delete_pet(pet_id: int, current_owner_id: int = Depends(get_current_owner_id
     if db_pet.owner_id != current_owner_id:
         raise HTTPException(status_code=403, detail="Forbidden")
 
+    db.query(models.PetGoal).filter(models.PetGoal.pet_id == pet_id).delete()
+    db.query(models.HealthMetric).filter(models.HealthMetric.pet_id == pet_id).delete()
+    db.query(models.PetMetaData).filter(models.PetMetaData.pet_id == pet_id).delete()
+    db.query(models.PetReport).filter(models.PetReport.pet_id == pet_id).delete()
+
+    schedule_ids = db.query(models.FeedingSchedule.feeding_schedule_id).filter(
+        models.FeedingSchedule.pet_id == pet_id
+    ).subquery()
+    db.query(models.Reminder).filter(
+        models.Reminder.feeding_schedule_id.in_(schedule_ids)
+    ).delete(synchronize_session=False)
+    db.query(models.FeedingSchedule).filter(models.FeedingSchedule.pet_id == pet_id).delete()
+
+    appt_ids = db.query(models.PetAppointment.pet_appointment_id).filter(
+        models.PetAppointment.pet_id == pet_id
+    ).subquery()
+    db.query(models.Reminder).filter(
+        models.Reminder.pet_appointment_id.in_(appt_ids)
+    ).delete(synchronize_session=False)
+    db.query(models.PetAppointment).filter(models.PetAppointment.pet_id == pet_id).delete()
+
     db.delete(db_pet)
     db.commit()
     return {"message": f"Pet {pet_id} and all associated data deleted successfully"}
