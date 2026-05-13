@@ -84,6 +84,33 @@ class AuthService {
     };
   }
 
+  Future<bool> updateProfile({
+    required int ownerId,
+    required String firstName,
+    required String lastName,
+    required String email,
+    String? newPassword,
+  }) async {
+    try {
+      final headers = await AuthService.authHeaders();
+      final body = <String, dynamic>{
+        "owner_first_name": firstName,
+        "owner_last_name": lastName,
+        "owner_email": email,
+        if (newPassword != null && newPassword.isNotEmpty) "password": newPassword,
+      };
+      final response = await http.put(
+        Uri.parse("$baseUrl/owners/$ownerId"),
+        headers: headers,
+        body: jsonEncode(body),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint("UpdateProfile error: $e");
+      return false;
+    }
+  }
+
   // Returns the scheduled purge date string, or null on failure.
   Future<String?> deleteAccount(int ownerId) async {
     try {

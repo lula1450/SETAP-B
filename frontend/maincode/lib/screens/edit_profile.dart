@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:maincode/widgets/app_drawer.dart';
+import 'package:maincode/services/auth_service.dart';
 
 class EditProfilePage extends StatefulWidget {
   const EditProfilePage({super.key});
@@ -52,27 +53,46 @@ class _EditProfilePageState extends State<EditProfilePage> {
     });
   }
 
-  /// Validates form, saves profile changes to SharedPreferences, disables editing mode,
+  /// Validates form, saves profile changes to backend and SharedPreferences, disables editing mode,
   /// displays success dialog, and navigates back to dashboard on confirmation.
   Future<void> _saveProfile() async {
-    // Form validation happens here (checks for empty fields when in editing mode)
     if (!_formKey.currentState!.validate()) return;
 
     final prefs = await SharedPreferences.getInstance();
-    // Persist profile changes to local storage
+    final ownerId = prefs.getInt('owner_id');
+    if (ownerId == null) return;
+
+    final newPassword = _passwordController.text.trim();
+
+    final success = await AuthService().updateProfile(
+      ownerId: ownerId,
+      firstName: _firstNameController.text.trim(),
+      lastName: _lastNameController.text.trim(),
+      email: _emailController.text.trim(),
+      newPassword: newPassword.isNotEmpty ? newPassword : null,
+    );
+
+    if (!mounted) return;
+
+    if (!success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to update profile. Please try again.')),
+      );
+      return;
+    }
+
     await prefs.setString('owner_first_name', _firstNameController.text.trim());
     await prefs.setString('owner_last_name', _lastNameController.text.trim());
     await prefs.setString('owner_email', _emailController.text.trim());
 
     if (!mounted) return;
-    // Exit editing mode and reset password field to masked display
+
     setState(() {
       _isEditing = false;
       _showPassword = false;
       _passwordController.text = '••••••••';
     });
 
-    // Show success confirmation and navigate back to dashboard
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -83,7 +103,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
           TextButton(
             onPressed: () {
               Navigator.of(dialogContext).pop();
-              Navigator.of(context).pop(); // Return to dashboard
+              Navigator.of(context).pop();
             },
             child: const Text("Back to Dashboard"),
           ),

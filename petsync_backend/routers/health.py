@@ -150,7 +150,7 @@ def get_latest_metric(pet_id: int, metric_name: str, current_owner_id: int = Dep
         "value": float(latest_log.metric_value) if latest_log and latest_log.metric_value is not None else "---",
         "unit": metric_def.metric_unit.value,
         "target": goal_record.target_value if goal_record else "",
-        "time": latest_log.metric_time.astimezone().strftime("%d %b %Y, %H:%M") if latest_log and latest_log.metric_time else "",
+        "time": latest_log.metric_time.replace(tzinfo=timezone.utc).astimezone().strftime("%d %b %Y, %H:%M") if latest_log and latest_log.metric_time else "",
         "id": latest_log.health_metric_id if latest_log else None,
     }
 
@@ -271,7 +271,7 @@ def get_pet_history(pet_id: int, current_owner_id: int = Depends(get_current_own
             "metric": h.metric_name.value if hasattr(h.metric_name, 'value') else str(h.metric_name),
             "value": h.metric_value,
             "unit": h.metric_unit.value if hasattr(h.metric_unit, 'value') else str(h.metric_unit),
-            "time": h.metric_time.astimezone().strftime("%d %b %Y, %H:%M")
+            "time": h.metric_time.replace(tzinfo=timezone.utc).astimezone().strftime("%d %b %Y, %H:%M")
         } for h in history
     ]
 
