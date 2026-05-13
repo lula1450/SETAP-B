@@ -1,9 +1,11 @@
 // Provides static breed info (traits, care tips, diet, health, environment) for each species.
 class PetInfoService {
+  static const String _base = "http://localhost:8000/static/pet_info_images";
+
   static final Map<int, Map<String, dynamic>> _petData = {
       1: {
         "name": "Labrador",
-        "image": "https://images.unsplash.com/photo-1518717758536-85ae29035b6d?w=800&auto=format&fit=crop",
+        "image": "$_base/labrador.jpg",
         "traits": "Friendly • Active • Outgoing",
         "helpUrl": "https://www.rspca.org.uk/adviceandwelfare/pets/dogs",
         "breedInfo": ["• Large", "• 10–12 years", "• High energy", "• Easy to train"],
@@ -16,7 +18,7 @@ class PetInfoService {
 
       2: {
         "name": "Golden Retriever",
-        "image": "https://images.unsplash.com/photo-1552053831-71594a27632d?w=800&auto=format&fit=crop",
+        "image": "$_base/golden_retriever.jpg",
         "traits": "Friendly • Intelligent • Loyal",
         "helpUrl": "https://www.golden-retriever-owners.co.uk/info-guides/general-care-and-welfare-advice",
         "breedInfo": ["• Large", "• 10–12 years", "• High energy", "• Excellent training"],
@@ -29,7 +31,7 @@ class PetInfoService {
 
       3: {
         "name": "Maine Coon",
-        "image": "https://images.unsplash.com/photo-1518791841217-8f162f1e1131?w=800&auto=format&fit=crop",
+        "image": "$_base/maine_coon.jpg",
         "traits": "Gentle • Large • Friendly",
         "helpUrl": "https://www.rspca.org.uk/adviceandwelfare/pets/cats",
         "breedInfo": ["• Large cat", "• 12–15 years", "• Medium energy", "• Thick Coat"],
@@ -42,7 +44,7 @@ class PetInfoService {
 
       4: {
         "name": "Siamese",
-        "image": "https://images.unsplash.com/photo-1543852786-1cf6624b9987?w=800&auto=format&fit=crop",
+        "image": "$_base/siamese.jpg",
         "traits": "Vocal • Social • Intelligent",
         "helpUrl": "https://www.rspca.org.uk/adviceandwelfare/pets/cats",
         "breedInfo": ["• Medium size", "• 12–20 years", "• Slim Build", "• Short Coat"],
@@ -55,7 +57,7 @@ class PetInfoService {
 
       5: {
         "name": "Holland Lop",
-        "image": "https://images.unsplash.com/photo-1585110396000-c9ffd4e4b308?w=800&auto=format&fit=crop",
+        "image": "$_base/holland_lop.jpg",
         "traits": "Small • Friendly • Calm",
         "helpUrl": "https://www.rspca.org.uk/adviceandwelfare/pets/rabbits",
         "breedInfo": ["• Small", "• 7–10 years", "• Compact Body", "• Indoor Friendly"],
@@ -68,7 +70,7 @@ class PetInfoService {
 
       6: {
         "name": "Rex Rabbit",
-        "image": "https://upload.wikimedia.org/wikipedia/commons/1/12/Rex_Rabbit_1.jpg",
+        "image": "$_base/rex_rabbit.jpg",
         "traits": "Soft coat • Gentle • Quiet",
         "helpUrl": "https://www.rspca.org.uk/adviceandwelfare/pets/rabbits",
         "breedInfo": ["• Medium", "• 6–8 years", "• Soft Fur", "• Indoor Pet"],
@@ -81,7 +83,7 @@ class PetInfoService {
 
       7: {
         "name": "Syrian Hamster",
-        "image": "https://images.unsplash.com/photo-1548767797-d8c844163c4c?w=800&auto=format&fit=crop",
+        "image": "$_base/syrian_hamster.jpg",
         "traits": "Small • Nocturnal • Independent",
         "helpUrl": "https://www.rspca.org.uk/adviceandwelfare/pets/rodents",
         "breedInfo": ["• Small", "• 2–3 years", "• Solitary", "• Nocturnal"],
@@ -94,7 +96,7 @@ class PetInfoService {
 
       8: {
         "name": "Roborovski Hamster",
-        "image": "https://images.unsplash.com/photo-1592194996308-7b43878e84a6?w=800&auto=format&fit=crop",
+        "image": "$_base/roborovski_hamster.jpg",
         "traits": "Tiny • Fast • Energetic",
         "helpUrl": "https://www.rspca.org.uk/adviceandwelfare/pets/rodents",
         "breedInfo": ["• Very small", "• 3–3.5 years", "• Fast-moving", "• Desert species"],
@@ -107,7 +109,7 @@ class PetInfoService {
 
       9: {
         "name": "African Grey",
-        "image": "https://images.unsplash.com/photo-1751905206462-101e79c265c0?w=800&auto=format&fit=crop",
+        "image": "$_base/african_grey.jpg",
         "traits": "Intelligent • Talkative • Sensitive",
         "helpUrl": "https://www.rspca.org.uk/adviceandwelfare/pets/birds",
         "breedInfo": ["• Medium bird", "• 40–60 + years", "• Highly Intelligent", "• Strong Beak"],
@@ -120,7 +122,7 @@ class PetInfoService {
 
       10: {
         "name": "Cockatiel",
-        "image": "https://images.unsplash.com/photo-1591195853828-11db59a44f6b?w=800&auto=format&fit=crop",
+        "image": "$_base/cockatiel.jpg",
         "traits": "Friendly • Vocal • Social",
         "helpUrl": "https://www.rspca.org.uk/adviceandwelfare/pets/birds",
         "breedInfo": ["• Small bird", "• 15–20 years", "• Easy to tame", "• Crest features"],
@@ -133,7 +135,7 @@ class PetInfoService {
 
       11: {
         "name": "Corn Snake",
-        "image": "https://images.unsplash.com/photo-1583511655826-05700442b31b?w=800&auto=format&fit=crop",
+        "image": "$_base/corn_snake.jpg",
         "traits": "Docile • Easy care • Quiet",
         "helpUrl": "https://www.rspca.org.uk/adviceandwelfare/pets/reptiles",
         "breedInfo": ["• Medium snake", "• 15–20 years", "• Easy to handle", "• Non-venomous"],
@@ -146,7 +148,7 @@ class PetInfoService {
 
       12: {
         "name": "Ball Python",
-        "image": "https://images.unsplash.com/photo-1742748757633-5bbd80f61746?w=800&auto=format&fit=crop",
+        "image": "$_base/ball_python.jpg",
         "traits": "Shy • Calm • Nocturnal",
         "helpUrl": "https://www.rspca.org.uk/adviceandwelfare/pets/reptiles",
         "breedInfo": ["• Medium snake", "• 20–30 years", "• Thick Body", "• Nocturnal"],

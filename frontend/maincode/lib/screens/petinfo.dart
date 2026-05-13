@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/pet_info_service.dart';
+import '../utils/url_helper.dart';
 import 'package:maincode/widgets/app_drawer.dart';
 
 class PetInfoPage extends StatelessWidget {
@@ -69,7 +70,7 @@ class PetInfoPage extends StatelessWidget {
               ClipRRect(
                 borderRadius: BorderRadius.circular(16),
                 child: Image.network(
-                  petInfo["image"],
+                  UrlHelper.getImageUrl(petInfo["image"]),
                   height: 250,
                   width: double.infinity,
                   fit: BoxFit.fitWidth,

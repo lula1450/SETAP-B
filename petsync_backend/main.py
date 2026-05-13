@@ -77,6 +77,9 @@ app.include_router(owners.router, prefix="/owners", tags=["owners"])
 _seed_images_dir = os.path.join(os.path.dirname(__file__), "seed", "images")
 app.mount("/static/seed_images", StaticFiles(directory=_seed_images_dir), name="seed_images")
 
+_pet_info_images_dir = os.path.join(os.path.dirname(__file__), "config", "images")
+app.mount("/static/pet_info_images", StaticFiles(directory=_pet_info_images_dir), name="pet_info_images")
+
 @app.get("/")
 async def root():
     return {"message": "PetSync API is running!"}
