@@ -16,7 +16,7 @@ A comprehensive pet health and wellness management system featuring a FastAPI ba
 cd petsync_backend
 python3 -m venv venv
 source venv/bin/activate
-pip install -r requirement.txt
+pip install -r requirements.txt
 python main.py
 ```
 
@@ -43,4 +43,7 @@ flutter run
 - Health reports and analytics
 - Veterinarian contact management
 
+## Contributing
+
+See [Contributing Guide](docs/contributing.rst) for guidelines.
 
