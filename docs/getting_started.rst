@@ -44,6 +44,7 @@ Frontend Setup
       flutter pub get
 
 3. Run the application:
+
    .. code-block:: bash
 
       flutter run -d chrome
