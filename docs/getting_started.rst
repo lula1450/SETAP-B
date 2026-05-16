@@ -46,7 +46,7 @@ Frontend Setup
 3. Run the application:
    .. code-block:: bash
 
-   flutter run -d chrome
+      flutter run -d chrome
 
 Project Structure
 -----------------
