@@ -46,18 +46,14 @@ Frontend Setup
 3. Run the application:
    .. code-block:: bash
 
-      # iOS
-      flutter run -d ios
-
-      # Android
-      flutter run -d android
+   flutter run -d chrome
 
 Project Structure
 -----------------
 ::
 
    SETAP-B/
-   ├── petsync_backend/          # Python FastAPI backend
+   ├── petsync_backend/          # FastAPI backend
    │   ├── main.py
    │   ├── models.py
    │   ├── database.py
