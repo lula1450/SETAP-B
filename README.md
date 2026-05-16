@@ -43,7 +43,4 @@ flutter run
 - Health reports and analytics
 - Veterinarian contact management
 
-## Contributing
-
-See [CONTRIBUTING.md](docs/contributing.rst) for guidelines.
 
