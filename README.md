@@ -1,12 +1,12 @@
 # SETAP-B
 
-[![Documentation Status](https://readthedocs.org/projects/setap-b/badge/?version=latest)](https://setap-b.readthedocs.io/en/latest/?badge=latest)
+[![Documentation Status](https://readthedocs.org/projects/tutorial1-team7b/badge/?version=latest)](https://tutorial1-team7b.readthedocs.io/en/latest/)
 
 A comprehensive pet health and wellness management system featuring a FastAPI backend and Flutter mobile frontend.
 
 ## Documentation
 
-📚 **[Read the Documentation](https://setap-b.readthedocs.io/)**
+📚 **[Read the Documentation](https://tutorial1-team7b.readthedocs.io/en/latest/)**
 
 ## Quick Start
 
@@ -16,7 +16,7 @@ A comprehensive pet health and wellness management system featuring a FastAPI ba
 cd petsync_backend
 python3 -m venv venv
 source venv/bin/activate
-pip install -r requirement.txt
+pip install -r requirements.txt
 python main.py
 ```
 
@@ -45,5 +45,5 @@ flutter run
 
 ## Contributing
 
-See [CONTRIBUTING.md](docs/contributing.rst) for guidelines.
+See [Contributing Guide](docs/contributing.rst) for guidelines.
 

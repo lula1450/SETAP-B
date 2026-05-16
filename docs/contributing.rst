@@ -1,7 +1,7 @@
 Contributing
 =============
 
-We welcome contributions to SETAP-B! Here's how you can help:
+Welcome to contributions to SETAP-B! Here's how you can help:
 
 Getting Started
 ---------------
