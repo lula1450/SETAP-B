@@ -72,6 +72,8 @@ class FunFactService {
   };
 
 
+  /// Returns one breed-specific fun fact for the day.
+  /// The same fact is shown for the entire calendar day (date-seeded random selection).
   String getDailyFact(int breedId) {
     final breedName = _breedMap[breedId] ?? "Unknown Animal";
     final facts = _factsByBreed[breedName];

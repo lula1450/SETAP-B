@@ -13,6 +13,7 @@ class PetService {
     return "http://10.0.2.2:8000";
   }
 
+  /// Returns all pets belonging to the given owner. Returns an empty list if the owner has no pets.
   Future<List<dynamic>> getOwnerPets(int ownerId) async {
     final headers = await AuthService.authHeaders();
     final response = await http.get(
@@ -29,6 +30,8 @@ class PetService {
     }
   }
 
+  /// Creates a new pet for the currently logged-in owner.
+  /// Returns the new pet_id on success, or -1 on failure.
   Future<int> createPet({
     required String petFirstName,
     required String petLastName,
@@ -68,6 +71,9 @@ class PetService {
     }
   }
 
+  /// Books a vet appointment for a pet with an optional reminder frequency.
+  /// [reminderFrequency] accepts 'once', 'weekly', or 'monthly'.
+  /// Returns true on success.
   Future<bool> createAppointment({
     required int petId,
     required String date,
@@ -95,6 +101,7 @@ class PetService {
     }
   }
 
+  /// Returns all appointments across all pets owned by the given owner.
   Future<List<dynamic>> getAllAppointments(int ownerId) async {
     try {
       final headers = await AuthService.authHeaders();
@@ -109,6 +116,7 @@ class PetService {
     return [];
   }
 
+  /// Schedules the owner's account for deletion (30-day grace period). Returns true on success.
   Future<bool> deleteOwner(int ownerId) async {
     try {
       final headers = await AuthService.authHeaders();
@@ -123,6 +131,8 @@ class PetService {
     }
   }
 
+  /// Fetches trend analysis for a metric, including chart data points and a risk flag.
+  /// Optional [startDate]/[endDate] (ISO format) narrow the time window.
   Future<Map<String, dynamic>> getMetricAnalysis(int petId, String metric, {String? startDate, String? endDate}) async {
     try {
       Uri uri = Uri.parse('$baseUrl/reports/analysis/$petId/$metric');
@@ -145,6 +155,7 @@ class PetService {
     }
   }
 
+  /// Returns the list of metric names that have at least one logged entry for this pet.
   Future<List<String>> getLoggedMetrics(int petId) async {
     try {
       final headers = await AuthService.authHeaders();
@@ -161,6 +172,7 @@ class PetService {
     return ['weight'];
   }
 
+  /// Returns the full health log history for a pet, newest entries first.
   Future<List<dynamic>> getPetHistory(int petId) async {
     final headers = await AuthService.authHeaders();
     final response = await http.get(
@@ -174,6 +186,7 @@ class PetService {
     }
   }
 
+  /// Returns all automatically generated health reports for a pet.
   Future<List<dynamic>> getPetReportHistory(int petId) async {
     try {
       final headers = await AuthService.authHeaders();
@@ -194,6 +207,7 @@ class PetService {
     }
   }
 
+  /// Deletes all appointments in a recurring series and their reminders.
   Future<void> deleteAppointmentSeries(int seriesId) async {
     final headers = await AuthService.authHeaders();
     final url = Uri.parse('$baseUrl/schedule/appointments/series/$seriesId');
@@ -203,6 +217,7 @@ class PetService {
     }
   }
 
+  /// Deletes a single appointment and its associated reminder.
   Future<void> deleteAppointment(int appointmentId) async {
     final headers = await AuthService.authHeaders();
     final url = Uri.parse('$baseUrl/schedule/appointments/$appointmentId');
@@ -214,6 +229,7 @@ class PetService {
     }
   }
 
+  /// Updates an appointment's date, time, and notes. Also reschedules its reminder.
   Future<void> updateAppointment({
     required int appointmentId,
     required String date,
@@ -236,6 +252,7 @@ class PetService {
     }
   }
 
+  /// Returns all feeding schedules for the specified pet.
   Future<List<dynamic>> getFeedingSchedules(int petId) async {
     final headers = await AuthService.authHeaders();
     final response = await http.get(
@@ -246,6 +263,7 @@ class PetService {
     return [];
   }
 
+  /// Deletes a feeding schedule and its associated reminder. Returns true on success.
   Future<bool> deleteFeedingSchedule(int scheduleId) async {
     try {
       final headers = await AuthService.authHeaders();
@@ -260,6 +278,7 @@ class PetService {
     }
   }
 
+  /// Updates the value and notes of an existing health log entry. Returns true on success.
   Future<bool> updateHealthLog(int petId, int metricId, {required dynamic value, String? notes}) async {
     try {
       final headers = await AuthService.authHeaders();
@@ -275,6 +294,7 @@ class PetService {
     }
   }
 
+  /// Permanently deletes a single health log entry. Returns true on success.
   Future<bool> deleteHealthLog(int petId, int metricId) async {
     try {
       final headers = await AuthService.authHeaders();
@@ -289,6 +309,7 @@ class PetService {
     }
   }
 
+  /// Permanently deletes a pet and all its data (metrics, schedules, appointments). Returns true on success.
   Future<bool> deletePet(int petId) async {
     try {
       final headers = await AuthService.authHeaders();
@@ -303,6 +324,7 @@ class PetService {
     }
   }
 
+  /// Renames a pet. Requires the full pet data map to preserve other fields on the backend.
   Future<bool> renamePet(int petId, Map<String, dynamic> petData, String newFirstName, String newLastName) async {
     try {
       final headers = await AuthService.authHeaders();
@@ -326,6 +348,7 @@ class PetService {
     }
   }
 
+  /// Updates the pet's stored image path (local file path or URL). Returns true on success.
   Future<bool> updatePetImage(int petId, String imagePath) async {
     final headers = await AuthService.authHeaders();
     final response = await http.put(
@@ -335,6 +358,7 @@ class PetService {
     return response.statusCode == 200;
   }
 
+  /// Returns all vet contacts for the given owner. Returns an empty list if none exist.
   Future<List<dynamic>> getOwnerVetContacts(int ownerId) async {
     final headers = await AuthService.authHeaders();
     final response = await http.get(
@@ -351,6 +375,8 @@ class PetService {
     }
   }
 
+  /// Creates a new vet contact for the owner. [petId] is optional (can be linked to a specific pet).
+  /// Returns true on success.
   Future<bool> createVetContact({
     required int ownerId,
     int? petId,
@@ -386,6 +412,7 @@ class PetService {
     }
   }
 
+  /// Updates an existing vet contact's details. Returns true on success.
   Future<bool> updateVetContact({
     required int vetId,
     required int ownerId,
@@ -421,6 +448,7 @@ class PetService {
     }
   }
 
+  /// Returns the names of all metrics available for tracking for this pet's species.
   Future<List<String>> getAvailableMetrics(int petId) async {
     try {
       final headers = await AuthService.authHeaders();
@@ -436,6 +464,7 @@ class PetService {
     return [];
   }
 
+  /// Permanently deletes a vet contact. Returns true on success.
   Future<bool> deleteVetContact(int vetId) async {
     try {
       final headers = await AuthService.authHeaders();

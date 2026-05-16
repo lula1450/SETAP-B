@@ -160,6 +160,8 @@ class PetInfoService {
       },
   };
 
+  /// Returns static breed info (traits, care tips, diet, health, environment) for the given species ID.
+  /// Returns a default empty-values map if the species ID is not recognised.
   Map<String, dynamic> getPetInfo(int speciesId) {
     return _petData[speciesId] ??
         {

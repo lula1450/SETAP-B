@@ -12,10 +12,12 @@ router = APIRouter(prefix="", tags=["Auth"])
 
 
 def _hash_password(plain: str) -> str:
+    """Hashes a plain-text password using bcrypt. Returns the hashed string."""
     return bcrypt.hashpw(plain.encode(), bcrypt.gensalt()).decode()
 
 
 def _verify_password(plain: str, hashed: str) -> bool:
+    """Checks a plain-text password against a stored bcrypt hash. Returns False on mismatch or malformed hash."""
     try:
         return bcrypt.checkpw(plain.encode(), hashed.encode())
     except ValueError:
@@ -24,6 +26,13 @@ def _verify_password(plain: str, hashed: str) -> bool:
 
 @router.post("/login")
 def login(details: schemas.LoginRequest, db: Session = Depends(get_db)):
+    """
+    Authenticates an owner and returns a JWT access token.
+
+    Returns owner profile fields alongside the token. If account deletion has been
+    requested, status becomes 'pending_deletion' and the scheduled purge date is included.
+    Raises 401 if credentials are invalid.
+    """
     owner = db.query(models.Owner).filter(models.Owner.owner_email == details.email).first()
 
     if not owner or not _verify_password(details.password, owner.password):
@@ -48,6 +57,11 @@ def login(details: schemas.LoginRequest, db: Session = Depends(get_db)):
 
 @router.post("/signup")
 def signup(owner: schemas.OwnerCreate, db: Session = Depends(get_db)):
+    """
+    Registers a new owner account and returns a JWT access token.
+
+    Raises 400 if the email address is already in use.
+    """
     existing_user = db.query(models.Owner).filter(models.Owner.owner_email == owner.owner_email).first()
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")

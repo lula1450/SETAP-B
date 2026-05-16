@@ -9,6 +9,11 @@ router = APIRouter()
 
 @router.post("/create", response_model=schemas.PetResponse)
 def create_pet(pet: schemas.PetCreate, current_owner_id: int = Depends(get_current_owner_id), db: Session = Depends(get_db)):
+    """
+    Creates a new pet for the authenticated owner.
+    Raises 403 if the owner_id in the request body does not match the authenticated user.
+    Raises 404 if the owner record does not exist.
+    """
     if current_owner_id != pet.owner_id:
         raise HTTPException(status_code=403, detail="Forbidden")
     owner = db.query(models.Owner).filter(models.Owner.owner_id == pet.owner_id).first()
@@ -38,6 +43,10 @@ def create_pet(pet: schemas.PetCreate, current_owner_id: int = Depends(get_curre
 
 @router.get("/{pet_id}", response_model=schemas.PetResponse)
 def get_pet(pet_id: int, current_owner_id: int = Depends(get_current_owner_id), db: Session = Depends(get_db)):
+    """
+    Returns details for a single pet, including resolved species name.
+    Raises 404 if the pet is not found, 403 if it belongs to another owner.
+    """
     pet = db.query(models.Pet).filter(models.Pet.pet_id == pet_id).first()
     if not pet:
         raise HTTPException(status_code=404, detail="Pet not found")
@@ -62,6 +71,11 @@ def get_pet(pet_id: int, current_owner_id: int = Depends(get_current_owner_id), 
 
 @router.get("/owner/{owner_id}", response_model=list[schemas.PetResponse])
 def list_all_pets(owner_id: int, current_owner_id: int = Depends(get_current_owner_id), db: Session = Depends(get_db)):
+    """
+    Returns all pets belonging to the specified owner with species names resolved.
+    Uses a single species lookup query to avoid N+1 database calls.
+    Raises 404 if the owner is not found or they have no pets.
+    """
     owner = db.query(models.Owner).filter(models.Owner.owner_id == owner_id).first()
     if not owner:
         raise HTTPException(status_code=404, detail="Owner not found")
@@ -93,6 +107,7 @@ def list_all_pets(owner_id: int, current_owner_id: int = Depends(get_current_own
 
 @router.put("/{pet_id}", response_model=schemas.PetResponse)
 def update_pet(pet_id: int, pet_update: schemas.PetCreate, current_owner_id: int = Depends(get_current_owner_id), db: Session = Depends(get_db)):
+    """Updates a pet's first and last name. Raises 404 if not found, 403 if owned by another user."""
     db_pet = db.query(models.Pet).filter(models.Pet.pet_id == pet_id).first()
     if not db_pet:
         raise HTTPException(status_code=404, detail="Pet not found")
@@ -109,6 +124,10 @@ def update_pet(pet_id: int, pet_update: schemas.PetCreate, current_owner_id: int
 
 @router.delete("/{pet_id}")
 def delete_pet(pet_id: int, current_owner_id: int = Depends(get_current_owner_id), db: Session = Depends(get_db)):
+    """
+    Permanently deletes a pet and all its associated data: health metrics, goals, metadata,
+    feeding schedules, appointments, reminders, and reports.
+    """
     db_pet = db.query(models.Pet).filter(models.Pet.pet_id == pet_id).first()
     if not db_pet:
         raise HTTPException(status_code=404, detail="Pet not found")
@@ -143,6 +162,7 @@ def delete_pet(pet_id: int, current_owner_id: int = Depends(get_current_owner_id
 
 @router.put("/{pet_id}/image")
 async def update_pet_image(pet_id: int, image_url: str, current_owner_id: int = Depends(get_current_owner_id), db: Session = Depends(get_db)):
+    """Updates the stored image URL (file path or remote URL) for a pet."""
     pet = db.query(models.Pet).filter(models.Pet.pet_id == pet_id).first()
     if not pet:
         raise HTTPException(status_code=404, detail="Pet not found")

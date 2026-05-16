@@ -6,11 +6,18 @@ import 'package:maincode/screens/report_history.dart';
 import 'package:maincode/services/auth_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// Side-navigation drawer shown on the main dashboard.
+/// Provides links to Edit Profile, Notifications, Report History, Logout, and Delete Account.
+/// [onNotificationsPagePopped] is called when the user returns from the Notifications screen,
+/// allowing the parent to refresh notification-related UI.
 class AppDrawer extends StatelessWidget {
   final VoidCallback? onNotificationsPagePopped;
 
   const AppDrawer({super.key, this.onNotificationsPagePopped});
 
+  /// Shows a confirmation dialog before scheduling account deletion.
+  /// On confirmation, calls the backend, clears local session data, then shows
+  /// a second dialog with the scheduled purge date before redirecting to login.
   void _showDeleteConfirmation(BuildContext context) {
     showDialog(
       context: context,
@@ -195,6 +202,8 @@ class AppDrawer extends StatelessWidget {
     );
   }
 
+  /// Builds a single tappable row in the drawer with an icon and label.
+  /// [color] optionally tints both the icon and label (used for destructive actions).
   Widget _drawerTile(
     BuildContext context,
     IconData icon,

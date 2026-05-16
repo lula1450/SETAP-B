@@ -24,6 +24,13 @@ async def get_metric_analysis(
     end_date: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
+    """
+    Analyses all logged entries for a specific metric and returns trend data for the chart.
+
+    Checks whether the latest value deviates more than 15% from the historical mean (SR 4.1).
+    Returns data points formatted for fl_chart: x = index, y = value, date = formatted string.
+    Optional start_date/end_date parameters (ISO format) narrow the analysis window.
+    """
     pet = db.query(Pet).filter(Pet.pet_id == pet_id).first()
     if not pet:
         raise HTTPException(status_code=404, detail=f"Pet ID {pet_id} not found in DB")
@@ -89,6 +96,7 @@ async def get_metric_analysis(
 
 @router.get("/export-pdf/{pet_id}/{metric_name}")
 async def export_pet_report(pet_id: int, metric_name: str, db: Session = Depends(get_db)):
+    """Generates and streams a PDF health report for the specified metric as a file download."""
     analysis = await get_metric_analysis(pet_id, metric_name, db)
     pet = db.query(Pet).filter(Pet.pet_id == pet_id).first()
 
@@ -102,6 +110,7 @@ async def export_pet_report(pet_id: int, metric_name: str, db: Session = Depends
 
 @router.get("/logged-metrics/{pet_id}")
 async def get_logged_metrics(pet_id: int, db: Session = Depends(get_db)):
+    """Returns the distinct metric names that have at least one logged entry for this pet."""
     # Returns unique metric names that have at least one log entry for this pet
     logged_metrics = db.query(MetricDefinition.metric_name)\
         .join(HealthMetric, HealthMetric.metric_def_id == MetricDefinition.metric_def_id)\

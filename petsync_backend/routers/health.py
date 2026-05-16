@@ -8,6 +8,10 @@ from petsync_backend.utils.auth_utils import get_current_owner_id
 
 
 def _require_pet_owner(pet_id: int, current_owner_id: int, db: Session) -> Pet:
+    """
+    Checks the authenticated owner owns the given pet.
+    Raises 404 if the pet is not found, 403 if it belongs to another owner.
+    """
     pet = db.query(Pet).filter(Pet.pet_id == pet_id).first()
     if not pet:
         raise HTTPException(status_code=404, detail="Pet not found")
@@ -21,6 +25,14 @@ router = APIRouter(
 )
 
 def analyze_health_metric(pet_id, metric_name, current_value, metric_def, db):
+    """
+    Compares a newly logged metric value against the previous entry and any stored goal.
+
+    For text-based metrics (unit == text), scans the string for concerning keywords.
+    For numeric metrics, calculates the change from the prior entry and checks whether
+    the value is above or below the pet's target if one is set.
+    Returns a human-readable analysis string shown immediately after logging.
+    """
     unit = metric_def.metric_unit
     
     if unit == MetricUnit.text:
@@ -67,6 +79,7 @@ def analyze_health_metric(pet_id, metric_name, current_value, metric_def, db):
 
 @router.get("/metrics/{pet_id}")
 def get_available_metrics(pet_id: int, current_owner_id: int = Depends(get_current_owner_id), db: Session = Depends(get_db)):
+    """Returns all metric definitions (name and unit) available for the pet's species."""
     pet = _require_pet_owner(pet_id, current_owner_id, db)
     definitions = db.query(MetricDefinition).filter(
         MetricDefinition.species_id == pet.species_id
@@ -76,6 +89,13 @@ def get_available_metrics(pet_id: int, current_owner_id: int = Depends(get_curre
 
 @router.post("/log", response_model=schemas.HealthMetricLogResponse)
 async def log_health_metric(log: schemas.HealthMetricLogCreate, current_owner_id: int = Depends(get_current_owner_id), db: Session = Depends(get_db)):
+    """
+    Logs a new health metric entry for a pet and returns an instant analysis.
+
+    Text-unit metrics (e.g. general notes) are stored in the notes field.
+    Numeric metrics are validated as floats; non-numeric input returns an error analysis.
+    Returns a status string and an analysis message comparing the value to the previous entry.
+    """
     pet = _require_pet_owner(log.pet_id, current_owner_id, db)
     
     metric_def = db.query(MetricDefinition).filter(
@@ -126,6 +146,11 @@ async def log_health_metric(log: schemas.HealthMetricLogCreate, current_owner_id
 
 @router.get("/latest")
 def get_latest_metric(pet_id: int, metric_name: str, current_owner_id: int = Depends(get_current_owner_id), db: Session = Depends(get_db)):
+    """
+    Returns the most recently logged value for a specific metric along with its unit,
+    the owner's stored target, formatted timestamp, and health_metric_id.
+    Returns placeholder values ('---') if no log entry exists yet.
+    """
     pet = _require_pet_owner(pet_id, current_owner_id, db)
     
     metric_def = db.query(MetricDefinition).filter(
@@ -157,6 +182,10 @@ def get_latest_metric(pet_id: int, metric_name: str, current_owner_id: int = Dep
 
 @router.post("/goal")
 def set_metric_goal(pet_id: int, metric_name: str, goal: str, current_owner_id: int = Depends(get_current_owner_id), db: Session = Depends(get_db)):
+    """
+    Creates or updates the owner's target value for a specific metric on a pet.
+    The target is stored as a string to support both numeric and descriptive goals.
+    """
     pet = _require_pet_owner(pet_id, current_owner_id, db)
         
     metric_def = db.query(MetricDefinition).filter(
@@ -188,6 +217,7 @@ def set_metric_goal(pet_id: int, metric_name: str, goal: str, current_owner_id: 
 
 @router.delete("/all/{pet_id}/{metric_name}")
 def delete_all_entries(pet_id: int, metric_name: str, current_owner_id: int = Depends(get_current_owner_id), db: Session = Depends(get_db)):
+    """Deletes all logged entries for a specific metric on a pet."""
     pet = _require_pet_owner(pet_id, current_owner_id, db)
     metric_def = db.query(MetricDefinition).filter(
         MetricDefinition.species_id == pet.species_id,
@@ -205,6 +235,7 @@ def delete_all_entries(pet_id: int, metric_name: str, current_owner_id: int = De
 
 @router.delete("/goal/{pet_id}/{metric_name}")
 def delete_metric_goal(pet_id: int, metric_name: str, current_owner_id: int = Depends(get_current_owner_id), db: Session = Depends(get_db)):
+    """Removes the stored target/goal for a specific metric on a pet."""
     pet = _require_pet_owner(pet_id, current_owner_id, db)
     metric_def = db.query(MetricDefinition).filter(
         MetricDefinition.species_id == pet.species_id,
@@ -224,6 +255,7 @@ def delete_metric_goal(pet_id: int, metric_name: str, current_owner_id: int = De
 
 @router.put("/history/entry/{pet_id}/{metric_id}")
 def update_health_entry(pet_id: int, metric_id: int, update: schemas.HealthMetricUpdate, current_owner_id: int = Depends(get_current_owner_id), db: Session = Depends(get_db)):
+    """Updates the value and notes of a specific historical health log entry."""
     _require_pet_owner(pet_id, current_owner_id, db)
     entry = db.query(HealthMetric).filter(
         HealthMetric.health_metric_id == metric_id,
@@ -240,6 +272,7 @@ def update_health_entry(pet_id: int, metric_id: int, update: schemas.HealthMetri
 
 @router.delete("/history/entry/{pet_id}/{metric_id}")
 def delete_health_entry(pet_id: int, metric_id: int, current_owner_id: int = Depends(get_current_owner_id), db: Session = Depends(get_db)):
+    """Deletes a single historical health metric log entry."""
     _require_pet_owner(pet_id, current_owner_id, db)
     entry = db.query(HealthMetric).filter(
         HealthMetric.health_metric_id == metric_id,
@@ -253,6 +286,10 @@ def delete_health_entry(pet_id: int, metric_id: int, current_owner_id: int = Dep
 
 @router.get("/history/{pet_id}")
 def get_pet_history(pet_id: int, current_owner_id: int = Depends(get_current_owner_id), db: Session = Depends(get_db)):
+    """
+    Returns the full health log history for a pet, ordered newest to oldest.
+    Each entry includes the metric name, value, unit, and a formatted timestamp.
+    """
     _require_pet_owner(pet_id, current_owner_id, db)
     history = db.query(
         HealthMetric.health_metric_id,

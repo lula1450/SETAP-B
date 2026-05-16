@@ -14,6 +14,9 @@ class AuthService {
     return "http://10.0.2.2:8000";
   }
 
+  /// Authenticates an owner with email and password.
+  /// Stores the JWT token and owner profile in SharedPreferences on success.
+  /// Returns true on success, false on invalid credentials or network error.
   Future<bool> login(String email, String password) async {
     try {
       final url = Uri.parse("$baseUrl/auth/login");
@@ -40,6 +43,8 @@ class AuthService {
     }
   }
 
+  /// Registers a new owner account and stores credentials in SharedPreferences on success.
+  /// Returns true on success, false if the email is taken or the request fails.
   Future<bool> signUp({
     required String firstName,
     required String lastName,
@@ -75,6 +80,8 @@ class AuthService {
     }
   }
 
+  /// Returns JSON + Bearer auth headers built from the stored JWT token.
+  /// Used by all authenticated API requests.
   static Future<Map<String, String>> authHeaders() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token') ?? '';
@@ -84,6 +91,8 @@ class AuthService {
     };
   }
 
+  /// Updates the owner's profile (name, email, optional new password).
+  /// Returns true if the backend accepted the changes.
   Future<bool> updateProfile({
     required int ownerId,
     required String firstName,

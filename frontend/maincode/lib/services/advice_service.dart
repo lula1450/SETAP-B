@@ -190,6 +190,9 @@ class AdviceService {
     'Water Intake':          'Water intake is within target — great work keeping hydration in check.',
   };
 
+  /// Returns contextual advice based on the latest logged metric value relative to the target.
+  /// If the value deviates more than 15% from the target, returns metric-specific advice.
+  /// Otherwise returns a positive reinforcement message or falls back to daily breed advice.
   String getAdviceForLastMetric(int breedId, String metricName, String value, String target) {
     final current = double.tryParse(value);
     final targetVal = double.tryParse(target);
@@ -209,6 +212,8 @@ class AdviceService {
         ?? getDailyAdvice(breedId);
   }
 
+  /// Returns breed/species-specific advice for a metric that is above or below target.
+  /// Resolves from most specific (breed) to least specific (generic metric fallback).
   String getMetricBasedAdvice(int breedId, String metricName, bool isHigh) {
     final breedName = _breedMap[breedId] ?? '';
     final species = breedName.contains(' - ') ? breedName.split(' - ').first : breedName;
@@ -222,6 +227,8 @@ class AdviceService {
             : '$metricName is below target. Consider speaking to your vet.');
   }
 
+  /// Returns one piece of breed-specific daily care advice.
+  /// The same advice is returned for the entire day (date-seeded random selection).
   String getDailyAdvice(int breedId) {
     final breedName = _breedMap[breedId] ?? "Unknown Animal";
     final advices = _adviceByBreed[breedName];

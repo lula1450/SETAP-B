@@ -11,6 +11,7 @@ from sqlalchemy.orm import relationship # for defining relationships between tab
 Base = declarative_base()
 
 class Owner(Base):
+    """Represents a registered user who owns one or more pets."""
     __tablename__ = "owner"
 
     owner_id = Column(Integer, primary_key=True)
@@ -32,6 +33,7 @@ class SpeciesType(enum.Enum):
     rabbit = "rabbit"
 
 class Species_config(Base):
+    """Lookup table of supported species and breed configurations."""
     __tablename__ = "species_config"
 
     species_id = Column(Integer, primary_key=True, nullable=False, index=True)
@@ -40,6 +42,7 @@ class Species_config(Base):
     notes = Column(Text, nullable=False)
 
 class Pet(Base):
+    """A pet belonging to an owner, linked to a species configuration."""
     __tablename__ = "pet"
 
     pet_id = Column(Integer, primary_key=True, index=True)
@@ -51,6 +54,7 @@ class Pet(Base):
     pet_image_path = Column(String, nullable=True)
 
 class PetMetaData(Base):
+    """Free-text notes attached to a pet (e.g. medical history summaries)."""
     __tablename__ = "pet_metadata"
     meta_data_id = Column(Integer, primary_key=True)
     pet_id = Column(Integer, ForeignKey("pet.pet_id"), nullable=False, index=True)
@@ -90,6 +94,7 @@ class MetricUnit(enum.Enum):
     custom = "custom"
 
 class MetricDefinition(Base):
+    """Defines which metrics are trackable for a given species, including name and unit."""
     __tablename__ = "metric_definition"
     metric_def_id = Column(Integer, primary_key=True, nullable=False, index=True)
     species_id = Column(Integer, ForeignKey("species_config.species_id"), nullable=False, index=True)
@@ -98,6 +103,7 @@ class MetricDefinition(Base):
     notes = Column(Text)
 
 class HealthMetric(Base):
+    """A single logged health measurement for a pet (e.g. weight = 4.2 kg at a given time)."""
     __tablename__ = "health_metric"
     health_metric_id = Column(Integer, primary_key=True, nullable=False, index=True)
     metric_def_id = Column(Integer, ForeignKey("metric_definition.metric_def_id"), nullable=False, index=True)
@@ -118,6 +124,7 @@ class AppointmentReminderFrequency(enum.Enum):
     none = "none"
 
 class PetAppointment(Base):
+    """A vet appointment for a pet. May belong to a recurring series (series_id)."""
     __tablename__ = "pet_appointment"
 
     pet_appointment_id = Column(Integer, primary_key=True, index=True)
@@ -132,6 +139,7 @@ class PetAppointment(Base):
     appointment_notes = Column(Text, nullable=True) # For the Fake Vet notes
 
 class FeedingSchedule(Base):
+    """A recurring feeding schedule for a pet, with a daily reminder at the specified time."""
     __tablename__ = "feeding_schedule"
 
     feeding_schedule_id = Column(Integer, primary_key=True, index=True)
@@ -150,6 +158,7 @@ class ReminderStatus(enum.Enum):
     cancelled = "Cancelled"
 
 class Reminder(Base):
+    """A scheduled notification linked to either a feeding schedule or an appointment."""
     __tablename__ = "reminder"
 
     reminder_id = Column(Integer, primary_key=True, index=True)
@@ -160,6 +169,7 @@ class Reminder(Base):
     reminder_notes = Column(Text)
 
 class PetGoal(Base):
+    """An owner-set target value for a specific metric on a pet (e.g. target weight = 5 kg)."""
     __tablename__ = "pet_goal"
 
     pet_goal_id = Column(Integer, primary_key=True, index=True)
@@ -176,6 +186,7 @@ class ReportFrequency(enum.Enum):
     monthly = "monthly"
 
 class PetReport(Base):
+    """An automatically generated weekly or monthly health summary report for a pet."""
     __tablename__ = "pet_report"
 
     pet_report_id = Column(Integer, primary_key=True, index=True)

@@ -3,6 +3,13 @@ from reportlab.pdfgen import canvas # For PDF generation
 from io import BytesIO # For in-memory file handling
 
 def generate_health_pdf(pet_name, metric_name, analysis_data):
+    """
+    Generates an in-memory PDF health report for a single pet metric.
+
+    Includes the pet name, metric, status (stable / attention required), current value,
+    baseline mean, and a table of recent log entries formatted for clinical readability.
+    Returns a BytesIO buffer positioned at the start, ready for StreamingResponse.
+    """
     buffer = BytesIO()
     p = canvas.Canvas(buffer, pagesize=letter)
     

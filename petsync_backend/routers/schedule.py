@@ -15,6 +15,11 @@ router = APIRouter(
 
 
 def _require_pet_owner(pet_id: int, current_owner_id: int, db: Session) -> models.Pet:
+    """
+    Verifies the authenticated owner owns the given pet.
+    Raises 404 if the pet does not exist, 403 if it belongs to another owner.
+    Returns the Pet model instance on success.
+    """
     pet = db.query(models.Pet).filter(models.Pet.pet_id == pet_id).first()
     if not pet:
         raise HTTPException(status_code=404, detail="Pet not found")
@@ -24,6 +29,10 @@ def _require_pet_owner(pet_id: int, current_owner_id: int, db: Session) -> model
 
 
 def _require_owner_for_appt(appointment_id: int, current_owner_id: int, db: Session) -> models.PetAppointment:
+    """
+    Verifies the authenticated owner owns the pet linked to the given appointment.
+    Raises 404 if the appointment does not exist, 403 if access is denied.
+    """
     appointment = db.query(models.PetAppointment).filter(
         models.PetAppointment.pet_appointment_id == appointment_id
     ).first()
@@ -36,6 +45,11 @@ def _require_owner_for_appt(appointment_id: int, current_owner_id: int, db: Sess
 
 
 def _require_owner_for_reminder(reminder_id: int, current_owner_id: int, db: Session) -> models.Reminder:
+    """
+    Verifies the authenticated owner owns the pet linked to the given reminder.
+    Works for reminders tied to either feeding schedules or appointments.
+    Raises 404 if the reminder does not exist, 403 if access is denied.
+    """
     reminder = db.query(models.Reminder).filter(models.Reminder.reminder_id == reminder_id).first()
     if not reminder:
         raise HTTPException(status_code=404, detail="Reminder not found")
@@ -63,6 +77,15 @@ def create_pet_appointment(
     db: Session = Depends(get_db),
     current_owner_id: int = Depends(get_current_owner_id),
 ):
+    """
+    Creates a vet appointment (or a recurring series) for a pet.
+
+    - 'once': creates one appointment with a 24h-ahead reminder.
+    - 'weekly': bulk-creates 4 weekly appointments.
+    - 'monthly': bulk-creates 12 monthly appointments.
+    All appointments in a series share a series_id for bulk deletion.
+    Returns the first appointment in the series.
+    """
     _require_pet_owner(appointment.pet_id, current_owner_id, db)
     try:
         freq = models.AppointmentReminderFrequency[appointment.reminder_frequency]
@@ -121,6 +144,10 @@ def create_feeding_schedule(
     db: Session = Depends(get_db),
     current_owner_id: int = Depends(get_current_owner_id),
 ):
+    """
+    Creates a feeding schedule for a pet and schedules a daily reminder at the specified time.
+    The schedule runs for 365 days from today.
+    """
     _require_pet_owner(schedule.pet_id, current_owner_id, db)
     feeding_dt = datetime.combine(date.today(), schedule.feeding_time)
     new_schedule = models.FeedingSchedule(
@@ -151,6 +178,7 @@ def get_all_owner_appointments(
     db: Session = Depends(get_db),
     current_owner_id: int = Depends(get_current_owner_id),
 ):
+    """Returns all appointments across all pets owned by the specified owner."""
     owner = db.query(models.Owner).filter(models.Owner.owner_id == owner_id).first()
     if not owner:
         raise HTTPException(status_code=404, detail="Owner not found")
@@ -170,6 +198,7 @@ def get_feeding_schedules(
     db: Session = Depends(get_db),
     current_owner_id: int = Depends(get_current_owner_id),
 ):
+    """Returns all feeding schedules for the specified pet."""
     _require_pet_owner(pet_id, current_owner_id, db)
     return db.query(models.FeedingSchedule).filter(models.FeedingSchedule.pet_id == pet_id).all()
 
@@ -180,6 +209,11 @@ def get_pending_reminders(
     db: Session = Depends(get_db),
     current_owner_id: int = Depends(get_current_owner_id),
 ):
+    """
+    Returns all pending reminders (feeding and appointment) across all pets owned by the given owner.
+    Each reminder includes title, body, type, pet info, and scheduling details so the
+    mobile app can display notification cards and schedule local alerts.
+    """
     if current_owner_id != owner_id:
         raise HTTPException(status_code=403, detail="Forbidden")
     results = []
@@ -245,6 +279,11 @@ def update_pet_appointment(
     db: Session = Depends(get_db),
     current_owner_id: int = Depends(get_current_owner_id),
 ):
+    """
+    Updates the date, time, and notes of an existing appointment.
+    Also reschedules the associated reminder to 24 hours before the new appointment time
+    and resets it to pending so it fires again.
+    """
     appointment = _require_owner_for_appt(appointment_id, current_owner_id, db)
 
     appointment.pet_appointment_date = update.new_date
@@ -271,6 +310,11 @@ def update_reminder_status(
     db: Session = Depends(get_db),
     current_owner_id: int = Depends(get_current_owner_id),
 ):
+    """
+    Updates the status of a reminder (e.g. 'pending' → 'sent' or 'dismissed').
+    Called by the mobile app after delivering a notification.
+    Raises 400 if the status string is not a valid ReminderStatus value.
+    """
     reminder = _require_owner_for_reminder(reminder_id, current_owner_id, db)
     try:
         reminder.reminder_status = models.ReminderStatus[update.status]
@@ -286,6 +330,7 @@ def delete_appointment_series(
     db: Session = Depends(get_db),
     current_owner_id: int = Depends(get_current_owner_id),
 ):
+    """Deletes all appointments in a recurring series and their associated reminders. Raises 404 if the series does not exist."""
     appointments = db.query(models.PetAppointment).filter(
         models.PetAppointment.series_id == series_id
     ).all()
@@ -309,6 +354,7 @@ def delete_pet_appointment(
     db: Session = Depends(get_db),
     current_owner_id: int = Depends(get_current_owner_id),
 ):
+    """Deletes a single appointment and its associated reminder."""
     appointment = _require_owner_for_appt(appointment_id, current_owner_id, db)
     db.query(models.Reminder).filter(
         models.Reminder.pet_appointment_id == appointment_id

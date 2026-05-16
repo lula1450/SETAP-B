@@ -52,7 +52,8 @@ class HealthService {
     }
   }
 
- // inside health_service.dart
+  /// Returns the most recently logged value and stored target for a metric.
+  /// Returns {"value": "---", "target": ""} if no log entry exists yet.
   Future<Map<String, String>> getLatestMetric(int petId, String metricName) async {
     final url = Uri.parse("$baseUrl/health/latest?pet_id=$petId&metric_name=$metricName");
     try {

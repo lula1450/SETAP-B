@@ -35,6 +35,8 @@ class NotificationService {
     priority: Priority.high,
   );
 
+  /// Initialises the notification plugin with platform settings and sets the local timezone.
+  /// No-op on web. Safe to call multiple times (guarded by _initialized flag).
   Future<void> init() async {
     if (_initialized || kIsWeb) return;
 
@@ -67,6 +69,8 @@ class NotificationService {
     await ios?.requestPermissions(alert: true, badge: true, sound: true);
   }
 
+  /// Schedules a notification to fire every day at the given [hour]:[minute].
+  /// If the time has already passed today, the first firing is tomorrow.
   Future<void> scheduleDailyAt({
     required int id,
     required String title,
@@ -93,6 +97,7 @@ class NotificationService {
     );
   }
 
+  /// Schedules a notification to fire every Monday at the given [hour]:[minute].
   Future<void> scheduleWeeklyMonday({
     required int id,
     required String title,
@@ -119,6 +124,7 @@ class NotificationService {
     );
   }
 
+  /// Schedules a one-time notification at the exact [dateTime]. Silently skips if the time is in the past.
   Future<void> scheduleOnce({
     required int id,
     required String title,
@@ -140,6 +146,8 @@ class NotificationService {
     );
   }
 
+  /// Schedules a notification that repeats daily at [hour]:[minute].
+  /// [intervalMinutes] is accepted for API consistency but the underlying schedule uses daily repeat.
   Future<void> scheduleRepeatingAt({
     required int id,
     required String title,
@@ -170,15 +178,22 @@ class NotificationService {
   Future<void> cancel(int id) async { if (!kIsWeb) await _plugin.cancel(id); }
   Future<void> cancelAll() async { if (!kIsWeb) await _plugin.cancelAll(); }
 
+  /// Generates a stable notification ID for a feeding-end event from a string event key.
   static int feedingEndId(String eventBaseId) => 50000000 + eventBaseId.hashCode.abs() % 1000000;
 
+  /// Generates a stable daily-feeding notification ID from pet ID and time string (e.g. "08:30").
   static int feedingId(int petId, String timeStr) {
     final parts = timeStr.split(':');
     final minutes = int.parse(parts[0]) * 60 + int.parse(parts[1]);
     return petId * 10000 + minutes;
   }
 
+  /// Generates a stable notification ID for an appointment reminder.
   static int appointmentNotifId(int appointmentId) => 20000000 + appointmentId;
+
+  /// Generates a stable notification ID for a metrics logging reminder.
   static int metricsId(int petId) => 30000000 + petId;
+
+  /// Generates a stable notification ID for a daily advice/tip notification.
   static int adviceId(int petId) => 40000000 + petId;
 }
